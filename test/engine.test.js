@@ -1,0 +1,198 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
+import { rankBest } from '../src/leaderboard.js';
+import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, PLAYER, xpToNext } from '../src/rules.js';
+
+function seeded(seed) {
+  let value = seed;
+  return () => {
+    value = (value * 16807) % 2147483647;
+    return (value - 1) / 2147483646;
+  };
+}
+
+function placeEnemy(game, kind, dx, dy, extra = {}) {
+  const enemy = { id: game.nextId++, kind, x: game.player.x + dx, y: game.player.y + dy, hp: 10, maxHp: 10, speed: 0,
+    radius: 10, damage: 5, xp: 1, boss: false, timer: 0, kx: 0, ky: 0, hitFlash: 0, ...extra };
+  game.enemies.push(enemy);
+  return enemy;
+}
+
+function run(game, seconds, input = { x: 0, y: 0 }) {
+  for (let elapsed = 0; elapsed < seconds; elapsed += 1 / 60) {
+    if (game.choices) choose(game, 0);
+    update(game, 1 / 60, input);
+  }
+}
+
+describe('난이도', () => {
+  it('시간이 갈수록 적의 체력, 공격력, 출현 수가 끝없이 늘어난다', () => {
+    const times = [0, 60, 300, 600, 1200];
+    for (const key of ['hp', 'damage', 'spawnPerSec']) {
+      const values = times.map((time) => difficultyAt(time)[key]);
+      values.slice(1).forEach((value, index) => assert.ok(value >= values[index], `${key} ${times[index + 1]}`));
+    }
+    assert.ok(difficultyAt(1200).hp > difficultyAt(600).hp);
+  });
+
+  it('90초마다 보스가 나오고 나올 때마다 더 세진다', () => {
+    const game = createGame(seeded(3));
+    game.time = BOSS_EVERY_SEC - 0.01;
+    run(game, 0.05);
+    const first = game.enemies.find((enemy) => enemy.boss);
+    assert.equal(first.kind, 'kingRoach');
+    game.enemies = [];
+    game.time = BOSS_EVERY_SEC * 4 - 0.01;
+    game.nextBossAt = BOSS_EVERY_SEC * 4;
+    game.bossIndex = 3;
+    run(game, 0.05);
+    const fourth = game.enemies.find((enemy) => enemy.boss);
+    assert.equal(fourth.kind, 'kingRoach');
+    assert.ok(fourth.maxHp > first.maxHp * 2);
+  });
+
+  it('1분마다 바퀴벌레 떼가 사방에서 몰려온다', () => {
+    const game = createGame(seeded(3));
+    game.time = 59.99;
+    run(game, 0.05);
+    assert.ok(game.enemies.filter((enemy) => enemy.kind === 'roach').length >= 16);
+  });
+});
+
+describe('전투', () => {
+  it('살충제는 가까운 적에게 날아가 쓰러뜨리고 먼지를 남긴다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    const roach = placeEnemy(game, 'roach', 120, 0, { hp: 5 });
+    run(game, 1);
+    assert.ok(roach.dead);
+    assert.equal(game.kills, 1);
+  });
+
+  it('쓰레기봉투는 쓰러지면 쓰레기 조각 두 개로 갈라진다', () => {
+    const game = createGame(seeded(1));
+    const bag = placeEnemy(game, 'trash', 300, 0);
+    damageEnemy(game, bag, 999);
+    assert.equal(game.enemies.filter((enemy) => enemy.kind === 'scrap').length, 2);
+  });
+
+  it('곰팡이가 쓰러진 자리는 밟으면 느려진다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    const mold = placeEnemy(game, 'mold', 0, 0);
+    damageEnemy(game, mold, 999);
+    const start = game.player.x;
+    update(game, 0.1, { x: 1, y: 0 });
+    const slowed = game.player.x - start;
+    game.slimes = [];
+    const before = game.player.x;
+    update(game, 0.1, { x: 1, y: 0 });
+    assert.ok(slowed < game.player.x - before);
+  });
+
+  it('여럿에게 둘러싸여도 잠깐 무적 덕분에 한 번에 한 대만 맞는다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    for (let index = 0; index < 8; index += 1) placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 5 });
+    update(game, 1 / 60);
+    assert.equal(game.player.hp, PLAYER.maxHp - 5);
+    update(game, 1 / 60);
+    assert.equal(game.player.hp, PLAYER.maxHp - 5);
+  });
+
+  it('고무장갑이 받는 피해를 줄인다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.passives.gloves = 5;
+    placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 10 });
+    update(game, 1 / 60);
+    assert.equal(game.player.hp, PLAYER.maxHp - 7);
+  });
+
+  it('체력이 0이 되면 게임이 끝난다', () => {
+    const game = createGame(seeded(1));
+    game.player.hp = 1;
+    game.weapons = {};
+    placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 50 });
+    update(game, 1 / 60);
+    assert.equal(game.over, true);
+  });
+});
+
+describe('성장과 아이템', () => {
+  it('먼지를 모아 경험치가 차면 3개 중 하나를 골라 강화한다', () => {
+    const game = createGame(seeded(2));
+    game.spawnCarry = -1000;
+    game.gems.push({ x: game.player.x + 5, y: game.player.y, value: xpToNext(1) });
+    update(game, 1 / 60);
+    assert.equal(game.level, 2);
+    assert.equal(game.choices.length, 3);
+    assert.equal(new Set(game.choices.map((choice) => choice.id)).size, 3);
+    const picked = choose(game, 0);
+    assert.equal(game.choices, null);
+    const owned = picked.kind === 'weapon' ? game.weapons[picked.id] : game.passives[picked.id];
+    assert.equal(owned, picked.level);
+  });
+
+  it('모든 무기와 패시브를 최대로 올리면 라면으로 회복한다', () => {
+    const game = createGame(seeded(2));
+    game.weapons = Object.fromEntries(['spray', 'broom', 'bleach', 'dehumidifier', 'swatter', 'slipper'].map((id) => [id, MAX_LEVEL]));
+    game.passives = Object.fromEntries(['gloves', 'sneakers', 'vacuum', 'vitamin', 'battery'].map((id) => [id, MAX_LEVEL]));
+    assert.ok(rollChoices(game).every((choice) => choice.kind === 'heal'));
+  });
+
+  it('비타민은 최대 체력을 늘린 만큼 체력도 채운다', () => {
+    const game = createGame(seeded(2));
+    game.pendingLevels = 1;
+    game.choices = [{ kind: 'passive', id: 'vitamin', level: 1 }];
+    choose(game, 0);
+    assert.equal(statsOf(game).maxHp, PLAYER.maxHp + 20);
+    assert.equal(game.player.hp, PLAYER.maxHp + 20);
+  });
+
+  it('연막 살충제는 주변의 일반 적을 모두 쓰러뜨리고 보스는 남긴다', () => {
+    const game = createGame(seeded(2));
+    game.spawnCarry = -1000;
+    for (let index = 0; index < 5; index += 1) placeEnemy(game, 'roach', 200 + index * 10, 100, { hp: 999 });
+    placeEnemy(game, 'kingRoach', -200, 0, { hp: 999, boss: true, stats: { chargeEverySec: 99 } });
+    game.drops.push({ type: 'bugBomb', x: game.player.x, y: game.player.y });
+    update(game, 1 / 60);
+    assert.deepEqual(game.enemies.map((enemy) => enemy.kind), ['kingRoach']);
+  });
+
+  it('보스를 잡으면 보물상자가 나오고 열면 두 번 강화한다', () => {
+    const game = createGame(seeded(2));
+    game.spawnCarry = -1000;
+    const boss = placeEnemy(game, 'kingRoach', 400, 0, { boss: true, label: '왕바퀴', stats: { chargeEverySec: 99 } });
+    damageEnemy(game, boss, 999);
+    const chest = game.drops.find((drop) => drop.type === 'chest');
+    chest.x = game.player.x;
+    chest.y = game.player.y;
+    update(game, 1 / 60);
+    assert.equal(game.choices.length, 3);
+    choose(game, 0);
+    assert.notEqual(game.choices, null);
+  });
+});
+
+describe('표시와 순위', () => {
+  it('버틴 시간을 분:초로 보여 준다', () => {
+    assert.equal(formatTime(0), '0:00');
+    assert.equal(formatTime(125.9), '2:05');
+    assert.equal(formatTime(3723), '62:03');
+  });
+
+  it('크루마다 가장 오래 버틴 기록만 남기고 같으면 많이 잡은 순으로 줄 세운다', () => {
+    const ranking = rankBest([
+      { crewName: '쿠다', survivedMs: 120_000, kills: 300, createdAt: '2026-11-10T01:00:00Z' },
+      { crewName: '쿠다', survivedMs: 240_000, kills: 500, createdAt: '2026-11-10T02:00:00Z' },
+      { crewName: '포비', survivedMs: 240_000, kills: 800, createdAt: '2026-11-10T03:00:00Z' },
+      { crewName: '네오', survivedMs: 60_000, kills: 100, createdAt: '2026-11-10T01:00:00Z' },
+    ]);
+    assert.deepEqual(ranking.map((entry) => entry.crewName), ['포비', '쿠다', '네오']);
+    assert.equal(ranking[1].survivedMs, 240_000);
+  });
+});

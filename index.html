@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#fff6ea" />
+    <title>자취방 서바이벌</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+    <link rel="stylesheet" href="./styles.css" />
+    <script type="module" src="./src/main.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <section class="screen screen-start is-active" data-screen="start">
+        <div class="hero"><img src="./assets/duck-room.jpg" alt="방에서 휴대폰을 든 오리" /></div>
+        <h1 class="title">자취방 <span>서바이벌</span></h1>
+        <p class="lead">바퀴벌레, 쓰레기봉투, 녹물, 곰팡이가 끝없이 몰려와요. 살림살이로 버티며 최대한 오래 살아남으세요.</p>
+        <ul class="rules">
+          <li><b>드래그</b>로 이동, 공격은 자동</li>
+          <li>먼지를 모아 <b>레벨업</b></li>
+          <li>90초마다 <b>보스</b></li>
+          <li><b>버틴 시간</b>으로 순위</li>
+        </ul>
+        <form class="start-form" novalidate>
+          <label class="field-label" for="crew-name">크루 이름</label>
+          <input id="crew-name" class="field" name="crewName" maxlength="12" autocomplete="nickname" placeholder="예: 쿠다" required />
+          <p class="field-error" role="alert"></p>
+          <button class="button button-primary" type="submit">시작하기</button>
+        </form>
+        <button class="button button-ghost" type="button" data-action="ranking">순위 보기</button>
+      </section>
+
+      <section class="screen screen-game" data-screen="game" aria-label="게임">
+        <canvas class="world"></canvas>
+        <div class="xp"><div class="xp-fill"></div></div>
+        <header class="hud">
+          <div class="hud-left">
+            <span class="level">Lv <b class="level-value">1</b></span>
+            <div class="hp"><div class="hp-fill"></div></div>
+          </div>
+          <span class="time-value">0:00</span>
+          <div class="hud-right">
+            <span class="kills">🪳 <b class="kills-value">0</b></span>
+            <button class="pause" type="button" data-action="pause" aria-label="일시정지">Ⅱ</button>
+          </div>
+        </header>
+        <div class="boss-bar" hidden><span class="boss-name"></span><div class="boss-hp"><div class="boss-hp-fill"></div></div></div>
+        <div class="loadout"></div>
+        <p class="banner" aria-live="polite"></p>
+        <div class="joystick" hidden><div class="joystick-knob"></div></div>
+        <div class="overlay levelup" hidden>
+          <div class="panel">
+            <p class="panel-title">레벨 업!</p>
+            <p class="panel-sub">하나를 골라 주세요</p>
+            <div class="choices"></div>
+          </div>
+        </div>
+        <div class="overlay paused" hidden>
+          <div class="panel">
+            <p class="panel-title">잠깐 쉬는 중</p>
+            <button class="button button-primary" type="button" data-action="resume">계속하기</button>
+            <button class="button button-ghost" type="button" data-action="giveup">그만하기</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen screen-result" data-screen="result">
+        <div class="result-duck"><img src="./assets/duck.jpg" alt="" /></div>
+        <p class="result-caption"><span class="result-name"></span> 크루의 기록</p>
+        <p class="result-time"><b class="result-time-value">0:00</b> 버텼어요</p>
+        <p class="result-rank"></p>
+        <dl class="result-stats"></dl>
+        <button class="button button-primary" type="button" data-action="retry">다시 하기</button>
+        <button class="button button-ghost" type="button" data-action="ranking">순위 보기</button>
+      </section>
+
+      <section class="screen screen-ranking" data-screen="ranking">
+        <header class="ranking-header">
+          <button class="back" type="button" data-action="home" aria-label="처음으로">‹</button>
+          <h2>크루 순위</h2>
+        </header>
+        <p class="ranking-note"></p>
+        <ol class="ranking-list"></ol>
+      </section>
+    </main>
+  </body>
+</html>
