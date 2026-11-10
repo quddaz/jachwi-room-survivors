@@ -90,16 +90,19 @@ function hash(seed, index) {
 
 function drawNumber(ctx, value, x, y, color) {
   const text = String(value);
-  let left = Math.round(x - text.length * 2);
+  let left = Math.round(x - text.length * 2.5);
   for (const digit of text) {
     const rows = DIGITS[digit];
-    for (let pass = 0; pass < 2; pass += 1) {
-      ctx.fillStyle = pass === 0 ? '#3a2a1a' : color;
-      rows.forEach((row, rowIndex) => [...row].forEach((cell, column) => {
-        if (cell === '1') ctx.fillRect(left + column + (pass === 0 ? 1 : 0), y + rowIndex + (pass === 0 ? 1 : 0), 1, 1);
-      }));
+    const cells = rows.flatMap((row, rowIndex) => [...row].map((cell, column) => (cell === '1' ? [column, rowIndex] : null)))
+      .filter(Boolean);
+    ctx.fillStyle = '#3a2a1a';
+    for (const [column, rowIndex] of cells) {
+      ctx.fillRect(left + column - 1, y + rowIndex, 3, 1);
+      ctx.fillRect(left + column, y + rowIndex - 1, 1, 3);
     }
-    left += 4;
+    ctx.fillStyle = color;
+    for (const [column, rowIndex] of cells) ctx.fillRect(left + column, y + rowIndex, 1, 1);
+    left += 5;
   }
 }
 

@@ -64,6 +64,8 @@ function resize() {
   canvas.height = viewport.height;
   canvas.style.width = `${viewport.width * PIXEL}px`;
   canvas.style.height = `${viewport.height * PIXEL}px`;
+  // 넓은 화면에서는 적이 화면 밖에서 나오도록 보이는 범위를 알려 준다.
+  if (game) game.viewRadius = Math.hypot(viewport.width, viewport.height);
 }
 
 function readKeys() {

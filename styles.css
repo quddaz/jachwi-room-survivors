@@ -25,6 +25,7 @@ button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent
 img { display: block; max-width: 100%; }
 
 .app { position: relative; max-width: 480px; height: 100dvh; margin: 0 auto; overflow: hidden; }
+.app:has(.screen-game.is-active) { max-width: none; }
 .screen {
   display: none;
   height: 100%;
@@ -77,7 +78,7 @@ img { display: block; max-width: 100%; }
 .hp-fill { height: 100%; background: var(--color-bad); transform-origin: left; }
 .time-value { padding: 4px 14px; border-radius: 999px; background: rgb(255 255 255 / 90%); font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .pause { width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgb(255 255 255 / 90%); font-weight: 900; cursor: pointer; pointer-events: auto; }
-.boss-bar { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 24px; right: 24px; text-align: center; pointer-events: none; }
+.boss-bar { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 50%; width: min(100% - 48px, 520px); transform: translateX(-50%); text-align: center; pointer-events: none; }
 .boss-name { display: inline-block; margin-bottom: 4px; padding: 2px 10px; border-radius: 999px; background: var(--color-ink); color: #fff; font-size: 12px; font-weight: 800; }
 .boss-hp { height: 8px; overflow: hidden; border-radius: 999px; background: rgb(58 47 40 / 25%); }
 .boss-hp-fill { height: 100%; background: var(--color-beak-deep); transform-origin: left; }

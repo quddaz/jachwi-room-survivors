@@ -108,7 +108,7 @@ function spawnEnemy(game, kind, x, y, overrides = {}) {
 
 function spawnPoint(game, minDistance = 440, maxDistance = 560) {
   const angle = game.random() * Math.PI * 2;
-  const reach = minDistance + game.random() * (maxDistance - minDistance);
+  const reach = minDistance + game.random() * (maxDistance - minDistance) + Math.max(0, (game.viewRadius ?? 0) - 400);
   return { x: game.player.x + Math.cos(angle) * reach, y: game.player.y + Math.sin(angle) * reach };
 }
 
