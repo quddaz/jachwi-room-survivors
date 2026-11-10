@@ -150,8 +150,8 @@ describe('성장과 아이템', () => {
     game.pendingLevels = 1;
     game.choices = [{ kind: 'passive', id: 'vitamin', level: 1 }];
     choose(game, 0);
-    assert.equal(statsOf(game).maxHp, PLAYER.maxHp + 20);
-    assert.equal(game.player.hp, PLAYER.maxHp + 20);
+    assert.equal(statsOf(game).maxHp, PLAYER.maxHp + PASSIVES.vitamin.maxHp[0]);
+    assert.equal(game.player.hp, PLAYER.maxHp + PASSIVES.vitamin.maxHp[0]);
   });
 
   it('연막 살충제는 주변의 일반 적을 모두 쓰러뜨리고 보스는 남긴다', () => {
@@ -306,5 +306,43 @@ describe('보스 패턴', () => {
       stats: { patternSec: 3.2, burstCount: 16, shotSpeed: 125, shotDamage: 9 } });
     for (let step = 0; step < 30; step += 1) update(game, 1 / 60);
     assert.equal(game.enemyShots.length, 16);
+  });
+});
+
+describe('추가 무기와 공격력', () => {
+  it('단백질 셰이크는 무기 피해를 올린다', () => {
+    const hit = (passives) => {
+      const game = createGame(seeded(4));
+      game.spawnCarry = -1000;
+      game.weapons = { broom: 1 };
+      game.passives = passives;
+      const enemy = placeEnemy(game, 'trash', 30, 0, { hp: 1000 });
+      update(game, 1 / 60);
+      return 1000 - enemy.hp;
+    };
+    assert.ok(Math.abs(hit({ protein: MAX_LEVEL }) - hit({}) * 1.5) < 1e-6);
+  });
+
+  it('세제 거품은 닿으면 터져 주변 적도 함께 맞는다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    const near = placeEnemy(game, 'trash', 40, 0, { hp: 1000 });
+    const beside = placeEnemy(game, 'trash', 60, 10, { hp: 1000 });
+    game.shots.push({ x: game.player.x, y: game.player.y, vx: 200, vy: 0, damage: 10, pierce: 0, life: 2, radius: 9,
+      hit: new Set(), kind: 'bubble', pop: 40 });
+    for (let step = 0; step < 20; step += 1) update(game, 1 / 60);
+    assert.equal(near.hp, 990);
+    assert.equal(beside.hp, 990);
+    assert.equal(game.shots.length, 0);
+  });
+
+  it('돌돌이는 가는 길의 적을 모두 뚫는다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = { roller: 1 };
+    const targets = [60, 120, 180].map((x) => placeEnemy(game, 'trash', x, 0, { hp: 1000 }));
+    for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
+    assert.ok(targets.every((enemy) => enemy.hp < 1000));
   });
 });

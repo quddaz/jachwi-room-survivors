@@ -58,7 +58,7 @@ export function statsOf(game) {
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain'),
     area: 1 + passiveValue(game, 'wipes', 'area'),
-    luck: 1 + passiveValue(game, 'clover', 'luck'),
+    might: 1 + passiveValue(game, 'protein', 'might'),
   };
 }
 
@@ -134,7 +134,7 @@ function spawn(game, dt) {
   }
   // 1분마다 바퀴벌레 떼가 사방에서 몰려온다.
   if (game.time >= game.nextSwarmAt) {
-    const count = 16 + Math.floor(game.time / 60) * 8;
+    const count = 26 + Math.floor(game.time / 60) * 12;
     for (let index = 0; index < count; index += 1) {
       const angle = (index / count) * Math.PI * 2;
       spawnEnemy(game, game.time >= 150 && index % 3 === 0 ? 'fly' : 'roach',
@@ -170,6 +170,7 @@ function movePlayer(game, dt, input) {
     player.x = clamp(player.x + input.x * scale * speed * dt, PLAYER.radius, ARENA.width - PLAYER.radius);
     player.y = clamp(player.y + input.y * scale * speed * dt, PLAYER.radius, ARENA.height - PLAYER.radius);
     if (Math.abs(input.x) > 0.1) player.facing = Math.sign(input.x);
+    player.heading = Math.atan2(input.y, input.x);
   }
   player.onSlime = onSlime;
   player.hurtFlash = Math.max(0, player.hurtFlash - dt);
@@ -396,9 +397,8 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'banner', text: `${enemy.label} 처치! 보물상자를 주워요`, life: 2.4 });
     return;
   }
-  const { luck } = statsOf(game);
   for (const [type, drop] of Object.entries(DROPS)) {
-    if (game.random() < drop.chance * luck) {
+    if (game.random() < drop.chance) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;
     }
@@ -417,7 +417,9 @@ function evolution(game, id) {
 
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
-  return WEAPONS[id][key][game.weapons[id] - 1] * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1);
+  const might = key === 'damage' || key === 'dps' ? 1 + passiveValue(game, 'protein', 'might') : 1;
+  return WEAPONS[id][key][game.weapons[id] - 1] * might
+    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1);
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -575,6 +577,47 @@ function fireWeapons(game, dt) {
     if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.22, mega: Boolean(evolution(game, 'zapper')) });
     else game.cooldowns.zapper = 0.2;
   }
+  if (game.weapons.detergent && ready(game, 'detergent', dt)) {
+    const count = weaponValue(game, 'detergent', 'count') * (evolution(game, 'detergent') ? 2 : 1);
+    const { speed, lifeSec } = WEAPONS.detergent;
+    for (let index = 0; index < count; index += 1) {
+      const angle = (index / count) * Math.PI * 2 + game.random() * 0.8;
+      const pace = speed * (0.7 + game.random() * 0.6);
+      game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * pace, vy: Math.sin(angle) * pace,
+        damage: weaponValue(game, 'detergent', 'damage'), pierce: 0, life: lifeSec, radius: 9, hit: new Set(), kind: 'bubble',
+        pop: weaponValue(game, 'detergent', 'radius') * area, mega: Boolean(evolution(game, 'detergent')), seed: game.nextId++ });
+    }
+  }
+  if (game.weapons.roller && ready(game, 'roller', dt)) {
+    const { speed, lifeSec } = WEAPONS.roller;
+    const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
+    for (const angle of evolution(game, 'roller') ? [forward, forward + Math.PI] : [forward]) {
+      game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: weaponValue(game, 'roller', 'damage'), pierce: 999, life: lifeSec, radius: weaponValue(game, 'roller', 'size') * area,
+        hit: new Set(), kind: 'roller', knockback: 14, mega: Boolean(evolution(game, 'roller')) });
+    }
+  }
+  if (game.weapons.dryer) {
+    const range = weaponValue(game, 'dryer', 'range') * area;
+    const spread = evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread;
+    const damage = weaponValue(game, 'dryer', 'dps') * dt;
+    const target = nearestEnemies(game, 1, range + 40)[0];
+    const wanted = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
+    const current = game.dryerAngle ?? wanted;
+    const turn = Math.atan2(Math.sin(wanted - current), Math.cos(wanted - current));
+    game.dryerAngle = current + clamp(turn, -6 * dt, 6 * dt);
+    game.dryerOn = Boolean(target);
+    game.dryerRange = range;
+    game.dryerSpread = spread;
+    if (target) {
+      for (const enemy of game.enemies) {
+        if (enemy.dead || distance(enemy, player) > range + enemy.radius) continue;
+        const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+        const diff = Math.abs(Math.atan2(Math.sin(toEnemy - game.dryerAngle), Math.cos(toEnemy - game.dryerAngle)));
+        if (diff < spread) damageEnemy(game, enemy, damage);
+      }
+    }
+  }
   if (game.weapons.fan && ready(game, 'fan', dt)) {
     const range = weaponValue(game, 'fan', 'range') * area;
     const damage = weaponValue(game, 'fan', 'damage');
@@ -600,7 +643,16 @@ function updateProjectiles(game, dt) {
       if (shot.life <= 0) break;
       if (enemy.dead || shot.hit.has(enemy.id) || distance(shot, enemy) > shot.radius + enemy.radius) continue;
       shot.hit.add(enemy.id);
-      damageEnemy(game, enemy, shot.damage, 6, shot);
+      if (shot.pop) {
+        for (const other of game.enemies) {
+          if (!other.dead && distance(other, shot) < shot.pop + other.radius) damageEnemy(game, other, shot.damage, 4, shot);
+        }
+        addEffect(game, { type: 'ring', x: shot.x, y: shot.y, radius: shot.pop, color: 'bubble', life: 0.3 });
+        addEffect(game, { type: 'burst', x: shot.x, y: shot.y, color: 'bubble', count: 6, life: 0.35 });
+        shot.life = 0;
+        break;
+      }
+      damageEnemy(game, enemy, shot.damage, shot.knockback ?? 6, shot);
       if (shot.hit.size > shot.pierce) shot.life = 0;
     }
   }
@@ -678,7 +730,7 @@ function contactDamage(game) {
 function applyDrop(game, drop) {
   const { player } = game;
   const stats = statsOf(game);
-  if (drop.type === 'ramen') player.hp = Math.min(stats.maxHp, player.hp + 30);
+  if (drop.type === 'ramen') player.hp = Math.min(stats.maxHp, player.hp + 15);
   if (drop.type === 'vacuumBag') game.gems.forEach((gem) => { gem.pulled = true; });
   if (drop.type === 'coffee') game.coffeeUntil = game.time + 10;
   if (drop.type === 'bugBomb') {
@@ -754,7 +806,7 @@ export function rollChoices(game) {
   const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)
     .map(({ kind, id, level, label, description }) => ({ kind, id, level, label, description }));
   while (choices.length < 3) {
-    choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 40 회복' });
+    choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 20 회복' });
   }
   return choices;
 }
@@ -771,7 +823,7 @@ export function choose(game, index) {
     addEffect(game, { type: 'banner', text: `${choice.label} 완성!`, life: 2 });
   }
   const stats = statsOf(game);
-  if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 40);
+  if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 20);
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
   game.pendingLevels -= 1;
   game.choices = game.pendingLevels > 0 ? rollChoices(game) : null;

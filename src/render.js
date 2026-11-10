@@ -75,6 +75,7 @@ const PARTICLES = {
   trash: ['#5c6470', '#8f99a6', '#7fb069'], scrap: ['#8f99a6', '#5c6470', '#d9dee5'], garbageGiant: ['#5c6470', '#7fb069', '#d9dee5'],
   rust: ['#b5651d', '#e8a468', '#8c4f22'], rustBoiler: ['#b5651d', '#ffb21f', '#e8e8e8'],
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
+  bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 const SHOTS = {
@@ -366,6 +367,18 @@ export function render(ctx, game, width, height, time) {
   const [duckX, duckY] = toBuffer(player);
   drawDuck(ctx, game, duckX, duckY, time);
 
+  if (game.weapons.dryer && game.dryerOn) {
+    const reach = game.dryerRange / WORLD_PER_PIXEL;
+    const tick = Math.floor(time * 24);
+    for (let puff = 0; puff < 26; puff += 1) {
+      const travel = ((hash(puff, 3) + time * 2.2) % 1);
+      const angle = game.dryerAngle + (hash(puff, 5) - 0.5) * 2 * game.dryerSpread * (0.3 + travel * 0.7);
+      const size = travel > 0.6 ? 2 : 1;
+      ctx.fillStyle = travel < 0.3 ? '#fff3c4' : travel < 0.65 ? '#ffb21f' : (puff + tick) % 2 ? 'rgba(232,135,26,0.8)' : 'rgba(224,100,91,0.7)';
+      ctx.fillRect(Math.round(duckX + Math.cos(angle) * (6 + travel * reach)), Math.round(duckY + Math.sin(angle) * (6 + travel * reach)),
+        size, size);
+    }
+  }
   for (const orb of coilOrbs(game)) {
     const [x, y] = toBuffer(orb);
     disc(ctx, x, y, 3, '#e8871a');
@@ -375,6 +388,35 @@ export function render(ctx, game, width, height, time) {
   }
   for (const shot of game.shots) {
     const [x, y] = toBuffer(shot);
+    if (shot.kind === 'bubble') {
+      const wobble = Math.round(Math.sin(time * 6 + shot.seed) * 1.5);
+      const size = shot.mega ? 5 : 4;
+      ring(ctx, x, y + wobble, size, shot.mega ? '#e3c8ff' : '#cfe8ff');
+      disc(ctx, x, y + wobble, size - 1, 'rgba(255,255,255,0.35)');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x - 2, y + wobble - 2, 2, 1);
+      continue;
+    }
+    if (shot.kind === 'roller') {
+      const half = Math.round(shot.radius / WORLD_PER_PIXEL);
+      const along = Math.atan2(shot.vy, shot.vx);
+      const sideX = -Math.sin(along);
+      const sideY = Math.cos(along);
+      const stripe = Math.floor(time * 14) % 3;
+      for (let depth = -2; depth <= 2; depth += 1) {
+        const color = (depth + 2 + stripe) % 3 === 0 ? (shot.mega ? '#ffcf3f' : '#d9d2c4') : '#ffffff';
+        const cx = x + Math.cos(along) * depth;
+        const cy = y + Math.sin(along) * depth;
+        line(ctx, Math.round(cx - sideX * half), Math.round(cy - sideY * half), Math.round(cx + sideX * half),
+          Math.round(cy + sideY * half), color);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      for (let dust = 1; dust <= 3; dust += 1) {
+        ctx.fillRect(Math.round(x - Math.cos(along) * dust * 4 + sideX * (hash(dust, Math.floor(time * 20)) - 0.5) * half * 2),
+          Math.round(y - Math.sin(along) * dust * 4 + sideY * (hash(dust + 9, Math.floor(time * 20)) - 0.5) * half * 2), 1, 1);
+      }
+      continue;
+    }
     const trail = shot.mega ? 'rgba(170, 240, 190, ' : 'rgba(220, 235, 255, ';
     for (let step = 4; step >= 1; step -= 1) {
       ctx.fillStyle = `${trail}${0.7 - step * 0.14})`;
