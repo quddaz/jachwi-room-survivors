@@ -368,16 +368,38 @@ export function render(ctx, game, width, height, time) {
   drawDuck(ctx, game, duckX, duckY, time);
 
   if (game.weapons.dryer && game.dryerOn) {
+    // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
     const reach = game.dryerRange / WORLD_PER_PIXEL;
-    const tick = Math.floor(time * 24);
-    for (let puff = 0; puff < 26; puff += 1) {
-      const travel = ((hash(puff, 3) + time * 2.2) % 1);
-      const angle = game.dryerAngle + (hash(puff, 5) - 0.5) * 2 * game.dryerSpread * (0.3 + travel * 0.7);
-      const size = travel > 0.6 ? 2 : 1;
-      ctx.fillStyle = travel < 0.3 ? '#fff3c4' : travel < 0.65 ? '#ffb21f' : (puff + tick) % 2 ? 'rgba(232,135,26,0.8)' : 'rgba(224,100,91,0.7)';
-      ctx.fillRect(Math.round(duckX + Math.cos(angle) * (6 + travel * reach)), Math.round(duckY + Math.sin(angle) * (6 + travel * reach)),
-        size, size);
+    const spread = game.dryerSpread;
+    const layers = [
+      { count: 14, color: 'rgba(90, 70, 60, 0.35)', from: 0.75, to: 1.2, width: 1.1, size: 3 },
+      { count: 44, color: '#d9452b', from: 0.1, to: 1.0, width: 1.0, size: 4 },
+      { count: 38, color: '#f08a1d', from: 0.05, to: 0.85, width: 0.75, size: 3 },
+      { count: 26, color: '#ffd23f', from: 0, to: 0.65, width: 0.5, size: 2 },
+      { count: 12, color: '#fff7d6', from: 0, to: 0.35, width: 0.3, size: 1.5 },
+    ];
+    layers.forEach((layer, layerIndex) => {
+      for (let puff = 0; puff < layer.count; puff += 1) {
+        const seed = layerIndex * 100 + puff;
+        const travel = (hash(seed, 3) + time * (1.6 + hash(seed, 4))) % 1;
+        const along = layer.from + (layer.to - layer.from) * travel;
+        const flicker = Math.sin(time * 18 + seed * 1.7) * 0.08;
+        const angle = game.dryerAngle + ((hash(seed, 5) - 0.5) * 2 * spread * layer.width + flicker) * (0.25 + along * 0.75);
+        const grow = 0.4 + Math.sin(Math.min(1, along) * Math.PI) * 0.8;
+        const lift = layerIndex === 0 ? -travel * 8 : 0;
+        disc(ctx, Math.round(duckX + Math.cos(angle) * (7 + along * reach)),
+          Math.round(duckY + Math.sin(angle) * (7 + along * reach) + lift), layer.size * grow, layer.color);
+      }
+    });
+    for (let ember = 0; ember < 10; ember += 1) {
+      const travel = (hash(ember, 21) + time * 1.3) % 1;
+      const angle = game.dryerAngle + (hash(ember, 22) - 0.5) * 2.6 * spread;
+      ctx.fillStyle = travel < 0.5 ? '#fff0a8' : '#ff8a3d';
+      ctx.fillRect(Math.round(duckX + Math.cos(angle) * reach * (0.6 + travel * 0.6)),
+        Math.round(duckY + Math.sin(angle) * reach * (0.6 + travel * 0.6) - travel * 6), 1, 1);
     }
+    disc(ctx, Math.round(duckX + Math.cos(game.dryerAngle) * 7), Math.round(duckY + Math.sin(game.dryerAngle) * 7),
+      2 + (Math.floor(time * 20) % 2), '#fff7d6');
   }
   for (const orb of coilOrbs(game)) {
     const [x, y] = toBuffer(orb);
