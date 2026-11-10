@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, MAX_LEVEL, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, MAX_LEVEL, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -24,6 +24,9 @@ export function createGame(random = Math.random) {
     enemyShots: [],
     puddles: [],
     slimes: [],
+    hazards: [],
+    evolved: {},
+    shake: 0,
     gems: [],
     drops: [],
     effects: [],
@@ -63,7 +66,16 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
 function addEffect(game, effect) {
-  game.effects.push({ age: 0, ...effect });
+  if (game.effects.length > 240) {
+    const index = game.effects.findIndex((candidate) => candidate.type !== 'banner');
+    if (index >= 0) game.effects.splice(index, 1);
+  }
+  game.effects.push({ age: 0, seed: game.nextId++, ...effect });
+}
+
+function fire(game, from, angle, speed, damage, kind) {
+  game.enemyShots.push({ x: from.x, y: from.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+    damage, radius: 6, life: 5, kind, age: 0 });
 }
 
 // 보스는 ENEMIES에 없어서 능력치를 overrides로 모두 넘긴다.
@@ -139,6 +151,8 @@ function spawn(game, dt) {
       xp: stats.xp, label: stats.label, stats, dashUntil: -1, dashX: 0, dashY: 0,
     });
     addEffect(game, { type: 'banner', text: `${stats.label} 등장!`, life: 2.6, boss: true });
+    addEffect(game, { type: 'flash', life: 0.5, color: 'red' });
+    game.shake = 0.4;
     game.bossIndex += 1;
     game.nextBossAt += BOSS_EVERY_SEC;
   }
@@ -169,6 +183,7 @@ function damagePlayer(game, amount) {
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
   player.invulnerable = PLAYER.invulnerableSec;
+  game.shake = 0.25;
   if (player.hp <= 0) {
     player.hp = 0;
     game.over = true;
@@ -176,11 +191,39 @@ function damagePlayer(game, amount) {
   return true;
 }
 
-function shootRadial(game, enemy, count, speed, damage) {
+function ringOfShots(game, enemy, count, speed, damage, kind, offset = 0) {
   for (let index = 0; index < count; index += 1) {
-    const angle = (index / count) * Math.PI * 2 + enemy.timer;
-    game.enemyShots.push({ x: enemy.x, y: enemy.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      damage, radius: 6, life: 4 });
+    fire(game, enemy, (index / count) * Math.PI * 2 + offset, speed, damage, kind);
+  }
+}
+
+// 녹슨 보일러: 원형 탄막, 소용돌이, 조준 부채꼴을 번갈아 쏜다.
+function boilerPattern(game, enemy, dt, aim, difficulty) {
+  const { patternSec, burstCount, shotSpeed } = enemy.stats;
+  const damage = enemy.stats.shotDamage * difficulty.damage;
+  const before = enemy.patternTime ?? 0;
+  const now = before + dt;
+  const pattern = (enemy.patternIndex ?? 0) % 3;
+  const crossed = (mark) => before < mark && now >= mark;
+  if (pattern === 0) {
+    if (crossed(0.4)) ringOfShots(game, enemy, burstCount, shotSpeed, damage, 'rust', enemy.id);
+    if (crossed(1.1)) ringOfShots(game, enemy, burstCount, shotSpeed * 0.8, damage, 'rust', enemy.id + Math.PI / burstCount);
+  } else if (pattern === 1) {
+    for (let mark = 0.3; mark < 2.4; mark += 0.1) {
+      if (crossed(mark)) {
+        fire(game, enemy, mark * 5.2, shotSpeed * 0.9, damage, 'steam');
+        fire(game, enemy, mark * 5.2 + Math.PI, shotSpeed * 0.9, damage, 'steam');
+      }
+    }
+  } else {
+    for (const mark of [0.4, 1.0, 1.6]) {
+      if (crossed(mark)) for (let lane = -2; lane <= 2; lane += 1) fire(game, enemy, aim + lane * 0.22, shotSpeed * 1.15, damage, 'rust');
+    }
+  }
+  enemy.patternTime = now;
+  if (now >= patternSec) {
+    enemy.patternTime = 0;
+    enemy.patternIndex = (enemy.patternIndex ?? 0) + 1;
   }
 }
 
@@ -198,7 +241,7 @@ function moveEnemies(game, dt) {
     const dy = player.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
     let direction = 1;
-    let speed = enemy.speed;
+    let speed = enemy.speed * (game.time < (enemy.slowUntil ?? 0) ? enemy.slowBy : 1);
     enemy.timer += dt;
 
     if (enemy.kind === 'rust') {
@@ -207,8 +250,7 @@ function moveEnemies(game, dt) {
       else if (gap < base.range) direction = 0;
       if (enemy.timer >= base.shootEverySec && gap < base.range + 80) {
         enemy.timer = 0;
-        game.enemyShots.push({ x: enemy.x, y: enemy.y, vx: (dx / gap) * base.shotSpeed, vy: (dy / gap) * base.shotSpeed,
-          damage: base.shotDamage * difficulty.damage, radius: 6, life: 3 });
+        fire(game, enemy, Math.atan2(dy, dx), base.shotSpeed, base.shotDamage * difficulty.damage, 'rust');
       }
     }
     if (enemy.kind === 'kingRoach') {
@@ -221,14 +263,31 @@ function moveEnemies(game, dt) {
       if (game.time < enemy.dashUntil) {
         enemy.vx = enemy.dashX;
         enemy.vy = enemy.dashY;
+        enemy.dashing = true;
         enemy.x += enemy.dashX * enemy.speed * 3.4 * dt;
         enemy.y += enemy.dashY * enemy.speed * 3.4 * dt;
+        if (game.random() < 0.5) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'dust', count: 2, life: 0.3 });
         continue;
       }
+      if (enemy.dashing) {
+        // 돌진이 끝나면 사방으로 알을 뿌린다.
+        enemy.dashing = false;
+        ringOfShots(game, enemy, enemy.stats.ringCount, enemy.stats.shotSpeed, enemy.stats.shotDamage * difficulty.damage,
+          'egg', enemy.timer);
+        addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 70, color: 'dust', life: 0.35 });
+        game.shake = Math.max(game.shake, 0.15);
+      }
     }
-    if (enemy.kind === 'rustBoiler' && enemy.timer >= enemy.stats.burstEverySec) {
+    if (enemy.kind === 'rustBoiler') boilerPattern(game, enemy, dt, Math.atan2(dy, dx), difficulty);
+    if (enemy.kind === 'garbageGiant' && enemy.timer >= enemy.stats.lobEverySec) {
+      // 쓰레기를 던져 잠시 뒤 떨어질 자리를 미리 보여 준다.
       enemy.timer = 0;
-      shootRadial(game, enemy, enemy.stats.burstCount, enemy.stats.shotSpeed, enemy.stats.shotDamage * difficulty.damage);
+      for (let index = 0; index < enemy.stats.lobCount; index += 1) {
+        const spread = index === 0 ? 0 : 110;
+        game.hazards.push({ x: player.x + (game.random() - 0.5) * 2 * spread, y: player.y + (game.random() - 0.5) * 2 * spread,
+          radius: enemy.stats.lobRadius, delay: enemy.stats.lobDelaySec + index * 0.15,
+          total: enemy.stats.lobDelaySec + index * 0.15, damage: enemy.stats.lobDamage * difficulty.damage });
+      }
     }
 
     enemy.vx = (dx / gap) * speed * direction + enemy.kx;
@@ -284,6 +343,11 @@ export function damageEnemy(game, enemy, amount, knockback = 0, from = game.play
   if (enemy.dead) return;
   enemy.hp -= amount;
   enemy.hitFlash = 0.1;
+  if (amount >= 6) {
+    addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
+      life: 0.6 });
+    addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: 3, life: 0.3 });
+  }
   if (knockback > 0 && !enemy.boss) {
     const gap = distance(enemy, from) || 1;
     enemy.kx += ((enemy.x - from.x) / gap) * knockback * 8;
@@ -306,6 +370,13 @@ function killEnemy(game, enemy) {
   game.kills += 1;
   dropGem(game, enemy.x, enemy.y, enemy.xp);
   addEffect(game, { type: 'pop', x: enemy.x, y: enemy.y, radius: enemy.radius, life: 0.3 });
+  addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: enemy.boss ? 40 : 7,
+    life: enemy.boss ? 0.9 : 0.45, big: enemy.boss });
+  if (enemy.boss) {
+    addEffect(game, { type: 'flash', life: 0.4 });
+    addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 160, color: 'gold', life: 0.6 });
+    game.shake = 0.5;
+  }
   if (enemy.kind === 'trash') {
     for (let index = 0; index < 2; index += 1) {
       spawnEnemy(game, 'scrap', enemy.x + (index ? 12 : -12), enemy.y + (game.random() - 0.5) * 12);
@@ -334,8 +405,19 @@ function killEnemy(game, enemy) {
   }
 }
 
+function slow(game, enemy, factor) {
+  if (!factor || enemy.boss) return;
+  enemy.slowUntil = game.time + 0.25;
+  enemy.slowBy = factor;
+}
+
+function evolution(game, id) {
+  return game.evolved[id] ? EVOLUTIONS[id] : null;
+}
+
 function weaponValue(game, id, key) {
-  return WEAPONS[id][key][game.weapons[id] - 1];
+  const scale = evolution(game, id)?.[key];
+  return WEAPONS[id][key][game.weapons[id] - 1] * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1);
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -358,10 +440,12 @@ export function coilOrbs(game) {
   if (!level) return [];
   const count = WEAPONS.coil.count[level - 1];
   const orbit = WEAPONS.coil.orbit[level - 1] * statsOf(game).area;
-  return Array.from({ length: count }, (_, index) => {
-    const angle = game.time * 2.8 + (index / count) * Math.PI * 2;
-    return { x: game.player.x + Math.cos(angle) * orbit, y: game.player.y + Math.sin(angle) * orbit };
+  const ringAt = (radius, total, spin) => Array.from({ length: total }, (_, index) => {
+    const angle = game.time * spin + (index / total) * Math.PI * 2;
+    return { x: game.player.x + Math.cos(angle) * radius, y: game.player.y + Math.sin(angle) * radius };
   });
+  const outer = evolution(game, 'coil')?.outer;
+  return [...ringAt(orbit, count, 2.8), ...(outer ? ringAt(orbit * outer, count + 2, -2.1) : [])];
 }
 
 function fireWeapons(game, dt) {
@@ -377,8 +461,14 @@ function fireWeapons(game, dt) {
         : (player.facing > 0 ? 0 : Math.PI) + (index - 1) * 0.25;
       const { speed, lifeSec } = WEAPONS.spray;
       game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-        damage: weaponValue(game, 'spray', 'damage'), pierce: weaponValue(game, 'spray', 'pierce'), life: lifeSec,
-        radius: 7, hit: new Set() });
+        damage: weaponValue(game, 'spray', 'damage'), pierce: evolution(game, 'spray') ? 99 : weaponValue(game, 'spray', 'pierce'),
+        life: lifeSec, radius: 7, hit: new Set(), mega: Boolean(evolution(game, 'spray')) });
+    }
+    const ringShots = evolution(game, 'spray')?.ring ?? 0;
+    for (let index = 0; index < ringShots; index += 1) {
+      const angle = (index / ringShots) * Math.PI * 2 + game.time;
+      game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * WEAPONS.spray.speed, vy: Math.sin(angle) * WEAPONS.spray.speed,
+        damage: weaponValue(game, 'spray', 'damage'), pierce: 99, life: WEAPONS.spray.lifeSec, radius: 7, hit: new Set(), mega: true });
     }
   }
   if (game.weapons.broom && ready(game, 'broom', dt)) {
@@ -387,46 +477,59 @@ function fireWeapons(game, dt) {
     for (const enemy of game.enemies) {
       if (distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, damage, WEAPONS.broom.knockback);
     }
-    addEffect(game, { type: 'sweep', x: player.x, y: player.y, radius, life: 0.28, facing: player.facing });
+    addEffect(game, { type: 'sweep', x: player.x, y: player.y, radius, life: 0.28, facing: player.facing,
+      mega: Boolean(evolution(game, 'broom')) });
+    if (evolution(game, 'broom') && !game.broomEcho) {
+      game.broomEcho = true;
+      game.cooldowns.broom = 0.3;
+    } else if (game.broomEcho) {
+      game.broomEcho = false;
+    }
   }
   if (game.weapons.bleach && ready(game, 'bleach', dt)) {
     const candidates = nearestEnemies(game, 12, 380);
     for (let index = 0; index < weaponValue(game, 'bleach', 'count'); index += 1) {
       const target = candidates.length > 0 ? candidates[Math.floor(game.random() * candidates.length)]
         : { x: player.x + (game.random() - 0.5) * 200, y: player.y + (game.random() - 0.5) * 200 };
+      addEffect(game, { type: 'ring', x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area,
+        color: 'teal', life: 0.3 });
       game.puddles.push({ x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area,
-        dps: weaponValue(game, 'bleach', 'dps'), life: WEAPONS.bleach.lifeSec, maxLife: WEAPONS.bleach.lifeSec });
+        dps: weaponValue(game, 'bleach', 'dps'), life: evolution(game, 'bleach')?.lifeSec ?? WEAPONS.bleach.lifeSec,
+        maxLife: WEAPONS.bleach.lifeSec, slow: evolution(game, 'bleach')?.slow });
     }
   }
   if (game.weapons.dehumidifier) {
     const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
     for (const enemy of game.enemies) {
-      if (distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, damage);
+      if (distance(enemy, player) > radius + enemy.radius) continue;
+      damageEnemy(game, enemy, damage);
+      slow(game, enemy, evolution(game, 'dehumidifier')?.slow);
     }
   }
   if (game.weapons.swatter && ready(game, 'swatter', dt)) {
-    const target = game.enemies
+    const targets = game.enemies
       .filter((enemy) => !enemy.dead && distance(enemy, player) < 420)
-      .sort((a, b) => b.hp - a.hp)[0];
-    if (target) {
-      const radius = weaponValue(game, 'swatter', 'radius') * area;
-      const damage = weaponValue(game, 'swatter', 'damage');
+      .sort((a, b) => b.hp - a.hp)
+      .slice(0, evolution(game, 'swatter')?.targets ?? 1);
+    const radius = weaponValue(game, 'swatter', 'radius') * area;
+    const damage = weaponValue(game, 'swatter', 'damage');
+    for (const target of targets) {
       const center = { x: target.x, y: target.y };
       for (const enemy of game.enemies) {
         if (distance(enemy, center) < radius + enemy.radius) damageEnemy(game, enemy, damage, 20, center);
       }
-      addEffect(game, { type: 'swat', x: center.x, y: center.y, radius, life: 0.35 });
-    } else {
-      game.cooldowns.swatter = 0.2;
+      addEffect(game, { type: 'swat', x: center.x, y: center.y, radius, life: 0.35, mega: Boolean(evolution(game, 'swatter')) });
     }
+    if (targets.length === 0) game.cooldowns.swatter = 0.2;
   }
   if (game.weapons.slipper && ready(game, 'slipper', dt)) {
-    const count = weaponValue(game, 'slipper', 'count');
+    const storm = evolution(game, 'slipper');
+    const count = storm ? storm.count : weaponValue(game, 'slipper', 'count');
     const target = nearestEnemies(game, 1)[0];
     const baseAngle = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
     for (let index = 0; index < count; index += 1) {
-      const angle = baseAngle + (index - (count - 1) / 2) * 0.6;
+      const angle = storm ? baseAngle + (index / count) * Math.PI * 2 : baseAngle + (index - (count - 1) / 2) * 0.6;
       const { speed, rangeSec } = WEAPONS.slipper;
       game.slippers.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'slipper', 'damage'), outFor: rangeSec, returning: false, radius: 10,
@@ -450,7 +553,8 @@ function fireWeapons(game, dt) {
     const hit = new Set();
     let from = player;
     let reach = 300;
-    for (let jump = 0; jump < weaponValue(game, 'zapper', 'chains'); jump += 1) {
+    const chains = evolution(game, 'zapper')?.chains ?? weaponValue(game, 'zapper', 'chains');
+    for (let jump = 0; jump < chains; jump += 1) {
       let next = null;
       let best = reach;
       for (const enemy of game.enemies) {
@@ -466,9 +570,9 @@ function fireWeapons(game, dt) {
       points.push({ x: next.x, y: next.y });
       damageEnemy(game, next, damage);
       from = next;
-      reach = WEAPONS.zapper.jump * area;
+      reach = WEAPONS.zapper.jump * area * (evolution(game, 'zapper')?.jump ?? 1);
     }
-    if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.22 });
+    if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.22, mega: Boolean(evolution(game, 'zapper')) });
     else game.cooldowns.zapper = 0.2;
   }
   if (game.weapons.fan && ready(game, 'fan', dt)) {
@@ -481,9 +585,9 @@ function fireWeapons(game, dt) {
       if (enemy.dead || gap > range + enemy.radius) continue;
       const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
       const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
-      if (diff < 0.75) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
+      if (diff < 0.75 || evolution(game, 'fan')) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
     }
-    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, life: 0.35 });
+    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, life: 0.35, mega: Boolean(evolution(game, 'fan')) });
   }
 }
 
@@ -530,7 +634,9 @@ function updateProjectiles(game, dt) {
   for (const puddle of game.puddles) {
     puddle.life -= dt;
     for (const enemy of game.enemies) {
-      if (distance(enemy, puddle) < puddle.radius + enemy.radius * 0.5) damageEnemy(game, enemy, puddle.dps * dt);
+      if (distance(enemy, puddle) > puddle.radius + enemy.radius * 0.5) continue;
+      damageEnemy(game, enemy, puddle.dps * dt);
+      slow(game, enemy, puddle.slow);
     }
   }
   game.puddles = game.puddles.filter((puddle) => puddle.life > 0);
@@ -541,11 +647,22 @@ function updateProjectiles(game, dt) {
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
+    shot.age = (shot.age ?? 0) + dt;
     if (shot.life > 0 && distance(shot, game.player) < shot.radius + PLAYER.radius && damagePlayer(game, shot.damage)) {
       shot.life = 0;
     }
   }
   game.enemyShots = game.enemyShots.filter((shot) => shot.life > 0);
+
+  for (const hazard of game.hazards) {
+    hazard.delay -= dt;
+    if (hazard.delay > 0) continue;
+    if (distance(hazard, game.player) < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage);
+    addEffect(game, { type: 'slam', x: hazard.x, y: hazard.y, radius: hazard.radius, life: 0.4 });
+    addEffect(game, { type: 'burst', x: hazard.x, y: hazard.y, color: 'trash', count: 8, life: 0.45 });
+    game.shake = Math.max(game.shake, 0.2);
+  }
+  game.hazards = game.hazards.filter((hazard) => hazard.delay > 0);
 }
 
 function contactDamage(game) {
@@ -610,6 +727,7 @@ function collect(game, dt) {
     game.level += 1;
     game.nextXp = xpToNext(game.level);
     game.pendingLevels += 1;
+    addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 0.7 });
   }
 }
 
@@ -630,7 +748,10 @@ export function rollChoices(game) {
     ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
-  const choices = shuffle(pool, game.random).slice(0, 3)
+  const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
+    .map((id) => ({ kind: 'evolve', id, level: MAX_LEVEL + 1, ...EVOLUTIONS[id] }));
+  const special = shuffle(evolvable, game.random).slice(0, 1);
+  const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)
     .map(({ kind, id, level, label, description }) => ({ kind, id, level, label, description }));
   while (choices.length < 3) {
     choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 40 회복' });
@@ -644,6 +765,11 @@ export function choose(game, index) {
   const before = statsOf(game).maxHp;
   if (choice.kind === 'weapon') game.weapons[choice.id] = choice.level;
   if (choice.kind === 'passive') game.passives[choice.id] = choice.level;
+  if (choice.kind === 'evolve') {
+    game.evolved[choice.id] = true;
+    addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1, gold: true });
+    addEffect(game, { type: 'banner', text: `${choice.label} 완성!`, life: 2 });
+  }
   const stats = statsOf(game);
   if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 40);
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
@@ -665,6 +791,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);
   const stats = statsOf(game);
   if (!game.over) game.player.hp = Math.min(stats.maxHp, game.player.hp + stats.regen * dt);
+  game.shake = Math.max(0, game.shake - dt);
   game.effects.forEach((effect) => { effect.age += dt; });
   game.effects = game.effects.filter((effect) => effect.age < effect.life);
   if (game.pendingLevels > 0 && !game.over) game.choices = rollChoices(game);

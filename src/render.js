@@ -1,6 +1,6 @@
 import { coilOrbs, statsOf } from './engine.js';
 import { ARENA, WEAPONS } from './rules.js';
-import { icon, sprite } from './sprites.js';
+import { DIGITS, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼에 그리고 화면에서 정수 배로 키워 도트 느낌을 낸다. 버퍼 1픽셀이 월드 2칸이다.
 export const PIXEL = 3;
@@ -66,30 +66,71 @@ function drawCentered(ctx, image, x, y) {
 
 const FRAMES = {
   roach: ['roachA', 'roachB'], trash: ['trashA', 'trashB'], scrap: ['scrap', 'scrap'], rust: ['rustA', 'rustB'],
-  mold: ['moldA', 'moldB'], fly: ['flyA', 'flyB'], kingRoach: ['roachA', 'roachB'],
-  garbageGiant: ['trashA', 'trashB'], rustBoiler: ['boiler', 'boiler'],
+  mold: ['moldA', 'moldB'], fly: ['flyA', 'flyB'], kingRoach: ['kingRoachA', 'kingRoachB'],
+  garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'],
 };
-const FRAME_RATE = { roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 1 };
-const SCALE = { kingRoach: 3, garbageGiant: 3, rustBoiler: 2 };
+const FRAME_RATE = { roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5 };
+const PARTICLES = {
+  roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
+  trash: ['#5c6470', '#8f99a6', '#7fb069'], scrap: ['#8f99a6', '#5c6470', '#d9dee5'], garbageGiant: ['#5c6470', '#7fb069', '#d9dee5'],
+  rust: ['#b5651d', '#e8a468', '#8c4f22'], rustBoiler: ['#b5651d', '#ffb21f', '#e8e8e8'],
+  mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
+  dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
+};
+const SHOTS = {
+  rust: { core: '#ffcf8a', body: '#d9742b', edge: '#8c4f22', trail: 'rgba(217,116,43,0.45)' },
+  steam: { core: '#ffffff', body: '#bfe3f5', edge: '#6fa8c9', trail: 'rgba(191,227,245,0.5)' },
+  egg: { core: '#fff6d8', body: '#e6c97a', edge: '#8a6a2a', trail: 'rgba(230,201,122,0.45)' },
+};
+
+function hash(seed, index) {
+  const value = Math.sin(seed * 12.9898 + index * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function drawNumber(ctx, value, x, y, color) {
+  const text = String(value);
+  let left = Math.round(x - text.length * 2);
+  for (const digit of text) {
+    const rows = DIGITS[digit];
+    for (let pass = 0; pass < 2; pass += 1) {
+      ctx.fillStyle = pass === 0 ? '#3a2a1a' : color;
+      rows.forEach((row, rowIndex) => [...row].forEach((cell, column) => {
+        if (cell === '1') ctx.fillRect(left + column + (pass === 0 ? 1 : 0), y + rowIndex + (pass === 0 ? 1 : 0), 1, 1);
+      }));
+    }
+    left += 4;
+  }
+}
 
 function drawEnemy(ctx, enemy, x, y, time) {
   const frames = FRAMES[enemy.kind];
   const rate = FRAME_RATE[enemy.kind] ?? 1;
   const frame = enemy.frozen ? 0 : Math.floor(time * rate + enemy.id) % 2;
   const tint = enemy.hitFlash > 0 ? FLASH : enemy.frozen ? FROZEN : null;
-  const image = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint, scale: SCALE[enemy.kind] ?? 1 });
-  // 그림자
+  const image = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint });
+  const bob = enemy.boss && !enemy.dashing ? Math.round(Math.sin(time * 4 + enemy.id)) : 0;
   ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
   const shadow = Math.round(image.width * 0.35);
   ctx.fillRect(Math.round(x) - shadow, Math.round(y + image.height / 2) - 1, shadow * 2, 2);
-  drawCentered(ctx, image, x, y);
-  if (enemy.kind === 'kingRoach') {
-    drawCentered(ctx, sprite('crown', { scale: 2 }), x + ((enemy.vx ?? 1) < 0 ? -12 : 12), y - image.height / 2 - 2);
+  if (enemy.boss) {
+    ring(ctx, Math.round(x), Math.round(y + image.height / 2 - 1), shadow + 3, 'rgba(224, 100, 91, 0.55)', 3, Math.floor(time * 12));
+    if (enemy.dashing) {
+      ctx.globalAlpha = 0.3;
+      drawCentered(ctx, image, x - (enemy.dashX ?? 0) * 10, y - (enemy.dashY ?? 0) * 10);
+      ctx.globalAlpha = 0.15;
+      drawCentered(ctx, image, x - (enemy.dashX ?? 0) * 20, y - (enemy.dashY ?? 0) * 20);
+      ctx.globalAlpha = 1;
+    }
   }
+  drawCentered(ctx, image, x, y + bob);
+  ctx.globalAlpha = 1;
   if (enemy.kind === 'rustBoiler') {
-    const puff = Math.floor(time * 6) % 8;
-    disc(ctx, Math.round(x - 6), Math.round(y - image.height / 2 - 3 - puff), 2, 'rgba(255,255,255,0.8)');
-    disc(ctx, Math.round(x + 5), Math.round(y - image.height / 2 - 1 - ((puff + 4) % 8)), 1, 'rgba(255,255,255,0.7)');
+    for (let puff = 0; puff < 3; puff += 1) {
+      const rise = (time * 9 + puff * 4) % 12;
+      disc(ctx, Math.round(x - 6 + puff * 6 + Math.sin(time * 3 + puff) * 2), Math.round(y - image.height / 2 - rise),
+        rise < 6 ? 2 : 1, `rgba(255,255,255,${0.85 - rise * 0.06})`);
+    }
   }
 }
 
@@ -103,6 +144,13 @@ function drawDuck(ctx, game, x, y, time) {
   const image = sprite(name, { flip: player.facing < 0, tint });
   ctx.fillStyle = 'rgba(120, 80, 40, 0.28)';
   ctx.fillRect(Math.round(x) - 6, Math.round(y) + 7, 12, 2);
+  if (game.time < game.coffeeUntil && player.moving) {
+    ctx.globalAlpha = 0.3;
+    drawCentered(ctx, image, x - player.facing * 5, y);
+    ctx.globalAlpha = 0.15;
+    drawCentered(ctx, image, x - player.facing * 10, y);
+    ctx.globalAlpha = 1;
+  }
   drawCentered(ctx, image, x, y);
   if (game.time < game.shieldUntil) ring(ctx, Math.round(x), Math.round(y), 12, '#c9965c', 3, Math.floor(time * 20));
 }
@@ -110,22 +158,75 @@ function drawDuck(ctx, game, x, y, time) {
 function drawEffects(ctx, game, toBuffer) {
   for (const effect of game.effects) {
     const progress = effect.age / effect.life;
-    if (effect.type === 'banner') continue;
+    if (effect.type === 'banner' || effect.type === 'flash') continue;
     const [x, y] = effect.points ? [0, 0] : toBuffer(effect);
     if (effect.type === 'sweep') {
       const radius = (effect.radius / WORLD_PER_PIXEL) * (0.6 + progress * 0.4);
-      const start = progress * Math.PI * 2;
-      ctx.fillStyle = '#c9965c';
-      for (let step = 0; step < 26; step += 1) {
-        const angle = start + (step / 26) * Math.PI * 1.2;
-        ctx.fillRect(Math.round(x + Math.cos(angle) * radius), Math.round(y + Math.sin(angle) * radius), 2, 2);
+      const start = progress * Math.PI * 2.4;
+      const shades = effect.mega ? ['#fff3c4', '#ffcf3f', '#e8871a'] : ['#f3dfb8', '#c9965c', '#9a6b3a'];
+      for (let layer = 0; layer < 3; layer += 1) {
+        ctx.fillStyle = shades[layer];
+        const reach = radius - layer * 3;
+        for (let step = 0; step < 34 - layer * 8; step += 1) {
+          const angle = start - layer * 0.35 + (step / 34) * Math.PI * 1.3;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), 2, 2);
+        }
+      }
+      ctx.fillStyle = '#ffffff';
+      for (let dust = 0; dust < 8; dust += 1) {
+        const angle = hash(effect.seed, dust) * Math.PI * 2;
+        const reach = radius * (0.7 + progress * 0.5);
+        ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach - progress * 3), 1, 1);
       }
     } else if (effect.type === 'swat') {
       const half = Math.round(effect.radius / WORLD_PER_PIXEL);
-      const color = progress < 0.5 ? '#e0645b' : 'rgba(224,100,91,0.5)';
-      for (let offset = -half; offset <= half; offset += 4) {
-        line(ctx, x - half, y + offset, x + half, y + offset, color);
-        line(ctx, x + offset, y - half, x + offset, y + half, color);
+      const squash = progress < 0.25 ? progress * 4 : 1;
+      const color = effect.mega ? (progress < 0.5 ? '#ffcf3f' : 'rgba(255,207,63,0.5)') : progress < 0.5 ? '#e0645b' : 'rgba(224,100,91,0.5)';
+      const size = Math.round(half * squash);
+      for (let offset = -size; offset <= size; offset += 3) {
+        line(ctx, x - size, y + offset, x + size, y + offset, color);
+        line(ctx, x + offset, y - size, x + offset, y + size, color);
+      }
+      if (progress > 0.2) ring(ctx, x, y, half + (progress - 0.2) * 14, 'rgba(255,255,255,0.8)');
+      if (progress < 0.3) {
+        ctx.fillStyle = '#ffffff';
+        for (let ray = 0; ray < 8; ray += 1) {
+          const angle = (ray / 8) * Math.PI * 2;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * (half + 4)), Math.round(y + Math.sin(angle) * (half + 4)), 2, 2);
+        }
+      }
+    } else if (effect.type === 'burst') {
+      const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
+      const reach = effect.big ? 46 : 14;
+      for (let index = 0; index < effect.count; index += 1) {
+        const angle = hash(effect.seed, index) * Math.PI * 2;
+        const speed = 0.35 + hash(effect.seed, index + 50) * 0.65;
+        const travel = reach * speed * (1 - (1 - progress) ** 2);
+        const size = progress < 0.6 && hash(effect.seed, index + 90) > 0.5 ? 2 : 1;
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(Math.round(x + Math.cos(angle) * travel), Math.round(y + Math.sin(angle) * travel + progress * progress * 8), size, size);
+      }
+    } else if (effect.type === 'number') {
+      const color = effect.value >= 60 ? '#ffcf3f' : effect.value >= 25 ? '#ffe9a8' : '#ffffff';
+      if (progress < 0.85 || Math.floor(effect.age * 30) % 2 === 0) drawNumber(ctx, effect.value, x, Math.round(y - 4 - progress * 10), color);
+    } else if (effect.type === 'ring') {
+      const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
+      const radius = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
+      ring(ctx, x, y, radius, colors[0]);
+      if (progress < 0.7) ring(ctx, x, y, radius - 2, colors[1], 2, 0);
+    } else if (effect.type === 'slam') {
+      const radius = effect.radius / WORLD_PER_PIXEL;
+      disc(ctx, x, y, radius * (1 - progress * 0.3), `rgba(92, 100, 112, ${0.6 * (1 - progress)})`);
+      ring(ctx, x, y, radius * (1 + progress * 0.5), 'rgba(255,255,255,0.8)');
+    } else if (effect.type === 'levelup') {
+      const colors = effect.gold ? ['#ffcf3f', '#ffffff', '#ff8a3d'] : ['#ffe08a', '#ffffff', '#9be28f'];
+      ring(ctx, x, y, 6 + progress * 34, colors[0]);
+      ring(ctx, x, y, 2 + progress * 24, colors[1], 2, 0);
+      for (let spark = 0; spark < (effect.gold ? 18 : 10); spark += 1) {
+        const angle = hash(effect.seed, spark) * Math.PI * 2;
+        ctx.fillStyle = colors[spark % 3];
+        ctx.fillRect(Math.round(x + Math.cos(angle) * (6 + hash(effect.seed, spark + 9) * 14)),
+          Math.round(y + Math.sin(angle) * 8 - progress * (14 + hash(effect.seed, spark + 30) * 22)), spark % 4 === 0 ? 2 : 1, spark % 4 === 0 ? 2 : 1);
       }
     } else if (effect.type === 'pop') {
       const reach = (effect.radius / WORLD_PER_PIXEL) * (0.5 + progress);
@@ -135,28 +236,42 @@ function drawEffects(ctx, game, toBuffer) {
         ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), 1, 1);
       }
     } else if (effect.type === 'bomb') {
-      ring(ctx, x, y, (effect.radius / WORLD_PER_PIXEL) * progress, '#ffffff');
-      ring(ctx, x, y, (effect.radius / WORLD_PER_PIXEL) * progress - 2, 'rgba(255,255,255,0.6)');
+      const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
+      disc(ctx, x, y, reach, `rgba(255,255,255,${0.35 * (1 - progress)})`);
+      ring(ctx, x, y, reach, '#ffffff');
+      ring(ctx, x, y, reach - 2, 'rgba(200,235,200,0.8)');
+      ring(ctx, x, y, reach * 0.6, 'rgba(255,255,255,0.5)', 3, 0);
     } else if (effect.type === 'pickup') {
       ring(ctx, x, y, 4 + progress * 8, '#ffe08a');
     } else if (effect.type === 'bolt') {
-      const color = progress < 0.5 ? '#fff6b0' : '#ffb21f';
+      const color = effect.mega ? (progress < 0.5 ? '#ffffff' : '#8fd0ff') : progress < 0.5 ? '#fff6b0' : '#ffb21f';
+      const jitter = Math.floor(effect.age * 40);
       for (let index = 1; index < effect.points.length; index += 1) {
-        const [x0, y0] = toBuffer(effect.points[index - 1]);
+        let [x0, y0] = toBuffer(effect.points[index - 1]);
         const [x1, y1] = toBuffer(effect.points[index]);
-        const midX = Math.round((x0 + x1) / 2 + ((index * 7) % 5) - 2);
-        const midY = Math.round((y0 + y1) / 2 + ((index * 5) % 5) - 2);
-        line(ctx, x0, y0, midX, midY, color);
-        line(ctx, midX, midY, x1, y1, color);
-        disc(ctx, x1, y1, 2, color);
+        for (let part = 1; part <= 3; part += 1) {
+          const wobble = part === 3 ? 0 : 1;
+          const nextX = Math.round(x0 + (x1 - x0) / (4 - part) + (hash(effect.seed + jitter, index * 4 + part) - 0.5) * 8 * wobble);
+          const nextY = Math.round(y0 + (y1 - y0) / (4 - part) + (hash(effect.seed + jitter, index * 4 + part + 40) - 0.5) * 8 * wobble);
+          line(ctx, x0, y0, nextX, nextY, color);
+          if (effect.mega) line(ctx, x0, y0 + 1, nextX, nextY + 1, 'rgba(143,208,255,0.6)');
+          [x0, y0] = [nextX, nextY];
+        }
+        disc(ctx, x1, y1, progress < 0.5 ? 3 : 2, color);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x1 - 4 + Math.floor(hash(effect.seed + jitter, index) * 8), y1 - 4 + Math.floor(hash(effect.seed + jitter, index + 7) * 8), 1, 1);
       }
     } else if (effect.type === 'gust') {
       const reach = (effect.range / WORLD_PER_PIXEL) * (0.3 + progress * 0.7);
-      for (let lane = -2; lane <= 2; lane += 1) {
-        const angle = effect.angle + lane * 0.28;
-        const from = reach - 8;
+      const lanes = effect.mega ? 22 : 7;
+      for (let lane = 0; lane < lanes; lane += 1) {
+        const spread = effect.mega ? (lane / lanes) * Math.PI * 2 : (lane - 3) * 0.2;
+        const angle = effect.angle + spread + Math.sin(progress * 6 + lane) * 0.06;
+        const tip = reach * (0.75 + hash(effect.seed, lane) * 0.25);
+        const from = tip - 6 - hash(effect.seed, lane + 20) * 8;
         line(ctx, Math.round(x + Math.cos(angle) * from), Math.round(y + Math.sin(angle) * from),
-          Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), 'rgba(255,255,255,0.85)');
+          Math.round(x + Math.cos(angle) * tip), Math.round(y + Math.sin(angle) * tip),
+          lane % 2 === 0 ? 'rgba(255,255,255,0.9)' : 'rgba(200,230,255,0.7)');
       }
     }
   }
@@ -166,8 +281,9 @@ export function render(ctx, game, width, height, time) {
   if (!floor) floor = makeFloor();
   ctx.imageSmoothingEnabled = false;
   const { player } = game;
-  const cameraX = Math.round(player.x / WORLD_PER_PIXEL - width / 2);
-  const cameraY = Math.round(player.y / WORLD_PER_PIXEL - height / 2);
+  const shake = game.shake > 0 ? Math.min(4, game.shake * 10) : 0;
+  const cameraX = Math.round(player.x / WORLD_PER_PIXEL - width / 2 + Math.sin(time * 90) * shake);
+  const cameraY = Math.round(player.y / WORLD_PER_PIXEL - height / 2 + Math.cos(time * 70) * shake);
   const toBuffer = (item) => [Math.round(item.x / WORLD_PER_PIXEL - cameraX), Math.round(item.y / WORLD_PER_PIXEL - cameraY)];
   const visible = ([x, y], margin = 30) => x > -margin && x < width + margin && y > -margin && y < height + margin;
 
@@ -216,6 +332,16 @@ export function render(ctx, game, width, height, time) {
     ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.8)', 3, Math.floor(time * 14));
   }
 
+  for (const hazard of game.hazards) {
+    const [x, y] = toBuffer(hazard);
+    const radius = hazard.radius / WORLD_PER_PIXEL;
+    const closing = 1 - hazard.delay / hazard.total;
+    disc(ctx, x, y, radius, `rgba(224, 100, 91, ${0.12 + closing * 0.22})`);
+    ring(ctx, x, y, radius, '#e0645b', 2, Math.floor(time * 16));
+    ring(ctx, x, y, radius * closing, 'rgba(255,255,255,0.8)');
+    drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
+  }
+
   for (const gem of game.gems) {
     const point = toBuffer(gem);
     if (visible(point, 4)) drawCentered(ctx, sprite(gem.value >= 5 ? 'gemBig' : 'gem'), point[0], point[1]);
@@ -246,11 +372,16 @@ export function render(ctx, game, width, height, time) {
   }
   for (const shot of game.shots) {
     const [x, y] = toBuffer(shot);
-    ctx.fillStyle = '#dcebff';
-    ctx.fillRect(x - 1, y - 1, 3, 3);
-    ctx.fillStyle = 'rgba(220, 235, 255, 0.6)';
-    ctx.fillRect(Math.round(x - shot.vx * 0.012), Math.round(y - shot.vy * 0.012), 2, 2);
-    ctx.fillRect(Math.round(x - shot.vx * 0.024), Math.round(y - shot.vy * 0.024), 1, 1);
+    const trail = shot.mega ? 'rgba(170, 240, 190, ' : 'rgba(220, 235, 255, ';
+    for (let step = 4; step >= 1; step -= 1) {
+      ctx.fillStyle = `${trail}${0.7 - step * 0.14})`;
+      const size = step < 3 ? 2 : 1;
+      ctx.fillRect(Math.round(x - shot.vx * 0.011 * step + Math.sin(time * 30 + step) * 0.8),
+        Math.round(y - shot.vy * 0.011 * step + Math.cos(time * 30 + step) * 0.8), size, size);
+    }
+    disc(ctx, x, y, shot.mega ? 3 : 2, shot.mega ? '#8fe6a8' : '#dcebff');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - 1, y - 1, 1, 1);
   }
   for (const slipper of game.slippers) {
     const [x, y] = toBuffer(slipper);
@@ -263,14 +394,31 @@ export function render(ctx, game, width, height, time) {
   }
   for (const shot of game.enemyShots) {
     const [x, y] = toBuffer(shot);
-    disc(ctx, x, y, 2, '#8c4f22');
-    ctx.fillStyle = '#e8a468';
-    ctx.fillRect(x - 1, y - 1, 1, 1);
+    const look = SHOTS[shot.kind] ?? SHOTS.rust;
+    ctx.fillStyle = look.trail;
+    ctx.fillRect(Math.round(x - shot.vx * 0.02) - 1, Math.round(y - shot.vy * 0.02) - 1, 2, 2);
+    ctx.fillRect(Math.round(x - shot.vx * 0.04), Math.round(y - shot.vy * 0.04), 1, 1);
+    const pulse = Math.floor((shot.age ?? 0) * 10) % 2;
+    disc(ctx, x, y, 3, look.edge);
+    disc(ctx, x, y, 2, look.body);
+    disc(ctx, x, y, pulse ? 1 : 0.5, look.core);
   }
   drawEffects(ctx, game, toBuffer);
 
   if (game.time < game.freezeUntil) {
     ctx.fillStyle = 'rgba(190, 225, 255, 0.12)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (let flake = 0; flake < 26; flake += 1) {
+      const fx = Math.round((hash(7, flake) * width + Math.sin(time * 2 + flake) * 4) % width);
+      const fy = Math.round((hash(11, flake) * height + time * (14 + (flake % 5) * 5)) % height);
+      ctx.fillRect(fx, fy, flake % 3 === 0 ? 2 : 1, flake % 3 === 0 ? 2 : 1);
+    }
+  }
+  for (const effect of game.effects) {
+    if (effect.type !== 'flash') continue;
+    const strength = 0.5 * (1 - effect.age / effect.life);
+    ctx.fillStyle = effect.color === 'red' ? `rgba(224, 100, 91, ${strength})` : `rgba(255, 255, 255, ${strength})`;
     ctx.fillRect(0, 0, width, height);
   }
   if (player.hurtFlash > 0) {

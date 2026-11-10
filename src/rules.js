@@ -29,10 +29,12 @@ export const ENEMIES = {
 // 보스는 90초마다 나오고, 나올 때마다 더 세진다.
 export const BOSS_EVERY_SEC = 90;
 export const BOSSES = [
-  { kind: 'kingRoach', label: '왕바퀴', hp: 480, speed: 78, radius: 34, damage: 20, xp: 40, chargeEverySec: 4 },
-  { kind: 'garbageGiant', label: '쓰레기 산', hp: 1100, speed: 40, radius: 44, damage: 24, xp: 55, splitInto: 10 },
-  { kind: 'rustBoiler', label: '녹슨 보일러', hp: 900, speed: 32, radius: 38, damage: 22, xp: 50,
-    burstEverySec: 3, burstCount: 14, shotSpeed: 150, shotDamage: 10 },
+  { kind: 'kingRoach', label: '왕바퀴', hp: 480, speed: 78, radius: 30, damage: 20, xp: 40, chargeEverySec: 4,
+    ringCount: 10, shotSpeed: 120, shotDamage: 8 },
+  { kind: 'garbageGiant', label: '쓰레기 산', hp: 1100, speed: 40, radius: 34, damage: 24, xp: 55, splitInto: 10,
+    lobEverySec: 3.5, lobCount: 4, lobDelaySec: 1.1, lobRadius: 36, lobDamage: 16 },
+  { kind: 'rustBoiler', label: '녹슨 보일러', hp: 900, speed: 32, radius: 32, damage: 22, xp: 50,
+    patternSec: 3.2, burstCount: 16, shotSpeed: 125, shotDamage: 9 },
 ];
 
 export function bossStatsOf(index, time) {
@@ -97,6 +99,19 @@ export const PASSIVES = {
 };
 
 export const MAX_LEVEL = 5;
+
+// 5레벨을 채운 무기는 완성형으로 한 번 더 바뀐다.
+export const EVOLUTIONS = {
+  spray: { label: '업소용 분사기', description: '사방으로 뿜고 약이 적을 모두 뚫는다', damage: 1.4, ring: 8 },
+  broom: { label: '회오리 빗자루', description: '더 넓게, 연달아 두 번 쓴다', damage: 1.5, radius: 1.35 },
+  bleach: { label: '원액 락스', description: '웅덩이가 넓고 오래 가며 적을 느리게 한다', dps: 1.6, radius: 1.35, lifeSec: 5, slow: 0.5 },
+  dehumidifier: { label: '산업용 제습기', description: '넓은 범위의 적을 바싹 말려 느리게 한다', dps: 1.8, radius: 1.4, slow: 0.65 },
+  swatter: { label: '전설의 파리채', description: '센 적 셋을 한꺼번에 내려친다', damage: 1.5, targets: 3 },
+  slipper: { label: '슬리퍼 폭풍', description: '슬리퍼 여덟 짝이 사방으로 날아간다', damage: 1.3, count: 8 },
+  coil: { label: '불꽃 모기향', description: '바깥에 불씨 고리가 하나 더 돈다', damage: 1.5, outer: 1.75 },
+  zapper: { label: '벼락 파리채', description: '전기가 훨씬 멀리, 더 많이 튄다', damage: 1.5, chains: 16, jump: 1.5 },
+  fan: { label: '태풍 선풍기', description: '사방의 적을 한 번에 날려 버린다', damage: 2, range: 1.3 },
+};
 
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)
 export const DROPS = {

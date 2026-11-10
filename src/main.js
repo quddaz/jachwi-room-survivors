@@ -111,7 +111,9 @@ function drawLoadout() {
     ...Object.entries(game.passives),
   ];
   document.querySelector('.loadout').innerHTML = items
-    .map(([id, level]) => `<span><img class="px" src="${iconUrl(id)}" alt="" />${level}</span>`).join('');
+    .map(([id, level]) => (game.evolved[id]
+      ? `<span class="is-evolved"><img class="px" src="${iconUrl(id)}" alt="" />★</span>`
+      : `<span><img class="px" src="${iconUrl(id)}" alt="" />${level}</span>`)).join('');
 }
 
 function drawChoices() {
@@ -123,10 +125,10 @@ function drawChoices() {
   joystick.hidden = true;
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = `<img class="px" src="${iconUrl(choice.kind === 'heal' ? 'heal' : choice.id)}" alt="" />`;
-    const tag = choice.kind === 'heal' ? '' : choice.level === 1
+    const tag = choice.kind === 'heal' ? '' : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>

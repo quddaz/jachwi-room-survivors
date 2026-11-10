@@ -137,10 +137,11 @@ describe('성장과 아이템', () => {
     assert.equal(owned, picked.level);
   });
 
-  it('모든 무기와 패시브를 최대로 올리면 라면으로 회복한다', () => {
+  it('모든 무기와 패시브를 최대로 올리고 완성하면 라면으로 회복한다', () => {
     const game = createGame(seeded(2));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
     game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
     assert.ok(rollChoices(game).every((choice) => choice.kind === 'heal'));
   });
 
@@ -256,5 +257,54 @@ describe('표시와 순위', () => {
     ]);
     assert.deepEqual(ranking.map((entry) => entry.crewName), ['포비', '쿠다', '네오']);
     assert.equal(ranking[1].survivedMs, 240_000);
+  });
+});
+
+describe('완성형 무기', () => {
+  it('5레벨 무기는 선택지에 완성형으로 나오고 고르면 바뀐다', () => {
+    const game = createGame(seeded(3));
+    game.weapons = { broom: MAX_LEVEL };
+    game.pendingLevels = 1;
+    game.choices = rollChoices(game);
+    assert.equal(game.choices[0].kind, 'evolve');
+    assert.equal(game.choices[0].id, 'broom');
+    choose(game, 0);
+    assert.equal(game.evolved.broom, true);
+    assert.ok(!rollChoices(game).some((choice) => choice.kind === 'evolve'));
+  });
+
+  it('완성형 선풍기는 등 뒤의 적도 날린다', () => {
+    const game = createGame(seeded(5));
+    game.weapons = { fan: MAX_LEVEL };
+    game.evolved.fan = true;
+    const front = placeEnemy(game, 'trash', 60, 0, { hp: 500, maxHp: 500 });
+    const back = placeEnemy(game, 'trash', -60, 0, { hp: 500, maxHp: 500 });
+    update(game, 1 / 60);
+    assert.ok(front.hp < 500);
+    assert.ok(back.hp < 500);
+  });
+});
+
+describe('보스 패턴', () => {
+  it('쓰레기 산은 떨어질 자리를 먼저 보여 주고 나서 피해를 준다', () => {
+    const game = createGame(seeded(9));
+    placeEnemy(game, 'garbageGiant', 300, 0, { boss: true, hp: 9999, maxHp: 9999, timer: 99,
+      stats: { lobEverySec: 3.5, lobCount: 1, lobDelaySec: 1, lobRadius: 36, lobDamage: 10 } });
+    update(game, 1 / 60);
+    assert.equal(game.hazards.length, 1);
+    const hp = game.player.hp;
+    for (let step = 0; step < 30; step += 1) update(game, 1 / 60);
+    assert.equal(game.player.hp, hp);
+    for (let step = 0; step < 40; step += 1) update(game, 1 / 60);
+    assert.ok(game.player.hp < hp);
+    assert.equal(game.hazards.length, 0);
+  });
+
+  it('녹슨 보일러는 탄막을 쏜다', () => {
+    const game = createGame(seeded(9));
+    placeEnemy(game, 'rustBoiler', 300, 0, { boss: true, hp: 9999, maxHp: 9999,
+      stats: { patternSec: 3.2, burstCount: 16, shotSpeed: 125, shotDamage: 9 } });
+    for (let step = 0; step < 30; step += 1) update(game, 1 / 60);
+    assert.equal(game.enemyShots.length, 16);
   });
 });
