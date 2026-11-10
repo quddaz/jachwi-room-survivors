@@ -1,7 +1,7 @@
-import { choose, createGame, formatTime, update } from './engine.js';
+import { choose, createGame, formatTime, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, submitRecord } from './leaderboard.js';
-import { ICONS, render } from './render.js';
-import { PASSIVES } from './rules.js';
+import { PIXEL, render } from './render.js';
+import { iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
 const STEP = 1 / 60;
@@ -58,11 +58,12 @@ function escapeHtml(text) {
 
 function resize() {
   const box = gameScreen.getBoundingClientRect();
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  viewport = { width: box.width, height: box.height };
-  canvas.width = Math.round(box.width * ratio);
-  canvas.height = Math.round(box.height * ratio);
-  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  // 화면의 1/PIXEL 크기 버퍼에 그리고 CSS로 키워 도트가 또렷하게 보이게 한다.
+  viewport = { width: Math.ceil(box.width / PIXEL), height: Math.ceil(box.height / PIXEL) };
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  canvas.style.width = `${viewport.width * PIXEL}px`;
+  canvas.style.height = `${viewport.height * PIXEL}px`;
 }
 
 function readKeys() {
@@ -84,7 +85,7 @@ function drawHud() {
   document.querySelector('.kills-value').textContent = game.kills.toLocaleString('ko-KR');
   document.querySelector('.level-value').textContent = game.level;
   document.querySelector('.xp-fill').style.transform = `scaleX(${Math.min(1, game.xp / game.nextXp)})`;
-  const maxHp = 100 + (game.passives.vitamin ? PASSIVES.vitamin.maxHp[game.passives.vitamin - 1] : 0);
+  const { maxHp } = statsOf(game);
   document.querySelector('.hp-fill').style.transform = `scaleX(${Math.max(0, player.hp / maxHp)})`;
 
   const boss = game.enemies.find((enemy) => enemy.boss);
@@ -106,10 +107,11 @@ function drawHud() {
 
 function drawLoadout() {
   const items = [
-    ...Object.entries(game.weapons).map(([id, level]) => `${ICONS[id]} ${level}`),
-    ...Object.entries(game.passives).map(([id, level]) => `${ICONS[id]} ${level}`),
+    ...Object.entries(game.weapons),
+    ...Object.entries(game.passives),
   ];
-  document.querySelector('.loadout').innerHTML = items.map((item) => `<span>${item}</span>`).join('');
+  document.querySelector('.loadout').innerHTML = items
+    .map(([id, level]) => `<span><img class="px" src="${iconUrl(id)}" alt="" />${level}</span>`).join('');
 }
 
 function drawChoices() {
@@ -120,7 +122,7 @@ function drawChoices() {
   touch = null;
   joystick.hidden = true;
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
-    const icon = ICONS[choice.kind === 'heal' ? 'heal' : choice.id];
+    const icon = `<img class="px" src="${iconUrl(choice.kind === 'heal' ? 'heal' : choice.id)}" alt="" />`;
     const tag = choice.kind === 'heal' ? '' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
@@ -333,6 +335,7 @@ app.addEventListener('click', (event) => {
   }
 });
 
+document.querySelector('.kills-icon').src = iconUrl('roachA');
 crewName = recall(NAME_KEY);
 nameInput.value = crewName;
 

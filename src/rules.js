@@ -70,6 +70,18 @@ export const WEAPONS = {
     label: '슬리퍼', description: '던지면 돌아오는 슬리퍼',
     cooldown: [1.9, 1.7, 1.5, 1.35, 1.2], damage: [16, 20, 25, 30, 36], count: [1, 1, 2, 2, 3], speed: 330, rangeSec: 0.75,
   },
+  coil: {
+    label: '모기향', description: '불씨가 주위를 빙빙 돌며 태운다',
+    damage: [8, 10, 13, 16, 20], count: [2, 2, 3, 3, 4], orbit: [62, 66, 70, 76, 82], hitEverySec: 0.45,
+  },
+  zapper: {
+    label: '전기 파리채', description: '전기가 적에서 적으로 튄다',
+    cooldown: [2.2, 2.0, 1.8, 1.6, 1.4], damage: [18, 23, 29, 36, 44], chains: [3, 4, 5, 6, 8], jump: 130,
+  },
+  fan: {
+    label: '선풍기', description: '강풍으로 앞의 적을 멀리 날린다',
+    cooldown: [3, 2.8, 2.6, 2.4, 2.2], damage: [8, 11, 14, 18, 22], range: [150, 165, 180, 200, 220], knockback: 95,
+  },
 };
 
 // 패시브. 배열은 1~5레벨 효과다.
@@ -79,6 +91,9 @@ export const PASSIVES = {
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
   vitamin: { label: '비타민', description: '최대 체력과 회복력이 오른다', maxHp: [20, 40, 60, 80, 100], regen: [0.4, 0.8, 1.2, 1.6, 2] },
   battery: { label: '보조배터리', description: '무기를 더 자주 쓴다', haste: [0.07, 0.13, 0.19, 0.24, 0.3] },
+  candle: { label: '향초', description: '먼지에서 경험치를 더 얻는다', xpGain: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  wipes: { label: '물티슈', description: '무기가 닿는 범위가 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  clover: { label: '네잎클로버', description: '아이템이 더 자주 떨어진다', luck: [0.3, 0.6, 0.9, 1.2, 1.5] },
 };
 
 export const MAX_LEVEL = 5;
@@ -89,6 +104,9 @@ export const DROPS = {
   vacuumBag: { label: '청소기 먼지통', description: '바닥의 먼지를 모두 끌어온다', chance: 0.004 },
   bugBomb: { label: '연막 살충제', description: '화면의 적을 모두 쓰러뜨린다(보스 제외)', chance: 0.0025 },
   coffee: { label: '아이스 아메리카노', description: '10초 동안 빨라지고 무기를 더 자주 쓴다', chance: 0.004 },
+  chicken: { label: '치킨', description: '체력을 모두 회복한다', chance: 0.0015 },
+  icepack: { label: '얼음팩', description: '4초 동안 적이 얼어붙는다(보스 제외)', chance: 0.003 },
+  box: { label: '택배 상자', description: '5초 동안 피해를 받지 않는다', chance: 0.003 },
 };
 
 export function xpToNext(level) {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
 import { rankBest } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, PLAYER, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -139,8 +139,8 @@ describe('성장과 아이템', () => {
 
   it('모든 무기와 패시브를 최대로 올리면 라면으로 회복한다', () => {
     const game = createGame(seeded(2));
-    game.weapons = Object.fromEntries(['spray', 'broom', 'bleach', 'dehumidifier', 'swatter', 'slipper'].map((id) => [id, MAX_LEVEL]));
-    game.passives = Object.fromEntries(['gloves', 'sneakers', 'vacuum', 'vitamin', 'battery'].map((id) => [id, MAX_LEVEL]));
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
+    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, MAX_LEVEL]));
     assert.ok(rollChoices(game).every((choice) => choice.kind === 'heal'));
   });
 
@@ -175,6 +175,68 @@ describe('성장과 아이템', () => {
     assert.equal(game.choices.length, 3);
     choose(game, 0);
     assert.notEqual(game.choices, null);
+  });
+});
+
+describe('추가 아이템', () => {
+  it('모기향 불씨는 닿은 적을 태운다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = { coil: 1 };
+    const roach = placeEnemy(game, 'roach', 62, 0, { hp: 5 });
+    run(game, 2.5);
+    assert.ok(roach.dead);
+  });
+
+  it('전기 파리채는 가까운 적에서 다음 적으로 튄다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = { zapper: 1 };
+    const targets = [100, 180, 260].map((x) => placeEnemy(game, 'trash', x, 0, { hp: 1000 }));
+    update(game, 1 / 60);
+    assert.ok(targets.every((enemy) => enemy.hp < 1000));
+  });
+
+  it('선풍기는 앞쪽 적만 멀리 밀어낸다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = { fan: 1 };
+    const front = placeEnemy(game, 'trash', 80, 0, { hp: 1000 });
+    const behind = placeEnemy(game, 'trash', -120, 0, { hp: 1000 });
+    update(game, 1 / 60);
+    assert.ok(front.kx > 0);
+    assert.equal(behind.hp, 1000);
+  });
+
+  it('얼음팩은 일반 적을 얼려 다가오지도 때리지도 못하게 한다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    const roach = placeEnemy(game, 'roach', 3, 0, { hp: 1000, speed: 50 });
+    game.drops.push({ type: 'icepack', x: game.player.x, y: game.player.y });
+    update(game, 1 / 60);
+    const hp = game.player.hp;
+    run(game, 1);
+    assert.equal(roach.frozen, true);
+    assert.equal(game.player.hp, hp);
+  });
+
+  it('택배 상자를 주우면 5초 동안 피해를 받지 않는다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.drops.push({ type: 'box', x: game.player.x, y: game.player.y });
+    update(game, 1 / 60);
+    placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 30 });
+    run(game, 2);
+    assert.equal(game.player.hp, PLAYER.maxHp);
+  });
+
+  it('향초는 경험치를 더 주고 물티슈는 범위를 넓힌다', () => {
+    const game = createGame(seeded(4));
+    game.passives = { candle: 5, wipes: 5 };
+    assert.equal(statsOf(game).xpGain, 1.5);
+    assert.equal(statsOf(game).area, 1.4);
   });
 });
 

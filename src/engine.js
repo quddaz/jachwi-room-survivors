@@ -32,6 +32,9 @@ export function createGame(random = Math.random) {
     nextSwarmAt: 60,
     bossIndex: 0,
     coffeeUntil: -1,
+    freezeUntil: -1,
+    shieldUntil: -1,
+    xpCarry: 0,
     nextId: 1,
   };
 }
@@ -50,6 +53,9 @@ export function statsOf(game) {
     maxHp: PLAYER.maxHp + passiveValue(game, 'vitamin', 'maxHp'),
     regen: passiveValue(game, 'vitamin', 'regen'),
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1),
+    xpGain: 1 + passiveValue(game, 'candle', 'xpGain'),
+    area: 1 + passiveValue(game, 'wipes', 'area'),
+    luck: 1 + passiveValue(game, 'clover', 'luck'),
   };
 }
 
@@ -159,7 +165,7 @@ function movePlayer(game, dt, input) {
 // 맞으면 잠깐 무적이 되어, 적이 여럿 붙어 있어도 한 번에 한 대씩만 맞는다.
 function damagePlayer(game, amount) {
   const { player } = game;
-  if (player.invulnerable > 0) return false;
+  if (player.invulnerable > 0 || game.time < game.shieldUntil) return false;
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
   player.invulnerable = PLAYER.invulnerableSec;
@@ -181,7 +187,13 @@ function shootRadial(game, enemy, count, speed, damage) {
 function moveEnemies(game, dt) {
   const { player } = game;
   const difficulty = difficultyAt(game.time);
+  const frozen = game.time < game.freezeUntil;
   for (const enemy of game.enemies) {
+    enemy.frozen = frozen && !enemy.boss;
+    if (enemy.frozen) {
+      enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
+      continue;
+    }
     const dx = player.x - enemy.x;
     const dy = player.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
@@ -313,8 +325,9 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'banner', text: `${enemy.label} 처치! 보물상자를 주워요`, life: 2.4 });
     return;
   }
+  const { luck } = statsOf(game);
   for (const [type, drop] of Object.entries(DROPS)) {
-    if (game.random() < drop.chance) {
+    if (game.random() < drop.chance * luck) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;
     }
@@ -340,8 +353,20 @@ function ready(game, id, dt) {
   return true;
 }
 
+export function coilOrbs(game) {
+  const level = game.weapons.coil;
+  if (!level) return [];
+  const count = WEAPONS.coil.count[level - 1];
+  const orbit = WEAPONS.coil.orbit[level - 1] * statsOf(game).area;
+  return Array.from({ length: count }, (_, index) => {
+    const angle = game.time * 2.8 + (index / count) * Math.PI * 2;
+    return { x: game.player.x + Math.cos(angle) * orbit, y: game.player.y + Math.sin(angle) * orbit };
+  });
+}
+
 function fireWeapons(game, dt) {
   const { player } = game;
+  const { area } = statsOf(game);
   if (game.weapons.spray && ready(game, 'spray', dt)) {
     const count = weaponValue(game, 'spray', 'count');
     const targets = nearestEnemies(game, count);
@@ -357,7 +382,7 @@ function fireWeapons(game, dt) {
     }
   }
   if (game.weapons.broom && ready(game, 'broom', dt)) {
-    const radius = weaponValue(game, 'broom', 'radius');
+    const radius = weaponValue(game, 'broom', 'radius') * area;
     const damage = weaponValue(game, 'broom', 'damage');
     for (const enemy of game.enemies) {
       if (distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, damage, WEAPONS.broom.knockback);
@@ -369,12 +394,12 @@ function fireWeapons(game, dt) {
     for (let index = 0; index < weaponValue(game, 'bleach', 'count'); index += 1) {
       const target = candidates.length > 0 ? candidates[Math.floor(game.random() * candidates.length)]
         : { x: player.x + (game.random() - 0.5) * 200, y: player.y + (game.random() - 0.5) * 200 };
-      game.puddles.push({ x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius'),
+      game.puddles.push({ x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area,
         dps: weaponValue(game, 'bleach', 'dps'), life: WEAPONS.bleach.lifeSec, maxLife: WEAPONS.bleach.lifeSec });
     }
   }
   if (game.weapons.dehumidifier) {
-    const radius = weaponValue(game, 'dehumidifier', 'radius');
+    const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
     for (const enemy of game.enemies) {
       if (distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, damage);
@@ -385,7 +410,7 @@ function fireWeapons(game, dt) {
       .filter((enemy) => !enemy.dead && distance(enemy, player) < 420)
       .sort((a, b) => b.hp - a.hp)[0];
     if (target) {
-      const radius = weaponValue(game, 'swatter', 'radius');
+      const radius = weaponValue(game, 'swatter', 'radius') * area;
       const damage = weaponValue(game, 'swatter', 'damage');
       const center = { x: target.x, y: target.y };
       for (const enemy of game.enemies) {
@@ -407,6 +432,58 @@ function fireWeapons(game, dt) {
         damage: weaponValue(game, 'slipper', 'damage'), outFor: rangeSec, returning: false, radius: 10,
         spin: 0, hit: new Set() });
     }
+  }
+  if (game.weapons.coil) {
+    const damage = weaponValue(game, 'coil', 'damage');
+    for (const orb of coilOrbs(game)) {
+      for (const enemy of game.enemies) {
+        if (enemy.dead || distance(enemy, orb) > 11 + enemy.radius) continue;
+        if (game.time - (enemy.coilHitAt ?? -9) < WEAPONS.coil.hitEverySec) continue;
+        enemy.coilHitAt = game.time;
+        damageEnemy(game, enemy, damage, 8, orb);
+      }
+    }
+  }
+  if (game.weapons.zapper && ready(game, 'zapper', dt)) {
+    const damage = weaponValue(game, 'zapper', 'damage');
+    const points = [{ x: player.x, y: player.y }];
+    const hit = new Set();
+    let from = player;
+    let reach = 300;
+    for (let jump = 0; jump < weaponValue(game, 'zapper', 'chains'); jump += 1) {
+      let next = null;
+      let best = reach;
+      for (const enemy of game.enemies) {
+        if (enemy.dead || hit.has(enemy.id)) continue;
+        const gap = distance(enemy, from);
+        if (gap < best) {
+          best = gap;
+          next = enemy;
+        }
+      }
+      if (!next) break;
+      hit.add(next.id);
+      points.push({ x: next.x, y: next.y });
+      damageEnemy(game, next, damage);
+      from = next;
+      reach = WEAPONS.zapper.jump * area;
+    }
+    if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.22 });
+    else game.cooldowns.zapper = 0.2;
+  }
+  if (game.weapons.fan && ready(game, 'fan', dt)) {
+    const range = weaponValue(game, 'fan', 'range') * area;
+    const damage = weaponValue(game, 'fan', 'damage');
+    const target = nearestEnemies(game, 1, range)[0];
+    const angle = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
+    for (const enemy of game.enemies) {
+      const gap = distance(enemy, player);
+      if (enemy.dead || gap > range + enemy.radius) continue;
+      const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+      const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
+      if (diff < 0.75) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
+    }
+    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, life: 0.35 });
   }
 }
 
@@ -474,7 +551,7 @@ function updateProjectiles(game, dt) {
 function contactDamage(game) {
   let strongest = 0;
   for (const enemy of game.enemies) {
-    if (!enemy.dead && distance(enemy, game.player) < enemy.radius + PLAYER.radius) {
+    if (!enemy.dead && !enemy.frozen && distance(enemy, game.player) < enemy.radius + PLAYER.radius) {
       strongest = Math.max(strongest, enemy.damage);
     }
   }
@@ -493,9 +570,12 @@ function applyDrop(game, drop) {
     }
     addEffect(game, { type: 'bomb', x: player.x, y: player.y, radius: 560, life: 0.6 });
   }
+  if (drop.type === 'chicken') player.hp = stats.maxHp;
+  if (drop.type === 'icepack') game.freezeUntil = game.time + 4;
+  if (drop.type === 'box') game.shieldUntil = game.time + 5;
   if (drop.type === 'chest') game.pendingLevels += 2;
-  addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, text: drop.type === 'chest' ? '보물상자' : DROPS[drop.type].label,
-    life: 1.2 });
+  addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
+  if (drop.type !== 'chest') addEffect(game, { type: 'banner', text: `${DROPS[drop.type].label}!`, life: 1.1 });
 }
 
 function collect(game, dt) {
@@ -511,7 +591,10 @@ function collect(game, dt) {
     }
     if (distance(gem, player) < PLAYER.radius + 6) {
       gem.taken = true;
-      game.xp += gem.value;
+      game.xpCarry += gem.value * statsOf(game).xpGain;
+      const gained = Math.floor(game.xpCarry);
+      game.xpCarry -= gained;
+      game.xp += gained;
     }
   }
   game.gems = game.gems.filter((gem) => !gem.taken);
