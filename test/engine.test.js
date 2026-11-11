@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, statSheet, statsOf, update,
+  choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
-import { rankBest } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -182,7 +182,7 @@ describe('성장과 아이템', () => {
     assert.deepEqual(game.enemies.map((enemy) => enemy.kind), ['kingRoach']);
   });
 
-  it('보스를 잡으면 보물상자가 나오고 열면 두 번 강화한다', () => {
+  it('보스를 잡으면 보물 상자가 나오고 열면 보물을 하나 고른다', () => {
     const game = createGame(seeded(2));
     game.spawnCarry = -1000;
     const boss = placeEnemy(game, 'kingRoach', 400, 0, { boss: true, label: '왕바퀴', stats: { chargeEverySec: 99 } });
@@ -192,8 +192,11 @@ describe('성장과 아이템', () => {
     chest.y = game.player.y;
     update(game, 1 / 60);
     assert.equal(game.choices.length, 3);
-    choose(game, 0);
-    assert.notEqual(game.choices, null);
+    assert.ok(game.choices.every((choice) => choice.kind === 'relic'));
+    const picked = choose(game, 0);
+    assert.ok(game.relics[picked.id]);
+    assert.equal(game.pendingLevels, 0);
+    assert.equal(game.choices, null);
   });
 });
 
@@ -663,5 +666,251 @@ describe('범위 조정', () => {
     const side = placeEnemy(game, 'trash', Math.cos(0.87) * 180, Math.sin(0.87) * 180, { hp: 1000 });
     update(game, 1 / 60);
     assert.ok(front.hp < 1000 && side.hp < 1000);
+  });
+});
+
+describe('보물', () => {
+  function quiet(seed = 31) {
+    const game = createGame(seeded(seed));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    return game;
+  }
+
+  it('게임을 시작하면 보물 셋 가운데 하나를 고르고, 고른 보물은 다시 나오지 않는다', () => {
+    const game = quiet();
+    startWithRelic(game);
+    assert.equal(game.choices.length, 3);
+    assert.ok(game.choices.every((choice) => choice.kind === 'relic' && choice.details.length > 0));
+    const picked = choose(game, 1);
+    assert.equal(game.choices, null);
+    for (let roll = 0; roll < 20; roll += 1) {
+      startWithRelic(game);
+      assert.ok(!game.choices.some((choice) => choice.id === picked.id));
+      game.choices = null;
+      game.pendingRelics = 0;
+    }
+  });
+
+  it('보물이 스무 개가 넘고, 다 가졌으면 상자가 레벨업 두 번이 된다', () => {
+    assert.ok(Object.keys(RELICS).length >= 20);
+    const game = quiet();
+    game.relics = Object.fromEntries(Object.keys(RELICS).map((id) => [id, true]));
+    startWithRelic(game);
+    assert.ok(game.choices.every((choice) => choice.kind !== 'relic'));
+    assert.equal(game.pendingLevels, 2);
+  });
+
+  it('쌍둥이 노즐은 살충제를 두 번씩 쏜다', () => {
+    const count = (twin) => {
+      const game = quiet();
+      game.weapons = { spray: 1 };
+      if (twin) game.relics.twin = true;
+      placeEnemy(game, 'trash', 300, 0, { hp: 1e9 });
+      let fired = 0;
+      for (let step = 0; step < 60 * 5; step += 1) {
+        const before = game.shots.length;
+        update(game, 1 / 60);
+        fired += Math.max(0, game.shots.length - before);
+      }
+      return fired;
+    };
+    assert.ok(count(true) >= count(false) * 1.8);
+  });
+
+  it('두꺼운 이불은 멈춰 있을 때만 피해를 80% 줄인다', () => {
+    const still = quiet();
+    still.relics.blanket = true;
+    placeEnemy(still, 'roach', 3, 0, { hp: 1e9, damage: 10 });
+    update(still, 1 / 60);
+    near(still.player.hp, PLAYER.maxHp - 2);
+    const moving = quiet();
+    moving.relics.blanket = true;
+    placeEnemy(moving, 'roach', 3, 0, { hp: 1e9, damage: 10 });
+    update(moving, 1 / 60, { x: 0.01, y: 1 });
+    assert.ok(moving.player.hp < PLAYER.maxHp - 8);
+  });
+
+  it('구급상자는 한 번만 살려 준다', () => {
+    const game = quiet();
+    game.relics.firstaid = true;
+    game.player.hp = 1;
+    placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 50 });
+    update(game, 1 / 60);
+    assert.equal(game.over, false);
+    assert.ok(game.player.hp >= PLAYER.maxHp * 0.5 - 1);
+    game.player.hp = 1;
+    game.player.invulnerable = 0;
+    game.shieldUntil = -1;
+    update(game, 1 / 60);
+    assert.equal(game.over, true);
+  });
+
+  it('철수세미는 부딪힌 적에게 피해를 돌려준다', () => {
+    const game = quiet();
+    game.relics.scrubber = true;
+    const roach = placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 10 });
+    update(game, 1 / 60);
+    assert.equal(roach.hp, 1000 - 10 * RELICS.scrubber.reflect);
+  });
+
+  it('알람시계는 때마다 적을 얼린다', () => {
+    const game = quiet();
+    game.relics.alarm = true;
+    game.alarmIn = 0.05;
+    const roach = placeEnemy(game, 'roach', 300, 0, { hp: 1e9, speed: 60 });
+    for (let step = 0; step < 6; step += 1) update(game, 1 / 60);
+    const x = roach.x;
+    for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
+    assert.equal(roach.x, x);
+  });
+
+  it('행운의 고양이는 다시 뽑기를 두 번 준다', () => {
+    const game = quiet();
+    game.relics.neko = true;
+    game.pendingLevels = 1;
+    update(game, 1 / 60);
+    assert.ok(reroll(game) && reroll(game));
+    assert.ok(!reroll(game));
+    assert.equal(statsOf(game).critChance, 0.1);
+  });
+
+  it('에너지 드링크와 마지막 컵라면은 조건이 맞을 때만 공격력을 올린다', () => {
+    const game = quiet();
+    game.relics = { energy: true, lastcup: true };
+    game.player.moving = false;
+    assert.equal(statsOf(game).might, 1);
+    game.player.moving = true;
+    assert.equal(statsOf(game).might, 1.3);
+    game.player.hp = PLAYER.maxHp * 0.2;
+    assert.ok(Math.abs(statsOf(game).might - 1.9) < 1e-9);
+  });
+});
+
+describe('물티슈 바람 폭', () => {
+  it('물티슈가 있으면 선풍기 바람이 옆으로 더 넓게 닿는다', () => {
+    const hits = (wipes) => {
+      const game = createGame(seeded(4));
+      game.spawnCarry = -1000;
+      game.weapons = { fan: 1 };
+      if (wipes) game.passives = { wipes: 5 };
+      placeEnemy(game, 'trash', 100, 0, { hp: 1000 });
+      const side = placeEnemy(game, 'trash', Math.cos(1.2) * 150, Math.sin(1.2) * 150, { hp: 1000 });
+      update(game, 1 / 60);
+      return side.hp < 1000;
+    };
+    assert.equal(hits(false), false);
+    assert.equal(hits(true), true);
+  });
+});
+
+describe('보물 2', () => {
+  function quiet(seed = 41) {
+    const game = createGame(seeded(seed));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    return game;
+  }
+  const dummy = (extra = {}) => ({ id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0, ...extra });
+
+  it('능력치형 보물은 바로 능력치에 붙는다', () => {
+    const game = quiet();
+    game.relics = { bigpot: true, stopwatch: true, dice: true, waterbottle: true, scooter: true };
+    const stats = statsOf(game);
+    assert.equal(stats.area, 1.25);
+    assert.equal(stats.projectile, 1.25);
+    near(stats.cooldownScale, 0.85, 1e-9);
+    near(stats.critChance, 0.05, 1e-9);
+    near(stats.critDamage, PLAYER.critDamage + 0.75, 1e-9);
+    assert.equal(stats.maxHp, PLAYER.maxHp + 50);
+    assert.equal(stats.regen, PLAYER.regen + 1);
+    near(stats.speed, PLAYER.speed * 1.25, 1e-9);
+  });
+
+  it('형광등은 보스에게만 40% 더 때린다', () => {
+    const game = quiet();
+    game.relics.lamp = true;
+    const boss = dummy({ boss: true });
+    const normal = dummy({ id: 2 });
+    damageEnemy(game, boss, 10);
+    damageEnemy(game, normal, 10);
+    assert.equal(boss.hp, 986);
+    assert.equal(normal.hp, 990);
+  });
+
+  it('우산은 날아온 피해만 줄인다', () => {
+    const game = quiet();
+    game.relics.umbrella = true;
+    game.enemyShots.push({ x: game.player.x, y: game.player.y, vx: 0, vy: 0, damage: 10, radius: 6, life: 5, kind: 'rust', age: 0 });
+    update(game, 1 / 60);
+    near(game.player.hp, PLAYER.maxHp - 4);
+  });
+
+  it('얼음틀은 맞은 적을 얼린다', () => {
+    const game = quiet();
+    game.relics.icetray = true;
+    game.random = () => 0;
+    const roach = placeEnemy(game, 'roach', 300, 0, { hp: 1000, speed: 60 });
+    damageEnemy(game, roach, 10);
+    update(game, 1 / 60);
+    assert.equal(roach.frozen, true);
+  });
+
+  it('팝콘 기계는 쓰러진 적 주변에 피해를 준다', () => {
+    const game = quiet();
+    game.relics.popcorn = true;
+    game.random = () => 0;
+    const target = placeEnemy(game, 'roach', 300, 0, { hp: 1 });
+    const near1 = placeEnemy(game, 'roach', 330, 0, { hp: 1000 });
+    damageEnemy(game, target, 5);
+    assert.equal(near1.hp, 1000 - RELICS.popcorn.damage);
+  });
+
+  it('폭죽은 때가 되면 주변 적에게 크게 터진다', () => {
+    const game = quiet();
+    game.relics.firecracker = true;
+    game.fireIn = 0.01;
+    const roach = placeEnemy(game, 'trash', 200, 0, { hp: 1000 });
+    update(game, 1 / 60);
+    assert.equal(roach.hp, 1000 - RELICS.firecracker.damage);
+  });
+
+  it('고무망치는 치명타를 없애고, 치명타 확률 5%마다 피해 +5와 공격 속도 2배를 준다', () => {
+    const game = quiet();
+    game.relics = { mallet: true, dice: true };
+    game.passives = { clover: 2 };
+    const stats = statsOf(game);
+    assert.equal(stats.critChance, 0);
+    assert.equal(stats.flatDamage, 15);
+    near(stats.cooldownScale, 0.5, 1e-9);
+    game.random = () => 0;
+    const enemy = dummy();
+    damageEnemy(game, enemy, 10);
+    assert.equal(enemy.hp, 990);
+    assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes(`피해 ${WEAPONS.broom.damage[0] + 15}`));
+    assert.equal(Object.fromEntries(statSheet(game))['고정 피해'], '+15');
+  });
+});
+
+describe('시즌', () => {
+  it('새 기록은 지금 시즌으로 보내고, 순위는 고른 시즌만 불러온다', async () => {
+    const calls = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), body: options.body ? JSON.parse(options.body) : null });
+      return { ok: true, json: async () => [] };
+    };
+    try {
+      assert.equal(SEASON, 2);
+      assert.deepEqual(SEASONS, [2, 1]);
+      await submitRecord({ crewName: '쿠다', survivedMs: 60_000, kills: 10, level: 3 });
+      assert.equal(calls[0].body.season, 2);
+      await fetchRanking();
+      assert.ok(calls[1].url.includes('room_survivors_season_best') && calls[1].url.includes('season=eq.2'));
+      await fetchRanking(1);
+      assert.ok(calls[2].url.includes('season=eq.1'));
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

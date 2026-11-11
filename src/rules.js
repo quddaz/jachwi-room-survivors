@@ -8,14 +8,14 @@ export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radiu
 // 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
 export function difficultyAt(time) {
   const minutes = time / 60;
-  // 6분부터는 합체 무기를 갖춘 오리를 상대하도록 조금 더 세지지만, 한 번에 튀지 않고 꾸준히 오른다.
+  // 6분부터는 보물과 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
   const late = Math.max(0, minutes - 6);
   return {
-    hp: 1 + minutes * 0.4 + minutes * minutes * 0.06 + late * late * 0.1,
-    damage: 1 + minutes * 0.15 + minutes * minutes * 0.006 + late * 0.05,
-    speed: 1 + Math.min(0.4, minutes * 0.035) + Math.min(0.15, late * 0.02),
-    spawnPerSec: Math.min(34, 1.4 + minutes * 1.6 + minutes * minutes * 0.16 + late * 0.4),
-    maxEnemies: Math.min(520, 110 + Math.floor(minutes * 55)),
+    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * late * 0.35 + late * late * late * 0.04,
+    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.25,
+    speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03),
+    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.2),
+    maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
   };
 }
 
@@ -147,7 +147,8 @@ export const PASSIVES = {
   vitamin: { label: '비타민', description: '최대 체력과 회복력이 오른다', maxHp: [10, 20, 30, 40, 50], regen: [0.4, 0.8, 1.2, 1.6, 2] },
   battery: { label: '보조배터리', description: '무기를 더 자주 쓴다', haste: [0.07, 0.13, 0.19, 0.24, 0.3] },
   candle: { label: '향초', description: '먼지에서 경험치를 더 얻는다', xpGain: [0.1, 0.2, 0.3, 0.4, 0.5] },
-  wipes: { label: '물티슈', description: '무기가 닿는 범위가 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  // 범위는 반경과 사거리를 넓히고, 드라이기와 선풍기는 바람이 퍼지는 폭도 같이 넓힌다.
+  wipes: { label: '물티슈', description: '무기 범위가 넓어지고, 드라이기·선풍기 바람 폭도 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
   protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
   magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.3, 0.6, 0.9, 1.2, 1.5] },
   clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25] },
@@ -196,6 +197,38 @@ export const FUSIONS = {
     damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
   sawblade: { label: '회전 톱날', description: '커다란 톱날 둘이 화면을 크게 돌며 닿는 적을 갈아 버린다', from: ['slipper', 'roller'],
     count: 2, orbit: 170, spin: 2.6, radius: 30, damage: 1.2, hitEverySec: 0.22 },
+};
+
+// 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
+// stats는 카드에 적는 정확한 효과다.
+export const RELICS = {
+  twin: { label: '쌍둥이 노즐', description: '날아가는 무기를 두 번씩 쏜다',
+    stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저 2번 발사'], weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser'], echoSec: 0.12 },
+  blanket: { label: '두꺼운 이불', description: '가만히 있으면 거의 다치지 않는다', stats: ['멈춰 있으면 받는 피해 -80%'], guard: 0.8 },
+  energy: { label: '에너지 드링크', description: '움직이는 동안 힘이 넘친다', stats: ['움직이는 동안 공격력 +30%', '이동 속도 +10%'], might: 0.3, speed: 0.1 },
+  magnet: { label: '냉장고 자석', description: '먼지를 아주 멀리서 끌어온다', stats: ['줍는 범위 +200%'], pickup: 2 },
+  neko: { label: '행운의 고양이', description: '운이 좋아진다', stats: ['다시 뽑기 +1회', '치명타 확률 +10%'], rerolls: 1, critChance: 0.1 },
+  firstaid: { label: '구급상자', description: '쓰러져도 한 번 일어난다', stats: ['한 번 체력 50%로 부활', '부활 뒤 3초 무적'], reviveHp: 0.5, reviveGuardSec: 3 },
+  scrubber: { label: '철수세미', description: '부딪힌 적에게 따끔하게 돌려준다', stats: ['맞으면 주변 적에게 받은 피해의 500%'], reflect: 5, radius: 110 },
+  alarm: { label: '알람시계', description: '때마다 울려 적을 얼린다', stats: ['20초마다 적 2.5초 얼림(보스 제외)'], everySec: 20, freezeSec: 2.5 },
+  piggy: { label: '돼지 저금통', description: '차곡차곡 모아 더 빨리 큰다', stats: ['경험치 +40%', '레벨업마다 체력 +10'], xpGain: 0.4, levelHeal: 10 },
+  lastcup: { label: '마지막 컵라면', description: '궁지에 몰리면 강해진다', stats: ['체력 30% 이하일 때 공격력 +60%', '쿨타임 -20%'],
+    below: 0.3, might: 0.6, haste: 0.2 },
+  bigpot: { label: '큰 냄비', description: '무엇이든 크게 만든다', stats: ['무기 범위 +25%', '투사체 크기 +25%'], area: 0.25, projectile: 0.25 },
+  stopwatch: { label: '스톱워치', description: '손이 빨라진다', stats: ['모든 쿨타임 -15%'], haste: 0.15 },
+  dice: { label: '주사위', description: '한 방을 노린다', stats: ['치명타 확률 +5%', '치명타 피해 +75%'], critChance: 0.05, critDamage: 0.75 },
+  popcorn: { label: '팝콘 기계', description: '쓰러진 적이 펑 터진다', stats: ['적이 쓰러지면 25% 확률로 폭발', '폭발 피해 25(공격력 비례)'],
+    chance: 0.25, radius: 70, damage: 25 },
+  icetray: { label: '얼음틀', description: '때릴 때마다 차갑다', stats: ['맞은 적 8% 확률로 1.5초 얼림(보스 제외)'], chance: 0.08, freezeSec: 1.5 },
+  umbrella: { label: '우산', description: '날아오는 것을 막아 준다', stats: ['탄막·떨어지는 쓰레기 피해 -60%'], guard: 0.6 },
+  waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
+  scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
+  firecracker: { label: '폭죽', description: '때마다 크게 터진다', stats: ['25초마다 주변 큰 폭발', '폭발 피해 120(공격력 비례)'],
+    everySec: 25, radius: 320, damage: 120 },
+  lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
+  // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
+  mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
+    stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +5', '공격 속도 +100%'], step: 0.05, flat: 5, attackSpeed: 1 },
 };
 
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)

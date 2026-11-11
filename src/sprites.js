@@ -1245,6 +1245,370 @@ ITEMS.hotsauce = item([
   body.set(7, 9, f % 2 === 0 ? 'Y' : 'W');
   twinkle(fx, 13, 12, f + 2, 'e');
 });
+// 보물
+ITEMS.twin = item([
+  '................',
+  '..DD......DD....',
+  '.Dddz....Dddz...',
+  '.DDDD....DDDD...',
+  '..zz......zz....',
+  '.xGGx....xGGx...',
+  'xGgGGx..xGgGGx..',
+  'xGgGGx..xGgGGx..',
+  'xWWWWx..xWWWWx..',
+  'xWRRWx..xWRRWx..',
+  'xWWWWx..xWWWWx..',
+  'xGgGGx..xGgGGx..',
+  'xGGGGx..xGGGGx..',
+  '.xxxx....xxxx...',
+  '................',
+  '................',
+], (body, fx, f) => {
+  [[5, 2], [13, 2]].forEach(([x, y], index) => {
+    const reach = (f + index * 2) % ITEM_FRAMES;
+    for (let step = 0; step <= reach; step += 1) fx.set(x + step, y - step * 0.5, step === reach ? 'W' : 'L');
+  });
+  twinkle(fx, 7, 11, f, 'Y');
+});
+ITEMS.blanket = item([
+  '................',
+  '................',
+  '................',
+  '..qqqqqqqqqqqq..',
+  '.qBBlBBBBlBBBBq.',
+  '.qBlllBBlllBBBq.',
+  '.qBBlBBBBlBBBBq.',
+  '.qbbbbbbbbbbbbq.',
+  '.qWWWWWWWWWWWWq.',
+  '.qBBBBlBBBBlBBq.',
+  '.qBBBlllBBlllBq.',
+  '.qBBBBlBBBBlBBq.',
+  '..qqqqqqqqqqqq..',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 졸린 Z가 차례로 떠오른다.
+  const zs = [[[12, 2]], [[12, 2], [13, 0]], [[13, 1], [14, 0]], [[12, 2]]][f];
+  zs.forEach(([x, y]) => fx.set(x, y, 'W').set(x + 1, y, 'W').set(x, y + 1, 'L'));
+  body.set(4 + f * 2, 8, 'y');
+});
+ITEMS.energy = item([
+  '.....hhhhh......',
+  '....zdddddz.....',
+  '....hYYYYYh.....',
+  '....hYKKYYh.....',
+  '....hYYKKYh.....',
+  '....hhKKYYh.....',
+  '....hYYKKKh.....',
+  '....hYKKKYh.....',
+  '....hYYYKKh.....',
+  '....hYYKKYh.....',
+  '....hYKYYYh.....',
+  '....hYYYYYh.....',
+  '....zdddddz.....',
+  '.....hhhhh......',
+  '................',
+  '................',
+], (body, fx, f) => {
+  const sparks = [[[12, 3], [13, 2], [2, 9]], [[13, 5], [14, 4], [1, 6]], [[12, 9], [13, 10], [2, 3]], [[14, 7], [1, 11], [2, 12]]];
+  sparks[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'Y'));
+  body.set(6, 2 + f * 3, 'y');
+});
+ITEMS.magnet = item([
+  '................',
+  '..uRRRu.uRRRu...',
+  '..RRaRR.RRaRR...',
+  '..RRRRR.RRRRR...',
+  '..RRRRR.RRRRR...',
+  '..RRRRR.RRRRR...',
+  '..RRRRRuRRRRR...',
+  '..RRRRRRRRRRR...',
+  '...RRRRRRRRR....',
+  '....uRRRRRu.....',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  body.rect(2, 1, 5, 2, 'z').rect(8, 1, 5, 2, 'z').set(3, 1, 'W').set(9, 1, 'W');
+  // 아래에서 먼지가 끌려 올라온다.
+  [[3, 14], [7, 15], [11, 14], [5, 12], [9, 13]].forEach(([x, y], index) => {
+    const pull = (f + index) % ITEM_FRAMES;
+    fx.set(x + (x < 7 ? pull * 0.5 : x > 7 ? -pull * 0.5 : 0), y - pull, pull === 3 ? 'W' : index % 2 ? 'n' : 'b');
+  });
+});
+ITEMS.neko = item([], (body, fx, f) => {
+  const paw = [2, 1, 2, 3][f];
+  body.ellipse(7, 10, 5, 4, 'W').ellipse(7, 5, 4, 3, 'W');
+  body.set(3, 2, 'W').set(4, 1, 'W').set(4, 2, 'a').set(10, 1, 'W').set(11, 2, 'W').set(10, 2, 'a');
+  body.set(5, 5, 'K').set(9, 5, 'K').set(7, 6, 'a').set(6, 7, 'p').set(8, 7, 'p');
+  body.rect(4, 8, 7, 1, 'R').set(7, 9, 'O').set(7, 10, 'y');
+  body.rect(12, paw, 2, 3, 'W').set(12, paw + 3, 'W').set(13, paw, 'a');
+  body.ellipse(7, 12, 2, 1, 'O').set(7, 12, 'Y');
+  twinkle(fx, 1, 6, f, 'Y');
+  twinkle(fx, 14, 12, f + 2, 'Y');
+});
+ITEMS.firstaid = item([
+  '................',
+  '......hhhh......',
+  '.....h....h.....',
+  '..hhhhhhhhhhhh..',
+  '..hWWWWWWWWWWh..',
+  '..hWWWWRRWWWWh..',
+  '..hWWWWRRWWWWh..',
+  '..hWWRRRRRRWWh..',
+  '..hWWRRRRRRWWh..',
+  '..hWWWWRRWWWWh..',
+  '..hWWWWRRWWWWh..',
+  '..hzzzzzzzzzzh..',
+  '..hhhhhhhhhhhh..',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 십자가 맥박처럼 뛴다.
+  if (f === 1 || f === 2) for (let y = 5; y <= 10; y += 1) for (let x = 5; x <= 10; x += 1) if (body.get(x, y) === 'R') body.set(x, y, f === 1 ? 'A' : 'e');
+  twinkle(fx, 14, 2, f, 'W');
+  twinkle(fx, 1, 13, f + 2, 'a');
+});
+ITEMS.scrubber = item([], (body, fx, f) => {
+  body.ellipse(7, 8, 6, 5, 'd').ellipse(7, 8, 5, 4, 'z');
+  for (let curl = 0; curl < 14; curl += 1) {
+    const angle = curl * 1.9 + f * 0.4;
+    const reach = 1 + (curl % 4);
+    body.set(7.5 + Math.cos(angle) * reach * 1.2, 8 + Math.sin(angle) * reach, curl % 3 === 0 ? 'W' : 'd');
+  }
+  const spikes = [[[0, 3], [15, 12]], [[1, 13], [14, 2]], [[0, 8], [15, 6], [7, 1]], [[14, 14], [2, 1]]][f];
+  spikes.forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'E'));
+  twinkle(fx, 11, 3, f + 1, 'W');
+});
+ITEMS.alarm = item([], (body, fx, f) => {
+  const shake = [0, 1, 0, -1][f];
+  const g = (x, y) => [x + shake, y];
+  body.ellipse(...g(3, 3), 2, 2, 'O').ellipse(...g(12, 3), 2, 2, 'O').set(...g(3, 2), 'Y').set(...g(12, 2), 'Y');
+  body.ellipse(...g(7, 9), 6, 6, 'u').ellipse(...g(7, 9), 5, 5, 'R').ellipse(...g(7, 9), 4, 4, 'W');
+  body.line(...g(7, 9), ...g(7, 6), 'K').line(...g(7, 9), ...g(9, 10), 'K').set(...g(7, 9), 'R');
+  body.set(...g(3, 15), 'h').set(...g(11, 15), 'h');
+  if (f % 2 === 1) fx.set(0, 6, 'Y').set(0, 8, 'Y').set(15, 6, 'Y').set(15, 8, 'Y').set(1, 1, 'W').set(14, 0, 'W');
+});
+ITEMS.piggy = item([], (body, fx, f) => {
+  body.ellipse(7, 10, 6, 4, 'A').ellipse(6, 9, 5, 3, 'a', 'A').ellipse(7, 10, 5, 3, 'A', 'a').ellipse(5, 8, 2, 1, 'a', 'A');
+  body.set(4, 6, 'A').set(5, 5, 'A').set(10, 6, 'A').set(11, 5, 'A');
+  body.rect(13, 9, 2, 2, 'A').set(14, 9, 'u').set(14, 10, 'u').set(10, 9, 'K');
+  body.rect(6, 6, 3, 1, 'u');
+  body.rect(3, 14, 2, 1, 'A').rect(9, 14, 2, 1, 'A');
+  // 동전이 위에서 떨어져 등의 구멍으로 쏙 들어간다.
+  const y = [0, 2, 4, 6][f];
+  if (f < 3) fx.rect(6, y, 3, 2, 'O').set(7, y, 'Y').set(6, y, 'Y');
+  if (f === 3) twinkle(fx, 7, 4, 2, 'Y');
+});
+ITEMS.lastcup = item([
+  '................',
+  '................',
+  '................',
+  '................',
+  '..zzzzzzzzzzzz..',
+  '..zWWWWWWWWWWz..',
+  '...RRRRRRRRRR...',
+  '...RWWWWWWWWR...',
+  '...RWRRWWRRWR...',
+  '...RWRRRRRRWR...',
+  '...RWWRRRRWWR...',
+  '....RWWRRWWR....',
+  '....RRRRRRRR....',
+  '.....uuuuuu.....',
+  '................',
+  '................',
+], (body, fx, f) => {
+  steam(fx, 5, 3, f, 4);
+  steam(fx, 8, 3, f + 1, 4);
+  steam(fx, 11, 3, f + 2, 4);
+  // 궁지에 몰린 빛: 붉은 기운이 깜빡인다.
+  if (f % 2 === 0) fx.set(1, 8, 'e').set(14, 8, 'e').set(1, 11, 'O').set(14, 11, 'O');
+  else fx.set(0, 9, 'O').set(15, 9, 'O').set(2, 13, 'e').set(13, 13, 'e');
+});
+ITEMS.bigpot = item([
+  '................',
+  '................',
+  '................',
+  '.....hhhhhh.....',
+  '..zzzzzzzzzzzz..',
+  '.hzWWWWWWWWWWzh.',
+  'hhdzzzzzzzzzzdhh',
+  '..dzzzzzzzzzzd..',
+  '..dzWzzzzzzzzd..',
+  '..dzWzzzzzzzzd..',
+  '..dzzzzzzzzzzd..',
+  '..ddzzzzzzzzdd..',
+  '...dddddddddd...',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 뚜껑 틈으로 국물이 끓어 넘친다.
+  const bubbles = [[[4, 3], [11, 2]], [[6, 2], [9, 3], [12, 1]], [[5, 1], [10, 2]], [[7, 2], [3, 2], [11, 3]]][f];
+  bubbles.forEach(([x, y], index) => fx.set(x, y, index % 2 === 0 ? 'W' : 'O'));
+  steam(fx, 2, 4, f, 3);
+  steam(fx, 13, 4, f + 2, 3);
+});
+ITEMS.stopwatch = item([], (body, fx, f) => {
+  body.rect(6, 0, 4, 2, 'd').rect(7, 2, 2, 1, 'h').set(12, 3, 'd').set(13, 2, 'd');
+  body.ellipse(7, 9, 6, 6, 'h').ellipse(7, 9, 5, 5, 'z').ellipse(7, 9, 4, 4, 'W');
+  [[7, 5], [11, 9], [7, 13], [3, 9]].forEach(([x, y]) => body.set(x, y, 'h'));
+  const angle = (f / ITEM_FRAMES) * Math.PI * 2 - Math.PI / 2;
+  body.line(7, 9, Math.round(7 + Math.cos(angle) * 3), Math.round(9 + Math.sin(angle) * 3), 'R').set(7, 9, 'K');
+  twinkle(fx, 14, 6, f, 'W');
+  twinkle(fx, 1, 14, f + 2, 'L');
+});
+ITEMS.dice = item([], (body, fx, f) => {
+  // 굴러가며 면이 바뀐다.
+  const tilt = [0, 1, 0, -1][f];
+  body.rect(3, 3 + Math.abs(tilt), 10, 10, 'h').rect(4, 4 + Math.abs(tilt), 8, 8, 'W').rect(4, 11 + Math.abs(tilt), 8, 1, 'z');
+  const top = 4 + Math.abs(tilt);
+  const pips = [[[7.5, 3.5]], [[5, 1.5], [10, 5.5]], [[5, 1.5], [7.5, 3.5], [10, 5.5]], [[5, 1.5], [10, 1.5], [5, 5.5], [10, 5.5]]][f];
+  pips.forEach(([x, y]) => body.rect(Math.round(x - 0.5), top + Math.round(y - 0.5), 2, 2, f === 0 ? 'R' : 'K'));
+  twinkle(fx, 14, 2, f, 'Y');
+  twinkle(fx, 1, 13, f + 2, 'W');
+});
+ITEMS.popcorn = item([
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '...WRWRWRWRW....',
+  '...WRWRWRWRW....',
+  '....WRWRWRW.....',
+  '....WRWRWRW.....',
+  '....WRWRWRW.....',
+  '....WRWRWRW.....',
+  '.....WRWRW......',
+  '.....hhhhh......',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  [[4, 4], [6, 3], [8, 4], [10, 3], [5, 2], [9, 2], [7, 1]].forEach(([x, y]) => body.set(x, y, 'y').set(x + 1, y, 'W'));
+  // 하나씩 펑 튀어 오른다.
+  const pops = [[[3, 0]], [[12, 1], [2, 1]], [[13, 0], [1, 3]], [[11, 0], [14, 2]]][f];
+  pops.forEach(([x, y]) => fx.set(x, y, 'y').set(x + 1, y, 'W').set(x, y + 1, 'W'));
+  if (f === 1) fx.set(7, 0, 'O');
+});
+ITEMS.icetray = item([], (body, fx, f) => {
+  body.rect(1, 6, 14, 7, 'q').rect(2, 7, 12, 5, 'l');
+  for (let cube = 0; cube < 3; cube += 1) {
+    const x = 2 + cube * 4;
+    body.rect(x, 4 + (cube === f % 3 ? -1 : 0), 4, 4, 'i').set(x, 4 + (cube === f % 3 ? -1 : 0), 'W').rect(x + 3, 7, 1, 1, 'L');
+  }
+  twinkle(fx, 3, 1, f, 'W');
+  twinkle(fx, 12, 2, f + 2, 'i');
+  twinkle(fx, 15, 10, f + 1, 'W');
+});
+ITEMS.umbrella = item([], (body, fx, f) => {
+  body.ellipse(7, 6, 7, 5, 'R').rect(0, 7, 16, 5, '.');
+  body.ellipse(7, 6, 6, 4, 'a', 'R').ellipse(7, 7, 6, 4, 'R', 'a');
+  [1, 4, 7, 10, 13].forEach((x) => body.set(x, 6, 'u'));
+  body.line(7, 1, 7, 13, 'N').line(7, 13, 5, 14, 'N').set(4, 13, 'N');
+  // 빗방울이 우산에 맞고 튄다.
+  [[2, 0], [11, 0], [6, 0], [14, 1]].forEach(([x, y], index) => {
+    const fall = (f + index) % ITEM_FRAMES;
+    if (fall < 3) fx.set(x, y + fall * 0.7, 'L');
+    else fx.set(x - 1, y + 1, 'W').set(x + 1, y + 1, 'W');
+  });
+});
+ITEMS.waterbottle = item([
+  '.....hBBh.......',
+  '.....hBBh.......',
+  '....hzzzzh......',
+  '...hLLLLLLh.....',
+  '...hLiLLLLh.....',
+  '...hLiLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '...hLLLLLLh.....',
+  '....hhhhhh......',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 물이 출렁인다.
+  const level = 6;
+  for (let y = level; y <= 12; y += 1) for (let x = 4; x <= 9; x += 1) body.set(x, y, 'B');
+  const wave = [[4, 5], [6, 5], [8, 5]];
+  wave.forEach(([x], index) => body.set(x + (f % 2), level - ((index + f) % 2), 'b'));
+  body.set(5, 8, 'b').set(5, 9, 'l');
+  twinkle(fx, 12, 3, f, 'W');
+  twinkle(fx, 1, 10, f + 2, 'L');
+});
+ITEMS.scooter = item([], (body, fx, f) => {
+  body.line(11, 1, 11, 11, 'D').rect(9, 1, 4, 1, 'h').line(3, 11, 12, 11, 'R').line(3, 12, 12, 12, 'u');
+  [[3, 13], [11, 13]].forEach(([x, y]) => {
+    body.ellipse(x, y, 2, 2, 'h').set(x, y, 'z');
+    const spin = (f / ITEM_FRAMES) * Math.PI * 2;
+    body.set(Math.round(x + Math.cos(spin) * 1.4), Math.round(y + Math.sin(spin) * 1.4), 'W');
+  });
+  // 바람을 가르며 달린다.
+  [[3, 0], [6, 2], [9, 1]].forEach(([y, length], index) => {
+    const slide = (f + index) % ITEM_FRAMES;
+    for (let step = 0; step <= length; step += 1) fx.set(1 - slide + step + index, 3 + y, step === length ? 'W' : 'L');
+  });
+});
+ITEMS.firecracker = item([
+  '................',
+  '................',
+  '................',
+  '.......K........',
+  '......uRRu......',
+  '......RaRR......',
+  '......RaRR......',
+  '......RYYR......',
+  '......RRRR......',
+  '......RaRR......',
+  '......RaRR......',
+  '......RYYR......',
+  '......RRRR......',
+  '......uuuu......',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 심지가 타들어 가며 불꽃이 튄다.
+  const sparks = [[[7, 2, 'Y'], [8, 1, 'O']], [[6, 1, 'Y'], [8, 2, 'W'], [9, 0, 'O']], [[7, 1, 'W'], [5, 0, 'O'], [9, 2, 'Y']],
+    [[8, 1, 'Y'], [6, 2, 'O'], [10, 1, 'W']]][f];
+  sparks.forEach(([x, y, ch]) => fx.set(x, y, ch));
+  twinkle(fx, 2, 4, f, 'O');
+  twinkle(fx, 13, 9, f + 2, 'Y');
+});
+ITEMS.lamp = item([], (body, fx, f) => {
+  body.rect(1, 6, 14, 3, 'W').rect(1, 6, 14, 1, 'i').rect(0, 6, 1, 3, 'z').rect(15, 6, 1, 3, 'z');
+  body.rect(4, 3, 1, 3, 'D').rect(11, 3, 1, 3, 'D').rect(3, 2, 10, 1, 'D');
+  // 깜빡깜빡 빛줄기가 아래로 쏟아진다.
+  const lit = f !== 2;
+  if (lit) {
+    for (let ray = 0; ray < 5; ray += 1) {
+      const x = 2 + ray * 3;
+      for (let y = 10; y < 10 + 2 + ((ray + f) % 3); y += 1) fx.set(x, y, y === 10 ? 'y' : 'Y');
+    }
+  } else {
+    body.rect(1, 7, 14, 2, 'z');
+  }
+});
+ITEMS.mallet = item([], (body, fx, f) => {
+  // 내려쳤다 들었다 한다.
+  const down = f === 1 || f === 2;
+  if (down) {
+    body.rect(1, 9, 9, 5, 'h').rect(2, 10, 7, 3, 'R').rect(2, 10, 7, 1, 'a').line(9, 11, 15, 11, 'N').line(9, 12, 15, 12, 'n');
+    fx.set(0, 15, 'W').set(10, 15, 'W').set(1, 14, 'Y').set(9, 14, 'Y');
+  } else {
+    body.rect(2, 1, 6, 8, 'h').rect(3, 2, 4, 6, 'R').rect(3, 2, 1, 6, 'a').line(5, 9, 11, 15, 'N').line(6, 9, 12, 15, 'n');
+  }
+  twinkle(fx, 13, 2, f, 'Y');
+});
 // 합체 무기
 ITEMS.thunderball = item([], (body, fx, f) => {
   const cy = [8, 7, 8, 9][f];

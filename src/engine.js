@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -29,6 +29,10 @@ export function createGame(random = Math.random) {
     hazards: [],
     evolved: {},
     fusions: {},
+    relics: {},
+    pendingRelics: 0,
+    revived: false,
+    alarmIn: 0,
     shake: 0,
     gems: [],
     drops: [],
@@ -51,22 +55,68 @@ function passiveValue(game, id, key) {
   return level === 0 ? 0 : PASSIVES[id][key][level - 1];
 }
 
+const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
+
+// 체력 30% 이하인지(마지막 컵라면)
+function maxHpOf(game) {
+  return PLAYER.maxHp + passiveValue(game, 'vitamin', 'maxHp') + (relic(game, 'waterbottle')?.maxHp ?? 0);
+}
+
+// 모은 치명타 확률. 고무망치가 있으면 치명타는 안 터지고 이 값이 고정 피해로 바뀐다.
+function rawCritChance(game) {
+  return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0);
+}
+
+function critChanceOf(game) {
+  return relic(game, 'mallet') ? 0 : rawCritChance(game);
+}
+
+// 고무망치: 치명타 확률 5%마다 한 대 때리는 무기의 피해 +5
+function flatDamageOf(game) {
+  const mallet = relic(game, 'mallet');
+  return mallet ? Math.floor(rawCritChance(game) / mallet.step + 1e-9) * mallet.flat : 0;
+}
+
+function critDamageOf(game) {
+  return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0);
+}
+
+function cornered(game) {
+  const cup = relic(game, 'lastcup');
+  return Boolean(cup) && game.player.hp <= maxHpOf(game) * cup.below;
+}
+
+// 공격력 배율. 단백질 셰이크에 움직일 때(에너지 드링크)와 궁지에 몰렸을 때(마지막 컵라면) 보너스가 더해진다.
+function mightOf(game) {
+  return 1 + passiveValue(game, 'protein', 'might')
+    + (game.player.moving ? relic(game, 'energy')?.might ?? 0 : 0)
+    + (cornered(game) ? RELICS.lastcup.might : 0);
+}
+
 export function statsOf(game) {
   const coffee = game.time < game.coffeeUntil;
+  const guard = !game.player.moving ? relic(game, 'blanket')?.guard ?? 0 : 0;
   return {
-    speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed')) * (coffee ? 1.25 : 1),
-    armor: passiveValue(game, 'gloves', 'armor'),
-    pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup')),
-    maxHp: PLAYER.maxHp + passiveValue(game, 'vitamin', 'maxHp'),
-    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen'),
-    cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1),
-    xpGain: 1 + passiveValue(game, 'candle', 'xpGain'),
-    area: 1 + passiveValue(game, 'wipes', 'area'),
-    might: 1 + passiveValue(game, 'protein', 'might'),
-    projectile: 1 + passiveValue(game, 'magnifier', 'size'),
-    critChance: passiveValue(game, 'clover', 'critChance'),
-    critDamage: PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage'),
+    speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed') + (relic(game, 'energy')?.speed ?? 0)
+      + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
+    armor: 1 - (1 - passiveValue(game, 'gloves', 'armor')) * (1 - guard),
+    pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0)),
+    maxHp: maxHpOf(game),
+    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0),
+    cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
+      * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)),
+    xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
+    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0),
+    might: mightOf(game),
+    projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0),
+    critChance: critChanceOf(game),
+    critDamage: critDamageOf(game),
+    flatDamage: flatDamageOf(game),
   };
+}
+
+function rerollsPerLevel(game) {
+  return 1 + (relic(game, 'neko')?.rerolls ?? 0);
 }
 
 const percent = (value) => {
@@ -91,6 +141,7 @@ export function statSheet(game) {
     ['경험치', percent(stats.xpGain - 1)],
     ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
+    ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
   ];
 }
 
@@ -136,7 +187,8 @@ export function describeChoice(game, choice) {
     return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
       const text = WEAPON_TEXT[key];
       const scale = text.might ? might : 1;
-      const value = (level) => values[level - 1] * scale;
+      const flat = key === 'damage' ? flatDamageOf(game) : 0;
+      const value = (level) => values[level - 1] * scale + flat;
       const show = (amount) => `${number(amount)}${text.unit ?? ''}`;
       if (choice.level === 1) return [`${text.name} ${show(value(1))}`];
       const before = value(choice.level - 1);
@@ -269,13 +321,25 @@ function movePlayer(game, dt, input) {
 }
 
 // 맞으면 잠깐 무적이 되어, 적이 여럿 붙어 있어도 한 번에 한 대씩만 맞는다.
-function damagePlayer(game, amount) {
+// ranged는 탄막이나 떨어지는 쓰레기처럼 날아온 피해다(우산이 막는다).
+function damagePlayer(game, amount, ranged = false) {
   const { player } = game;
   if (player.invulnerable > 0 || game.time < game.shieldUntil) return false;
+  if (ranged) amount *= 1 - (relic(game, 'umbrella')?.guard ?? 0);
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
   player.invulnerable = PLAYER.invulnerableSec;
   game.shake = 0.25;
+  if (player.hp <= 0 && relic(game, 'firstaid') && !game.revived) {
+    // 구급상자: 한 번만 일어난다.
+    game.revived = true;
+    player.hp = statsOf(game).maxHp * RELICS.firstaid.reviveHp;
+    player.invulnerable = RELICS.firstaid.reviveGuardSec;
+    game.shieldUntil = game.time + RELICS.firstaid.reviveGuardSec;
+    addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 1.2, gold: true });
+    addEffect(game, { type: 'flash', life: 0.5 });
+    addEffect(game, { type: 'banner', text: '구급상자! 다시 일어났어요', life: 2.4 });
+  }
   if (player.hp <= 0) {
     player.hp = 0;
     game.over = true;
@@ -324,7 +388,7 @@ function moveEnemies(game, dt) {
   const difficulty = difficultyAt(game.time);
   const frozen = game.time < game.freezeUntil;
   for (const enemy of game.enemies) {
-    enemy.frozen = frozen && !enemy.boss;
+    enemy.frozen = (frozen || game.time < (enemy.chillUntil ?? 0)) && !enemy.boss;
     if (enemy.frozen) {
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
       continue;
@@ -506,10 +570,14 @@ function separate(enemies) {
 export function damageEnemy(game, enemy, amount, knockback = 0, from = game.player) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
-  const chance = passiveValue(game, 'clover', 'critChance');
+  const chance = critChanceOf(game);
   const crit = chance > 0 && game.random() < chance;
-  if (crit) amount *= PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage');
+  if (crit) amount *= critDamageOf(game);
+  if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
   enemy.hp -= amount;
+  // 얼음틀: 한 대씩 때리는 공격만 얼린다(매 순간 조금씩 닿는 공격은 빼고).
+  const ice = relic(game, 'icetray');
+  if (ice && !enemy.boss && amount >= 3 && game.random() < ice.chance) enemy.chillUntil = game.time + ice.freezeSec;
   enemy.hitFlash = 0.1;
   if (amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
@@ -537,6 +605,18 @@ function dropGem(game, x, y, value) {
 function killEnemy(game, enemy) {
   enemy.dead = true;
   game.kills += 1;
+  const popcorn = relic(game, 'popcorn');
+  // 팝콘 기계: 터진 팝콘이 또 터지는 건 두 번까지만 이어진다.
+  if (popcorn && (game.popDepth ?? 0) < 2 && game.random() < popcorn.chance) {
+    game.popDepth = (game.popDepth ?? 0) + 1;
+    const damage = popcorn.damage * mightOf(game);
+    addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popcorn.radius, color: 'gold', life: 0.3 });
+    addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
+    for (const other of game.enemies) {
+      if (other !== enemy && !other.dead && distance(other, enemy) < popcorn.radius + other.radius) damageEnemy(game, other, damage, 10, enemy);
+    }
+    game.popDepth -= 1;
+  }
   dropGem(game, enemy.x, enemy.y, enemy.xp);
   addEffect(game, { type: 'pop', x: enemy.x, y: enemy.y, radius: enemy.radius, life: 0.3 });
   addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: enemy.boss ? 40 : 7,
@@ -589,9 +669,11 @@ function fusion(game, id) {
 
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
-  const might = key === 'damage' || key === 'dps' ? 1 + passiveValue(game, 'protein', 'might') : 1;
+  const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
+  // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
+  const flat = key === 'damage' ? flatDamageOf(game) : 0;
   return WEAPONS[id][key][game.weapons[id] - 1] * might
-    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1);
+    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat;
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -605,6 +687,15 @@ function ready(game, id, dt) {
   const cooldown = WEAPONS[id].cooldown[game.weapons[id] - 1] * statsOf(game).cooldownScale;
   game.cooldowns[id] = (game.cooldowns[id] ?? 0) - dt;
   if (game.cooldowns[id] > 0) return false;
+  const twin = relic(game, 'twin');
+  if (twin?.weapons.includes(id)) {
+    // 쌍둥이 노즐: 쏘고 나서 잠깐 뒤에 한 번 더 쏜다.
+    game.echoes ??= {};
+    const gap = Math.min(twin.echoSec, cooldown / 2);
+    game.echoes[id] = !game.echoes[id];
+    game.cooldowns[id] = game.echoes[id] ? gap : cooldown - gap;
+    return true;
+  }
   game.cooldowns[id] = cooldown;
   return true;
 }
@@ -804,7 +895,8 @@ function fireWeapons(game, dt) {
   }
   if (game.weapons.dryer) {
     const range = weaponValue(game, 'dryer', 'range') * area;
-    const spread = evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread;
+    // 물티슈가 바람이 퍼지는 폭도 넓힌다.
+    const spread = Math.min(1.3, (evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread) * area);
     const damage = weaponValue(game, 'dryer', 'dps') * dt;
     const target = nearestEnemies(game, 1, range + 40)[0];
     const wanted = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
@@ -824,6 +916,7 @@ function fireWeapons(game, dt) {
     }
   }
   if (game.weapons.fan && ready(game, 'fan', dt)) {
+    const cone = Math.min(1.6, WEAPONS.fan.cone * area);
     const range = weaponValue(game, 'fan', 'range') * area;
     const damage = weaponValue(game, 'fan', 'damage');
     const target = nearestEnemies(game, 1, range)[0];
@@ -833,9 +926,9 @@ function fireWeapons(game, dt) {
       if (enemy.dead || gap > range + enemy.radius) continue;
       const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
       const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
-      if (diff < WEAPONS.fan.cone || evolution(game, 'fan')) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
+      if (diff < cone || evolution(game, 'fan')) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
     }
-    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, cone: WEAPONS.fan.cone, life: 0.35,
+    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, cone, life: 0.35,
       mega: Boolean(evolution(game, 'fan')) });
   }
   const spin = fusion(game, 'spinlaser');
@@ -1103,7 +1196,7 @@ function updateProjectiles(game, dt) {
     shot.y += shot.vy * dt;
     shot.life -= dt;
     shot.age = (shot.age ?? 0) + dt;
-    if (shot.life > 0 && distance(shot, game.player) < shot.radius + PLAYER.radius && damagePlayer(game, shot.damage)) {
+    if (shot.life > 0 && distance(shot, game.player) < shot.radius + PLAYER.radius && damagePlayer(game, shot.damage, true)) {
       shot.life = 0;
     }
   }
@@ -1117,7 +1210,7 @@ function updateProjectiles(game, dt) {
       continue;
     }
     if (hazard.delay > 0) continue;
-    if (distance(hazard, game.player) < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage);
+    if (distance(hazard, game.player) < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage, true);
     addEffect(game, { type: 'slam', x: hazard.x, y: hazard.y, radius: hazard.radius, life: 0.4 });
     addEffect(game, { type: 'burst', x: hazard.x, y: hazard.y, color: 'trash', count: 8, life: 0.45 });
     game.shake = Math.max(game.shake, 0.2);
@@ -1132,7 +1225,18 @@ function contactDamage(game) {
       strongest = Math.max(strongest, enemy.damage);
     }
   }
-  if (strongest > 0) damagePlayer(game, strongest);
+  if (strongest > 0 && damagePlayer(game, strongest)) {
+    const scrubber = relic(game, 'scrubber');
+    if (scrubber) {
+      // 철수세미: 받은 피해를 주변 적에게 몇 배로 돌려준다.
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, game.player) < scrubber.radius + enemy.radius) {
+          damageEnemy(game, enemy, strongest * scrubber.reflect, 30);
+        }
+      }
+      addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubber.radius, color: 'spark', life: 0.3 });
+    }
+  }
 }
 
 function applyDrop(game, drop) {
@@ -1150,7 +1254,10 @@ function applyDrop(game, drop) {
   if (drop.type === 'chicken') player.hp = stats.maxHp;
   if (drop.type === 'icepack') game.freezeUntil = game.time + 4;
   if (drop.type === 'box') game.shieldUntil = game.time + 5;
-  if (drop.type === 'chest') game.pendingLevels += 2;
+  if (drop.type === 'chest') {
+    game.pendingRelics += 1;
+    addEffect(game, { type: 'banner', text: '보물 상자! 보물을 하나 골라요', life: 2 });
+  }
   addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
   if (drop.type !== 'chest') addEffect(game, { type: 'banner', text: `${DROPS[drop.type].label}!`, life: 1.1 });
 }
@@ -1187,6 +1294,7 @@ function collect(game, dt) {
     game.level += 1;
     game.nextXp = xpToNext(game.level);
     game.pendingLevels += 1;
+    if (relic(game, 'piggy')) player.hp = Math.min(statsOf(game).maxHp, player.hp + RELICS.piggy.levelHeal);
     addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 0.7 });
   }
 }
@@ -1224,11 +1332,35 @@ export function rollChoices(game) {
   return choices.map((choice) => ({ ...choice, details: describeChoice(game, choice) }));
 }
 
-// 레벨업마다 한 번, 선택지를 새로 뽑을 수 있다.
+// 아직 없는 보물 가운데 셋
+export function rollRelics(game) {
+  return shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3)
+    .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
+}
+
+// 다음에 보여 줄 선택지. 보물이 레벨업보다 먼저다. 보물을 다 가졌으면 상자는 레벨업 두 번이 된다.
+function nextChoices(game) {
+  if (game.pendingRelics > 0) {
+    const relics = rollRelics(game);
+    if (relics.length > 0) return relics;
+    game.pendingLevels += game.pendingRelics * 2;
+    game.pendingRelics = 0;
+  }
+  return game.pendingLevels > 0 ? rollChoices(game) : null;
+}
+
+// 게임을 시작하면 보물을 하나 고른다.
+export function startWithRelic(game) {
+  game.pendingRelics += 1;
+  game.choices = nextChoices(game);
+  game.rerollLeft = rerollsPerLevel(game);
+}
+
+// 선택지마다 정해진 횟수만큼 새로 뽑을 수 있다.
 export function reroll(game) {
   if (!game.choices || game.rerollLeft <= 0) return false;
   game.rerollLeft -= 1;
-  game.choices = rollChoices(game);
+  game.choices = game.choices[0]?.kind === 'relic' ? rollRelics(game) : rollChoices(game);
   return true;
 }
 
@@ -1250,12 +1382,20 @@ export function choose(game, index) {
     addEffect(game, { type: 'banner', text: `${choice.label} 합체!`, life: 2.4 });
     game.shake = 0.3;
   }
+  if (choice.kind === 'relic') {
+    game.relics[choice.id] = true;
+    if (choice.id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
+    if (choice.id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
+    addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
+    addEffect(game, { type: 'banner', text: `보물: ${choice.label}`, life: 2.2 });
+  }
   const stats = statsOf(game);
   if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 20);
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
-  game.pendingLevels -= 1;
-  game.choices = game.pendingLevels > 0 ? rollChoices(game) : null;
-  game.rerollLeft = 1;
+  if (choice.kind === 'relic') game.pendingRelics -= 1;
+  else game.pendingLevels -= 1;
+  game.choices = nextChoices(game);
+  game.rerollLeft = rerollsPerLevel(game);
   return choice;
 }
 
@@ -1275,9 +1415,34 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   game.shake = Math.max(0, game.shake - dt);
   game.effects.forEach((effect) => { effect.age += dt; });
   game.effects = game.effects.filter((effect) => effect.age < effect.life);
-  if (game.pendingLevels > 0 && !game.over) {
-    game.choices = rollChoices(game);
-    game.rerollLeft = 1;
+  const firecracker = relic(game, 'firecracker');
+  if (firecracker && !game.over) {
+    game.fireIn = (game.fireIn ?? firecracker.everySec) - dt;
+    if (game.fireIn <= 0) {
+      game.fireIn = firecracker.everySec;
+      const damage = firecracker.damage * mightOf(game);
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, game.player) < firecracker.radius + enemy.radius) damageEnemy(game, enemy, damage, 40);
+      }
+      addEffect(game, { type: 'nova', x: game.player.x, y: game.player.y, radius: firecracker.radius, life: 0.6 });
+      addEffect(game, { type: 'burst', x: game.player.x, y: game.player.y, color: 'gold', count: 40, life: 0.8, big: true });
+      game.shake = Math.max(game.shake, 0.3);
+    }
+  }
+  game.enemies = game.enemies.filter((enemy) => !enemy.dead);
+  const alarm = relic(game, 'alarm');
+  if (alarm && !game.over) {
+    game.alarmIn -= dt;
+    if (game.alarmIn <= 0) {
+      game.alarmIn = alarm.everySec;
+      game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec);
+      addEffect(game, { type: 'banner', text: '따르릉! 적이 얼었어요', life: 1.4 });
+      addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: 300, color: 'spark', life: 0.5 });
+    }
+  }
+  if ((game.pendingLevels > 0 || game.pendingRelics > 0) && !game.over) {
+    game.choices = nextChoices(game);
+    game.rerollLeft = rerollsPerLevel(game);
   }
   return game;
 }

@@ -1,7 +1,7 @@
-import { choose, createGame, formatTime, reroll, statSheet, statsOf, update } from './engine.js';
-import { fetchRanking, isShared, submitRecord } from './leaderboard.js';
+import { choose, createGame, formatTime, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
-import { EVOLUTIONS, FUSIONS, WEAPONS } from './rules.js';
+import { EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
@@ -128,8 +128,9 @@ function drawLoadout() {
     ...Object.entries(game.weapons),
     ...Object.entries(game.passives),
   ];
+  const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
-  document.querySelector('.loadout').innerHTML = fused + items
+  document.querySelector('.loadout').innerHTML = owned + fused + items
     .map(([id, level]) => (game.evolved[id]
       ? `<span class="is-evolved">${itemIcon(id)}★</span>`
       : `<span>${itemIcon(id)}${level}</span>`)).join('');
@@ -142,13 +143,17 @@ function drawChoices() {
   if (!game.choices) return;
   touch = null;
   joystick.hidden = true;
+  const treasure = game.choices[0]?.kind === 'relic';
+  levelupOverlay.classList.toggle('is-relic', treasure);
+  document.querySelector('.levelup .panel-title').textContent = treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
+  document.querySelector('.levelup .panel-sub').textContent = treasure ? '보물을 하나 골라 주세요. 끝까지 함께해요' : '하나를 골라 주세요';
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.kind === 'heal' ? 'heal' : choice.id);
-    const tag = choice.kind === 'heal' ? '' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
+    const tag = choice.kind === 'heal' ? '' : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>
@@ -216,6 +221,7 @@ function start() {
   joystick.hidden = true;
   show('game');
   resize();
+  startWithRelic(game);
   drawLoadout();
   // 주소 끝에 #debug를 붙이면 콘솔에서 게임 상태를 볼 수 있다.
   if (window.location.hash === '#debug') window.__game = game;
@@ -252,7 +258,7 @@ async function finish() {
     const index = ranking.findIndex((entry) => entry.crewName === crewName);
     const best = ranking[index];
     rankText.textContent = index < 0 ? '기록을 남겼어요'
-      : `현재 ${index + 1}위${best.survivedMs > survivedMs ? ` (최고 ${formatTime(best.survivedMs / 1000)})` : ''}`;
+      : `시즌 ${SEASON} ${index + 1}위${best.survivedMs > survivedMs ? ` (최고 ${formatTime(best.survivedMs / 1000)})` : ''}`;
   } catch (error) {
     rankText.textContent = error.message;
   }
@@ -275,22 +281,34 @@ function openRecipes() {
       </div>
       <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
     </li>`).join('');
+  document.querySelector('.relic-list').innerHTML = Object.entries(RELICS).map(([id, treasure]) => `
+    <li>${itemIcon(id)}<span><b>${escapeHtml(treasure.label)}</b>${escapeHtml(treasure.stats.join(' · '))}</span></li>`).join('');
   document.querySelector('.evolve-list').innerHTML = Object.entries(EVOLUTIONS).map(([id, evolution]) => `
     <li>${itemIcon(id)}<span><b>${escapeHtml(WEAPONS[id].label)} → ${escapeHtml(evolution.label)}</b>${escapeHtml(evolution.description)}</span></li>`)
     .join('');
 }
 
-async function openRanking() {
+let rankingSeason = SEASON;
+
+async function openRanking(season = SEASON) {
   show('ranking');
+  rankingSeason = season;
   const list = document.querySelector('.ranking-list');
-  document.querySelector('.ranking-note').textContent = isShared
-    ? '크루마다 가장 오래 버틴 기록만 보여요.'
-    : '공유 순위가 연결되지 않아 이 브라우저의 기록만 보여요.';
+  document.querySelector('.season-tabs').innerHTML = SEASONS.map((value) => `
+    <button class="season-tab${value === season ? ' is-active' : ''}" type="button" data-season="${value}">
+      시즌 ${value}${value === SEASON ? '<small>진행 중</small>' : ''}
+    </button>`).join('');
+  // 조합표 화면에도 .ranking-note가 있어서 순위 화면 것을 콕 집는다.
+  document.querySelector('.screen-ranking .ranking-note').textContent = !isShared
+    ? '공유 순위가 연결되지 않아 이 브라우저의 기록만 보여요.'
+    : season === SEASON ? '크루마다 이번 시즌에 가장 오래 버틴 기록만 보여요.'
+      : '지난 시즌 기록이에요. 이미 끝나서 더 이상 바뀌지 않아요.';
   list.innerHTML = '<li class="ranking-empty">불러오는 중</li>';
   try {
-    const ranking = await fetchRanking();
+    const ranking = await fetchRanking(season);
+    if (season !== rankingSeason) return; // 탭을 빨리 바꾸면 늦게 온 응답은 버린다.
     list.innerHTML = ranking.length === 0
-      ? '<li class="ranking-empty">아직 기록이 없어요. 첫 기록을 남겨 보세요.</li>'
+      ? `<li class="ranking-empty">${season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
       : ranking.map((entry, index) => `
           <li class="${entry.crewName === crewName ? 'is-me' : ''}">
             <span class="rank${index < 3 ? ' is-top' : ''}">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
@@ -394,6 +412,8 @@ document.querySelector('.start-form').addEventListener('submit', (event) => {
 app.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'ranking') openRanking();
+  const season = event.target.closest('[data-season]')?.dataset.season;
+  if (season) openRanking(Number(season));
   if (action === 'recipes') openRecipes();
   if (action === 'home') show('start');
   if (action === 'retry') start();

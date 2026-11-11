@@ -1,5 +1,7 @@
 import { coilOrbs, sawBlades, statsOf } from './engine.js';
-import { ARENA, EVOLUTIONS, WEAPONS } from './rules.js';
+
+const maxHpOf = (game) => statsOf(game).maxHp;
+import { ARENA, EVOLUTIONS, RELICS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼에 그리고 화면에서 정수 배로 키워 도트 느낌을 낸다. 버퍼 1픽셀이 월드 2칸이다.
@@ -78,7 +80,7 @@ const PARTICLES = {
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
   mosquito: ['#3d3d42', '#dcebff', '#e0645b'], spider: ['#3d3d42', '#55555d', '#e0645b'], milk: ['#ffffff', '#6f8a4a', '#5f86cf'],
   mouse: ['#8a8f98', '#c4c9d1', '#ffb3bf'], moth: ['#c9965c', '#8a4a1e', '#ffe08a'],
-  spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
+  spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], popcorn: ['#fff4c2', '#ffffff', '#ffcf3f'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
@@ -245,6 +247,21 @@ function drawDuck(ctx, game, x, y, time) {
   }
   drawCentered(ctx, image, x, y);
   if (game.time < game.shieldUntil) ring(ctx, Math.round(x), Math.round(y), 12, '#c9965c', 3, Math.floor(time * 20));
+  // 보물 효과가 켜져 있으면 오리 둘레에 보인다.
+  if (game.relics?.blanket && !player.moving) {
+    ring(ctx, Math.round(x), Math.round(y), 13, 'rgba(95, 134, 207, 0.85)', 2, Math.floor(time * 8));
+    ring(ctx, Math.round(x), Math.round(y), 11, 'rgba(169, 205, 245, 0.7)');
+  }
+  if (game.relics?.lastcup && player.hp <= maxHpOf(game) * RELICS.lastcup.below) {
+    const pulse = 14 + (Math.floor(time * 10) % 3);
+    ring(ctx, Math.round(x), Math.round(y), pulse, 'rgba(240, 70, 58, 0.8)', 2, Math.floor(time * 16));
+  }
+  if (game.relics?.energy && player.moving) {
+    ctx.fillStyle = Math.floor(time * 20) % 2 === 0 ? '#ffe08a' : '#ffffff';
+    for (let spark = 0; spark < 3; spark += 1) {
+      ctx.fillRect(Math.round(x - player.facing * (6 + spark * 3) + Math.sin(time * 30 + spark) * 2), Math.round(y + 4 - spark * 3), 1, 1);
+    }
+  }
 }
 
 function drawEffects(ctx, game, toBuffer) {
