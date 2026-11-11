@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
+import {
+  choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, statSheet, statsOf, update,
+} from '../src/engine.js';
 import { rankBest } from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
@@ -17,6 +19,11 @@ function placeEnemy(game, kind, dx, dy, extra = {}) {
     radius: 10, damage: 5, xp: 1, boss: false, timer: 0, kx: 0, ky: 0, hitFlash: 0, ...extra };
   game.enemies.push(enemy);
   return enemy;
+}
+
+// 기본 회복(1초에 1)이 있어서, 한두 프레임 뒤의 체력은 정확히 같지 않고 아주 조금 더 많다.
+function near(actual, expected, tolerance = 0.1) {
+  assert.ok(Math.abs(actual - expected) < tolerance, `${actual} is not near ${expected}`);
 }
 
 function run(game, seconds, input = { x: 0, y: 0 }) {
@@ -98,9 +105,9 @@ describe('전투', () => {
     game.weapons = {};
     for (let index = 0; index < 8; index += 1) placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 5 });
     update(game, 1 / 60);
-    assert.equal(game.player.hp, PLAYER.maxHp - 5);
+    near(game.player.hp, PLAYER.maxHp - 5);
     update(game, 1 / 60);
-    assert.equal(game.player.hp, PLAYER.maxHp - 5);
+    near(game.player.hp, PLAYER.maxHp - 5);
   });
 
   it('고무장갑이 받는 피해를 줄인다', () => {
@@ -110,7 +117,16 @@ describe('전투', () => {
     game.passives.gloves = 5;
     placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 10 });
     update(game, 1 / 60);
-    assert.equal(game.player.hp, PLAYER.maxHp - 7);
+    near(game.player.hp, PLAYER.maxHp - 7);
+  });
+
+  it('아무것도 없어도 1초에 체력이 1씩 찬다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.player.hp = 50;
+    run(game, 3);
+    near(game.player.hp, 53, 0.05);
   });
 
   it('체력이 0이 되면 게임이 끝난다', () => {
@@ -186,7 +202,7 @@ describe('추가 아이템', () => {
     const game = createGame(seeded(4));
     game.spawnCarry = -1000;
     game.weapons = { coil: 1 };
-    const roach = placeEnemy(game, 'roach', 62, 0, { hp: 5 });
+    const roach = placeEnemy(game, 'roach', WEAPONS.coil.orbit[0], 0, { hp: 5 });
     run(game, 2.5);
     assert.ok(roach.dead);
   });
@@ -221,7 +237,7 @@ describe('추가 아이템', () => {
     const hp = game.player.hp;
     run(game, 1);
     assert.equal(roach.frozen, true);
-    assert.equal(game.player.hp, hp);
+    assert.ok(game.player.hp >= hp); // 맞지 않았다(기본 회복만 찼다)
   });
 
   it('택배 상자를 주우면 5초 동안 피해를 받지 않는다', () => {
@@ -296,7 +312,7 @@ describe('보스 패턴', () => {
     assert.equal(game.hazards.length, 1);
     const hp = game.player.hp;
     for (let step = 0; step < 30; step += 1) update(game, 1 / 60);
-    assert.equal(game.player.hp, hp);
+    assert.ok(game.player.hp >= hp); // 아직 떨어지지 않았다
     for (let step = 0; step < 40; step += 1) update(game, 1 / 60);
     assert.ok(game.player.hp < hp);
     assert.equal(game.hazards.length, 0);
@@ -546,5 +562,106 @@ describe('대왕 파리', () => {
     placeEnemy(game, 'kingFly', 300, 0, { boss: true, hp: 1e6, speed: 0, radius: 30, stats, label: stats.label });
     for (let step = 0; step < Math.ceil(stats.summonEverySec * 60) + 2; step += 1) update(game, 1 / 60);
     assert.equal(game.enemies.filter((enemy) => enemy.kind === 'fly').length, 5);
+  });
+});
+
+describe('나방 출현', () => {
+  it('나방은 드물게 나오고, 한 번에 여섯 마리를 넘지 않는다', () => {
+    const game = createGame(seeded(12));
+    game.weapons = {};
+    game.player.hp = 1e9;
+    game.time = 600;
+    game.nextBossAt = Infinity;
+    game.nextSwarmAt = Infinity;
+    let most = 0;
+    for (let step = 0; step < 60 * 20; step += 1) {
+      update(game, 1 / 60);
+      game.player.hp = 1e9;
+      most = Math.max(most, game.enemies.filter((enemy) => enemy.kind === 'moth').length);
+    }
+    assert.ok(most <= 6);
+  });
+});
+
+describe('레벨업 다시 뽑기와 수치 표시', () => {
+  it('레벨업마다 한 번만 다시 뽑을 수 있고, 다음 레벨업에 다시 생긴다', () => {
+    const game = createGame(seeded(21));
+    game.spawnCarry = -1000;
+    game.pendingLevels = 2;
+    update(game, 1 / 60);
+    const first = game.choices.map((choice) => choice.id).join();
+    assert.ok(reroll(game));
+    assert.equal(game.rerollLeft, 0);
+    assert.ok(!reroll(game));
+    assert.notEqual(game.choices.map((choice) => choice.id).join(), first);
+    choose(game, 0);
+    assert.ok(game.choices);
+    assert.equal(game.rerollLeft, 1);
+  });
+
+  it('카드에 정확한 수치를 적는다', () => {
+    const game = createGame(seeded(1));
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'protein', level: 1 }), ['공격력 +10%']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'protein', level: 2 }), ['공격력 +10% → +20%']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'gloves', level: 1 }), ['받는 피해 -8%']);
+    const broom = describeChoice(game, { kind: 'weapon', id: 'broom', level: 2 });
+    const [before, after] = [WEAPONS.broom.damage[0], WEAPONS.broom.damage[1]];
+    assert.ok(broom.includes(`피해 +${Math.round((after / before - 1) * 100)}% (${before} → ${after})`));
+    assert.ok(broom.some((line) => line.startsWith('쿨타임 -')));
+    assert.ok(rollChoices(game).every((choice) => Array.isArray(choice.details) && choice.details.length > 0));
+  });
+
+  it('능력치 창은 패시브를 반영한다', () => {
+    const game = createGame(seeded(1));
+    game.passives = { protein: 3, sneakers: 1, clover: 2, hotsauce: 1 };
+    const sheet = Object.fromEntries(statSheet(game));
+    assert.equal(sheet['공격력'], '+30%');
+    assert.equal(sheet['이동 속도'], '+10%');
+    assert.equal(sheet['치명타 확률'], '10%');
+    assert.equal(sheet['치명타 피해'], '175%');
+  });
+});
+
+describe('치명타', () => {
+  it('네잎클로버가 없으면 치명타가 없고, 핫소스도 나오지 않는다', () => {
+    const game = createGame(seeded(1));
+    assert.equal(statsOf(game).critChance, 0);
+    const enemy = { id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0 };
+    game.random = () => 0;
+    damageEnemy(game, enemy, 10);
+    assert.equal(enemy.hp, 990);
+    for (let seed = 1; seed < 40; seed += 1) {
+      const other = createGame(seeded(seed));
+      assert.ok(!rollChoices(other).some((choice) => choice.id === 'hotsauce'));
+    }
+  });
+
+  it('치명타가 나면 기본 150%에 핫소스만큼 더 아프다', () => {
+    const game = createGame(seeded(1));
+    game.passives = { clover: 1, hotsauce: 2 };
+    const enemy = { id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0 };
+    game.random = () => 0;
+    damageEnemy(game, enemy, 10);
+    assert.equal(enemy.hp, 1000 - 10 * (PLAYER.critDamage + PASSIVES.hotsauce.critDamage[1]));
+    game.random = () => 0.99;
+    damageEnemy(game, enemy, 10);
+    assert.equal(enemy.hp, 1000 - 10 * 2 - 10);
+  });
+});
+
+describe('범위 조정', () => {
+  it('모기향은 더 넓게, 더 빨리 돈다', () => {
+    assert.ok(WEAPONS.coil.orbit[0] >= 85 && WEAPONS.coil.spin > 2.8);
+  });
+
+  it('선풍기는 옆으로도 넓게 날린다', () => {
+    const game = createGame(seeded(4));
+    game.spawnCarry = -1000;
+    game.weapons = { fan: 1 };
+    const front = placeEnemy(game, 'trash', 100, 0, { hp: 1000 });
+    // 정면에서 50도쯤 비껴 있는 적도 닿는다.
+    const side = placeEnemy(game, 'trash', Math.cos(0.87) * 180, Math.sin(0.87) * 180, { hp: 1000 });
+    update(game, 1 / 60);
+    assert.ok(front.hp < 1000 && side.hp < 1000);
   });
 });

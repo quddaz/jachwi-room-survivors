@@ -1,19 +1,21 @@
 // 숫자는 모두 여기서 바꾼다. 시간 단위는 초, 거리는 월드 픽셀이다.
 export const ARENA = { width: 3000, height: 3000 };
 
-export const PLAYER = { speed: 200, maxHp: 100, radius: 16, pickupRadius: 90, invulnerableSec: 0.8 };
+// regen은 아무것도 없어도 1초에 차는 체력이다. 비타민의 회복력은 여기에 더해진다.
+// critDamage는 치명타가 날 때 피해 배율이다. 치명타 확률은 네잎클로버로만 생긴다.
+export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.8 };
 
 // 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
 export function difficultyAt(time) {
   const minutes = time / 60;
-  // 4분부터는 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
+  // 6분부터는 합체 무기를 갖춘 오리를 상대하도록 조금 더 세지지만, 한 번에 튀지 않고 꾸준히 오른다.
   const late = Math.max(0, minutes - 6);
   return {
-    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * late * 0.35 + late * late * late * 0.04,
-    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.25,
-    speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03),
-    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.2),
-    maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
+    hp: 1 + minutes * 0.4 + minutes * minutes * 0.06 + late * late * 0.1,
+    damage: 1 + minutes * 0.15 + minutes * minutes * 0.006 + late * 0.05,
+    speed: 1 + Math.min(0.4, minutes * 0.035) + Math.min(0.15, late * 0.02),
+    spawnPerSec: Math.min(34, 1.4 + minutes * 1.6 + minutes * minutes * 0.16 + late * 0.4),
+    maxEnemies: Math.min(520, 110 + Math.floor(minutes * 55)),
   };
 }
 
@@ -37,7 +39,8 @@ export const ENEMIES = {
   // 빠르고 단단하다.
   mouse: { label: '생쥐', hp: 55, speed: 98, radius: 13, damage: 11, xp: 4, from: 220, weight: 2 },
   // 거리를 두고 세 갈래로 가루를 쏜다.
-  moth: { label: '나방', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 2,
+  // 탄막이 겹치면 감당이 안 돼서 드물게 나오고, 한 번에 여섯 마리까지만 있다.
+  moth: { label: '나방', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 0.5, maxAlive: 6,
     range: 260, shootEverySec: 3.6, shotSpeed: 150, shotDamage: 6, spread: 0.3, sway: 0.35 },
 };
 
@@ -81,7 +84,7 @@ export const WEAPONS = {
   },
   dehumidifier: {
     label: '제습기', description: '곁에 오는 적을 계속 말린다',
-    dps: [12, 16, 21, 27, 34], radius: [70, 80, 90, 102, 116],
+    dps: [12, 16, 21, 27, 34], radius: [95, 108, 122, 138, 156],
   },
   swatter: {
     label: '파리채', description: '가장 센 적을 세게 내려친다',
@@ -93,7 +96,7 @@ export const WEAPONS = {
   },
   coil: {
     label: '모기향', description: '불씨가 주위를 빙빙 돌며 태운다',
-    damage: [12, 15, 19, 24, 30], count: [2, 3, 3, 4, 5], orbit: [62, 66, 70, 76, 82], hitEverySec: 0.35,
+    damage: [12, 15, 19, 24, 30], count: [2, 3, 3, 4, 5], orbit: [85, 92, 100, 110, 122], hitEverySec: 0.35, spin: 4.2,
   },
   zapper: {
     label: '전기 파리채', description: '전기가 적에서 적으로 튄다',
@@ -114,7 +117,8 @@ export const WEAPONS = {
   },
   fan: {
     label: '선풍기', description: '강풍으로 앞의 적을 멀리 날린다',
-    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [160, 175, 190, 210, 230], knockback: 95,
+    // cone은 바라보는 쪽에서 양옆으로 바람이 닿는 각도(라디안)다.
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], knockback: 95, cone: 1.0,
   },
   laser: {
     label: '레이저 포인터', description: '아무 방향으로나 곧게 뻗는 레이저를 쏜다',
@@ -146,6 +150,9 @@ export const PASSIVES = {
   wipes: { label: '물티슈', description: '무기가 닿는 범위가 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
   protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
   magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.3, 0.6, 0.9, 1.2, 1.5] },
+  clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25] },
+  // 치명타 확률이 없으면 쓸모가 없어서, 네잎클로버를 가진 뒤에만 나온다.
+  hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
 };
 
 export const MAX_LEVEL = 5;

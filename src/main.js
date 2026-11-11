@@ -1,6 +1,7 @@
-import { choose, createGame, formatTime, statsOf, update } from './engine.js';
+import { choose, createGame, formatTime, reroll, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
+import { EVOLUTIONS, FUSIONS, WEAPONS } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
@@ -151,8 +152,29 @@ function drawChoices() {
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>
+        <span class="choice-stats">${(choice.details ?? []).map((line) => `<span>${escapeHtml(line)}</span>`).join('')}</span>
       </button>`;
   }).join('');
+  const button = document.querySelector('.reroll');
+  button.disabled = game.rerollLeft <= 0;
+  button.querySelector('b').textContent = game.rerollLeft;
+}
+
+function rerollChoices() {
+  if (reroll(game)) drawChoices();
+}
+
+let shownStats = '';
+
+// 오른쪽 아래 능력치 창. 바뀔 때만 다시 그린다.
+function drawStats() {
+  const rows = statSheet(game);
+  const key = rows.map(([, value]) => value).join('|');
+  if (key === shownStats) return;
+  shownStats = key;
+  document.querySelector('.stats-list').innerHTML = rows
+    .map(([label, value]) => `<dt>${label}</dt><dd class="${/^[+-]/.test(value) ? 'is-changed' : ''}">${value}</dd>`)
+    .join('');
 }
 
 function frame(now) {
@@ -172,6 +194,7 @@ function frame(now) {
   render(ctx, game, viewport.width, viewport.height, now / 1000);
   drawHud();
   drawChoices();
+  drawStats();
   if (game.over) {
     finish();
     return;
@@ -187,6 +210,7 @@ function start() {
   touch = null;
   shownChoices = null;
   shownBannerAge = null;
+  shownStats = '';
   pausedOverlay.hidden = true;
   levelupOverlay.hidden = true;
   joystick.hidden = true;
@@ -232,6 +256,28 @@ async function finish() {
   } catch (error) {
     rankText.textContent = error.message;
   }
+}
+
+// 시작 화면의 조합표. 규칙에서 바로 만들어서, 합체나 완성형을 고치면 표도 같이 바뀐다.
+function openRecipes() {
+  show('recipes');
+  const list = document.querySelector('.recipe-list');
+  if (list.childElementCount > 0) return;
+  const weapon = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
+  list.innerHTML = Object.entries(FUSIONS).map(([id, fusion]) => `
+    <li class="recipe">
+      <div class="recipe-formula">
+        ${weapon(fusion.from[0])}
+        <span class="recipe-op">+</span>
+        ${weapon(fusion.from[1])}
+        <span class="recipe-op">→</span>
+        <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span></span>
+      </div>
+      <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
+    </li>`).join('');
+  document.querySelector('.evolve-list').innerHTML = Object.entries(EVOLUTIONS).map(([id, evolution]) => `
+    <li>${itemIcon(id)}<span><b>${escapeHtml(WEAPONS[id].label)} → ${escapeHtml(evolution.label)}</b>${escapeHtml(evolution.description)}</span></li>`)
+    .join('');
 }
 
 async function openRanking() {
@@ -301,6 +347,7 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
   }
   if (event.code === 'Escape' && playing) setPaused(!paused);
+  if (event.code === 'KeyR' && game?.choices) rerollChoices();
   const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
     choose(game, pick);
@@ -347,9 +394,12 @@ document.querySelector('.start-form').addEventListener('submit', (event) => {
 app.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'ranking') openRanking();
+  if (action === 'recipes') openRecipes();
   if (action === 'home') show('start');
   if (action === 'retry') start();
   if (action === 'pause') setPaused(true);
+  if (action === 'reroll') rerollChoices();
+  if (action === 'stats') document.querySelector('.stats').classList.toggle('is-open');
   if (action === 'resume') setPaused(false);
   if (action === 'giveup') {
     paused = false;

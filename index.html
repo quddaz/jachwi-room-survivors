@@ -23,6 +23,7 @@
           <li>먼지를 모아 <b>레벨업</b></li>
           <li>90초마다 <b>보스</b></li>
           <li>무기를 5레벨까지 올리면 <b>완성형</b>으로 진화</li>
+          <li>레벨업마다 <b>한 번 다시 뽑기</b></li>
           <li><b>버틴 시간</b>으로 순위</li>
         </ul>
         <form class="start-form" novalidate>
@@ -31,7 +32,22 @@
           <p class="field-error" role="alert"></p>
           <button class="button button-primary" type="submit">시작하기</button>
         </form>
-        <button class="button button-ghost" type="button" data-action="ranking">순위 보기</button>
+        <div class="start-links">
+          <button class="button button-ghost" type="button" data-action="recipes">🧪 합체 조합표</button>
+          <button class="button button-ghost" type="button" data-action="ranking">🏆 순위 보기</button>
+        </div>
+      </section>
+
+      <section class="screen screen-recipes" data-screen="recipes">
+        <header class="ranking-header">
+          <button class="back" type="button" data-action="home" aria-label="처음으로">‹</button>
+          <h2>합체 조합표</h2>
+        </header>
+        <p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요.</p>
+        <ol class="recipe-list"></ol>
+        <h3 class="recipe-heading">완성형</h3>
+        <p class="ranking-note">무기를 5레벨까지 올리면 선택지에 나와요.</p>
+        <ul class="evolve-list"></ul>
       </section>
 
       <section class="screen screen-game" data-screen="game" aria-label="게임">
@@ -50,6 +66,10 @@
         </header>
         <div class="boss-bar" hidden><span class="boss-name"></span><div class="boss-hp"><div class="boss-hp-fill"></div></div></div>
         <div class="loadout"></div>
+        <aside class="stats" aria-label="내 능력치">
+          <button class="stats-toggle" type="button" data-action="stats">능력치</button>
+          <dl class="stats-list"></dl>
+        </aside>
         <p class="banner" aria-live="polite"></p>
         <div class="joystick" hidden><div class="joystick-knob"></div></div>
         <div class="overlay levelup" hidden>
@@ -57,6 +77,7 @@
             <p class="panel-title">레벨 업!</p>
             <p class="panel-sub">하나를 골라 주세요</p>
             <div class="choices"></div>
+            <button class="reroll" type="button" data-action="reroll">🎲 다시 뽑기 <b>1</b><small>R</small></button>
           </div>
         </div>
         <div class="overlay paused" hidden>

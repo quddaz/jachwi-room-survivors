@@ -1189,6 +1189,62 @@ ITEMS.magnifier = item([
   twinkle(fx, 1, 10, f + 2, 'W');
   twinkle(fx, 13, 8, f + 3, 'i');
 });
+ITEMS.clover = item([
+  '................',
+  '....xx...xx.....',
+  '...xGGx.xGGx....',
+  '...xGgGxGgGx....',
+  '....xGGGGGx.....',
+  '.xx..xGGGx..xx..',
+  'xGGx.xGGGx.xGGx.',
+  'xGgGxGGyGGxGgGx.',
+  'xGGGGGyGyGGGGGx.',
+  '.xGGGGGyGGGGGx..',
+  '..xxxGGGGGxxx...',
+  '....xGGxGGx.....',
+  '...xGgGxGgGx....',
+  '...xGGx.xGGx....',
+  '....xx..Nn......',
+  '.........Nn.....',
+], (body, fx, f) => {
+  // 가운데가 반짝이고, 주위로 행운의 빛이 돈다.
+  body.set(7, 8, f % 2 === 0 ? 'Y' : 'y');
+  const ring = [[1, 1], [8, 0], [15, 2], [15, 9], [13, 15], [6, 15], [0, 12], [0, 4]];
+  ring.forEach(([x, y], index) => {
+    const lit = (index + f * 2) % 8;
+    if (lit < 2) fx.set(x, y, lit === 0 ? 'W' : 'Y');
+  });
+  twinkle(fx, 12, 12, f + 1, 'Y');
+});
+ITEMS.hotsauce = item([
+  '......xGx.......',
+  '......xGx.......',
+  '.....hDDDh......',
+  '......uRu.......',
+  '.....uRRRu......',
+  '....uRRaRRu.....',
+  '....uRaRRRu.....',
+  '....uWWWWWu.....',
+  '....uWeOeWu.....',
+  '....uWOYOWu.....',
+  '....uWeOeWu.....',
+  '....uWWWWWu.....',
+  '....uRRRRRu.....',
+  '....uRRRRRu.....',
+  '.....uuuuu......',
+  '................',
+], (body, fx, f) => {
+  // 병 둘레로 매운 불꽃이 피어오른다.
+  const flames = [
+    [[12, 6, 'e'], [12, 5, 'O'], [2, 9, 'e']],
+    [[12, 5, 'e'], [12, 4, 'Y'], [13, 6, 'O'], [2, 8, 'O'], [2, 9, 'e']],
+    [[13, 4, 'e'], [12, 3, 'O'], [1, 7, 'e'], [2, 8, 'Y']],
+    [[12, 2, 'e'], [13, 3, 'O'], [1, 6, 'O'], [2, 7, 'e']],
+  ];
+  flames[f].forEach(([x, y, ch]) => fx.set(x, y, ch));
+  body.set(7, 9, f % 2 === 0 ? 'Y' : 'W');
+  twinkle(fx, 13, 12, f + 2, 'e');
+});
 // 합체 무기
 ITEMS.thunderball = item([], (body, fx, f) => {
   const cy = [8, 7, 8, 9][f];

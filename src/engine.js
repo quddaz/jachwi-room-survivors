@@ -42,6 +42,7 @@ export function createGame(random = Math.random) {
     shieldUntil: -1,
     xpCarry: 0,
     nextId: 1,
+    rerollLeft: 1,
   };
 }
 
@@ -57,13 +58,97 @@ export function statsOf(game) {
     armor: passiveValue(game, 'gloves', 'armor'),
     pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup')),
     maxHp: PLAYER.maxHp + passiveValue(game, 'vitamin', 'maxHp'),
-    regen: passiveValue(game, 'vitamin', 'regen'),
+    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen'),
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain'),
     area: 1 + passiveValue(game, 'wipes', 'area'),
     might: 1 + passiveValue(game, 'protein', 'might'),
     projectile: 1 + passiveValue(game, 'magnifier', 'size'),
+    critChance: passiveValue(game, 'clover', 'critChance'),
+    critDamage: PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage'),
   };
+}
+
+const percent = (value) => {
+  const rounded = Math.round(value * 100);
+  return rounded === 0 ? '0%' : `${rounded > 0 ? '+' : ''}${rounded}%`;
+};
+const number = (value) => (Math.abs(value) >= 10 ? String(Math.round(value)) : String(Math.round(value * 10) / 10));
+
+// 오른쪽 아래 능력치 창. [이름, 값] 목록이다.
+export function statSheet(game) {
+  const stats = statsOf(game);
+  return [
+    ['최대 체력', number(stats.maxHp)],
+    ['초당 회복', number(stats.regen)],
+    ['공격력', percent(stats.might - 1)],
+    ['이동 속도', percent(stats.speed / PLAYER.speed - 1)],
+    ['쿨타임', percent(stats.cooldownScale - 1)],
+    ['무기 범위', percent(stats.area - 1)],
+    ['투사체 크기', percent(stats.projectile - 1)],
+    ['받는 피해', percent(-stats.armor)],
+    ['줍는 범위', percent(stats.pickupRadius / PLAYER.pickupRadius - 1)],
+    ['경험치', percent(stats.xpGain - 1)],
+    ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
+    ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
+  ];
+}
+
+// 패시브 효과를 사람이 읽는 말로. [이름, 값을 글로 바꾸는 함수]
+const PASSIVE_TEXT = {
+  armor: ['받는 피해', (value) => percent(-value)],
+  speed: ['이동 속도', percent],
+  pickup: ['줍는 범위', percent],
+  maxHp: ['최대 체력', (value) => `+${number(value)}`],
+  regen: ['초당 회복', (value) => `+${number(value)}`],
+  haste: ['쿨타임', (value) => percent(-value)],
+  xpGain: ['경험치', percent],
+  area: ['무기 범위', percent],
+  might: ['공격력', percent],
+  size: ['투사체 크기', percent],
+  critChance: ['치명타 확률', percent],
+  critDamage: ['치명타 피해', percent],
+};
+
+// 무기 능력치 이름. lower는 줄어들수록 좋은 값이고, plain은 퍼센트 대신 개수로 보여 준다.
+const WEAPON_TEXT = {
+  damage: { name: '피해', might: true }, dps: { name: '초당 피해', might: true }, cooldown: { name: '쿨타임', lower: true, unit: '초' },
+  radius: { name: '범위' }, range: { name: '사거리' }, width: { name: '굵기' }, size: { name: '크기' }, orbit: { name: '궤도' },
+  speed: { name: '속도' }, count: { name: '개수', plain: true }, pierce: { name: '관통', plain: true }, chains: { name: '연쇄', plain: true },
+};
+
+const EVOLUTION_TEXT = { damage: '피해', dps: '초당 피해', radius: '범위', range: '사거리', size: '크기', jump: '연쇄 거리' };
+
+// 레벨업 카드에 적을 정확한 수치. 지금 값에서 얼마나 바뀌는지 보여 준다.
+export function describeChoice(game, choice) {
+  if (choice.kind === 'heal') return ['체력 +20'];
+  if (choice.kind === 'passive') {
+    const passive = PASSIVES[choice.id];
+    return Object.entries(passive).filter(([, values]) => Array.isArray(values)).map(([key, values]) => {
+      const [name, format] = PASSIVE_TEXT[key];
+      const next = format(values[choice.level - 1]);
+      return choice.level === 1 ? `${name} ${next}` : `${name} ${format(values[choice.level - 2])} → ${next}`;
+    });
+  }
+  if (choice.kind === 'weapon') {
+    const weapon = WEAPONS[choice.id];
+    const might = statsOf(game).might;
+    return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
+      const text = WEAPON_TEXT[key];
+      const scale = text.might ? might : 1;
+      const value = (level) => values[level - 1] * scale;
+      const show = (amount) => `${number(amount)}${text.unit ?? ''}`;
+      if (choice.level === 1) return [`${text.name} ${show(value(1))}`];
+      const before = value(choice.level - 1);
+      const after = value(choice.level);
+      if (before === after) return [];
+      if (text.plain) return [`${text.name} ${show(before)} → ${show(after)}`];
+      return [`${text.name} ${percent(after / before - 1)} (${show(before)} → ${show(after)})`];
+    });
+  }
+  const recipe = choice.kind === 'fusion' ? FUSIONS[choice.id] : EVOLUTIONS[choice.id];
+  return Object.entries(recipe).filter(([key, value]) => EVOLUTION_TEXT[key] && typeof value === 'number' && value > 1)
+    .map(([key, value]) => `${EVOLUTION_TEXT[key]} ${percent(value - 1)}`);
 }
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -117,7 +202,9 @@ function spawnPoint(game, minDistance = 440, maxDistance = 560) {
 }
 
 function pickKind(game) {
-  const available = Object.entries(ENEMIES).filter(([, enemy]) => enemy.weight > 0 && game.time >= enemy.from);
+  const alive = (kind) => game.enemies.reduce((count, enemy) => count + (enemy.kind === kind && !enemy.dead ? 1 : 0), 0);
+  const available = Object.entries(ENEMIES).filter(([kind, enemy]) => enemy.weight > 0 && game.time >= enemy.from
+    && (!enemy.maxAlive || alive(kind) < enemy.maxAlive));
   const total = available.reduce((sum, [, enemy]) => sum + enemy.weight, 0);
   let roll = game.random() * total;
   for (const [kind, enemy] of available) {
@@ -418,11 +505,16 @@ function separate(enemies) {
 
 export function damageEnemy(game, enemy, amount, knockback = 0, from = game.player) {
   if (enemy.dead) return;
+  // 치명타. 확률이 없으면 난수를 쓰지 않는다.
+  const chance = passiveValue(game, 'clover', 'critChance');
+  const crit = chance > 0 && game.random() < chance;
+  if (crit) amount *= PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage');
   enemy.hp -= amount;
   enemy.hitFlash = 0.1;
   if (amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
-      life: 0.6 });
+      life: crit ? 0.8 : 0.6, crit });
+    if (crit) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'crit', count: 6, life: 0.35 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: 3, life: 0.3 });
   }
   if (knockback > 0 && !enemy.boss) {
@@ -528,7 +620,8 @@ export function coilOrbs(game) {
   });
   const outer = evolution(game, 'coil')?.outer;
   const fire = fusion(game, 'firering');
-  return [...ringAt(orbit, count, 2.8), ...(outer ? ringAt(orbit * outer, count + 2, -2.1) : []),
+  const { spin } = WEAPONS.coil;
+  return [...ringAt(orbit, count, spin), ...(outer ? ringAt(orbit * outer, count + 2, -spin * 0.75) : []),
     ...(fire ? ringAt(orbit * fire.outer, count + 5, 1.6) : [])];
 }
 
@@ -740,9 +833,10 @@ function fireWeapons(game, dt) {
       if (enemy.dead || gap > range + enemy.radius) continue;
       const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
       const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
-      if (diff < 0.75 || evolution(game, 'fan')) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
+      if (diff < WEAPONS.fan.cone || evolution(game, 'fan')) damageEnemy(game, enemy, damage, WEAPONS.fan.knockback);
     }
-    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, life: 0.35, mega: Boolean(evolution(game, 'fan')) });
+    addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, cone: WEAPONS.fan.cone, life: 0.35,
+      mega: Boolean(evolution(game, 'fan')) });
   }
   const spin = fusion(game, 'spinlaser');
   if (game.weapons.laser && spin) {
@@ -1111,7 +1205,8 @@ export function rollChoices(game) {
   const pool = [
     ...Object.keys(WEAPONS).filter((id) => (game.weapons[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'weapon', id, level: (game.weapons[id] ?? 0) + 1, ...WEAPONS[id] })),
-    ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < passiveMaxLevel(id))
+    ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < passiveMaxLevel(id)
+      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
@@ -1126,7 +1221,15 @@ export function rollChoices(game) {
   while (choices.length < 3) {
     choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 20 회복' });
   }
-  return choices;
+  return choices.map((choice) => ({ ...choice, details: describeChoice(game, choice) }));
+}
+
+// 레벨업마다 한 번, 선택지를 새로 뽑을 수 있다.
+export function reroll(game) {
+  if (!game.choices || game.rerollLeft <= 0) return false;
+  game.rerollLeft -= 1;
+  game.choices = rollChoices(game);
+  return true;
 }
 
 export function choose(game, index) {
@@ -1152,6 +1255,7 @@ export function choose(game, index) {
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
   game.pendingLevels -= 1;
   game.choices = game.pendingLevels > 0 ? rollChoices(game) : null;
+  game.rerollLeft = 1;
   return choice;
 }
 
@@ -1171,7 +1275,10 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   game.shake = Math.max(0, game.shake - dt);
   game.effects.forEach((effect) => { effect.age += dt; });
   game.effects = game.effects.filter((effect) => effect.age < effect.life);
-  if (game.pendingLevels > 0 && !game.over) game.choices = rollChoices(game);
+  if (game.pendingLevels > 0 && !game.over) {
+    game.choices = rollChoices(game);
+    game.rerollLeft = 1;
+  }
   return game;
 }
 
