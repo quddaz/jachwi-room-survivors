@@ -336,6 +336,9 @@ export const FUSIONS = {
     targets: 3, range: 170, damage: 0.8 },
 };
 
+// 한 판에 가질 수 있는 무기 수. 다 채우면 새 무기는 선택지에 나오지 않고 가진 무기만 강화한다.
+export const MAX_WEAPONS = 8;
+
 // 한 판에 가질 수 있는 보물 수. 다 채운 뒤의 보물 상자는 레벨업 두 번이 된다.
 export const MAX_RELICS = 3;
 

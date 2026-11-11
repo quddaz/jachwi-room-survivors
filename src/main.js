@@ -2,7 +2,7 @@ import { applyBuild, choose, createGame, formatTime, passiveLines, reroll, start
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
+  BOSS_EVERY_SEC, BOSSES, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -168,7 +168,7 @@ function drawChoices() {
     const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' ? '' : choice.kind === 'relic-swap' ? '<small class="choice-swap">내려놓기</small>'
       : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
-      ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
+      ? `<small class="choice-new">NEW${choice.kind === 'weapon' ? ` 무기 ${Object.keys(game.weapons).length + 1}/${MAX_WEAPONS}` : ''}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
       <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind === 'relic-swap' ? ' is-swap' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
@@ -307,7 +307,7 @@ const CODEX_TABS = [
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['weapon', '무기', () => `<p class="ranking-note">무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>까지 가질 수 있어요. 다 채우면 새 무기는 나오지 않고 가진 무기만 강화해요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,

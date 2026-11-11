@@ -4,7 +4,7 @@ import {
   applyBuild, choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -1401,5 +1401,26 @@ describe('능력치 투자', () => {
     assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
     choose(game, 0);
     assert.equal(Object.keys(game.relics).length, 2);
+  });
+});
+
+describe('무기 개수 제한', () => {
+  it('무기를 최대로 가지면 새 무기는 나오지 않고 가진 무기 강화만 나온다', () => {
+    const game = createGame(seeded(11));
+    const owned = Object.keys(WEAPONS).slice(0, MAX_WEAPONS);
+    game.weapons = Object.fromEntries(owned.map((id) => [id, 1]));
+    for (let index = 0; index < 30; index += 1) {
+      for (const choice of rollChoices(game)) {
+        if (choice.kind === 'weapon') assert.ok(owned.includes(choice.id));
+      }
+    }
+  });
+
+  it('한 자리가 비어 있으면 새 무기가 나올 수 있다', () => {
+    const game = createGame(seeded(11));
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).slice(0, MAX_WEAPONS - 1).map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(Object.keys(game.weapons).map((id) => [id, true]));
+    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, passiveMaxLevel(id)]));
+    assert.ok(rollChoices(game).some((choice) => choice.kind === 'weapon' && choice.level === 1));
   });
 });
