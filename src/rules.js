@@ -1,7 +1,7 @@
 // 숫자는 모두 여기서 바꾼다. 시간 단위는 초, 거리는 월드 픽셀이다.
 export const ARENA = { width: 3000, height: 3000 };
 
-export const PLAYER = { speed: 150, maxHp: 50, radius: 16, pickupRadius: 90, invulnerableSec: 0.8 };
+export const PLAYER = { speed: 200, maxHp: 100, radius: 16, pickupRadius: 90, invulnerableSec: 0.8 };
 
 // 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
 export function difficultyAt(time) {
