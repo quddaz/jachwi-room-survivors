@@ -110,16 +110,6 @@ describe('전투', () => {
     near(game.player.hp, PLAYER.maxHp - 5);
   });
 
-  it('고무장갑이 받는 피해를 줄인다', () => {
-    const game = createGame(seeded(1));
-    game.spawnCarry = -1000;
-    game.weapons = {};
-    game.passives.gloves = 5;
-    placeEnemy(game, 'roach', 3, 0, { hp: 1000, damage: 10 });
-    update(game, 1 / 60);
-    near(game.player.hp, PLAYER.maxHp - 7);
-  });
-
   it('아무것도 없어도 1초에 체력이 1씩 찬다', () => {
     const game = createGame(seeded(1));
     game.spawnCarry = -1000;
@@ -435,7 +425,7 @@ describe('패시브 확장', () => {
   it('단백질 셰이크와 운동화는 10레벨까지, 나머지는 5레벨까지 올린다', () => {
     assert.equal(passiveMaxLevel('protein'), 10);
     assert.equal(passiveMaxLevel('sneakers'), 10);
-    assert.equal(passiveMaxLevel('gloves'), 5);
+    assert.equal(passiveMaxLevel('battery'), 5);
     const game = createGame(seeded(4));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
     game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
@@ -606,7 +596,6 @@ describe('레벨업 다시 뽑기와 수치 표시', () => {
     const game = createGame(seeded(1));
     assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'protein', level: 1 }), ['공격력 +10%']);
     assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'protein', level: 2 }), ['공격력 +10% → +20%']);
-    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'gloves', level: 1 }), ['받는 피해 -8%']);
     const broom = describeChoice(game, { kind: 'weapon', id: 'broom', level: 2 });
     const [before, after] = [WEAPONS.broom.damage[0], WEAPONS.broom.damage[1]];
     assert.ok(broom.includes(`피해 +${Math.round((after / before - 1) * 100)}% (${before} → ${after})`));
@@ -718,17 +707,17 @@ describe('보물', () => {
     assert.ok(count(true) >= count(false) * 1.8);
   });
 
-  it('두꺼운 이불은 멈춰 있을 때만 피해를 80% 줄인다', () => {
+  it('두꺼운 이불은 멈춰 있을 때만 피해를 60% 줄인다', () => {
     const still = quiet();
     still.relics.blanket = true;
     placeEnemy(still, 'roach', 3, 0, { hp: 1e9, damage: 10 });
     update(still, 1 / 60);
-    near(still.player.hp, PLAYER.maxHp - 2);
+    near(still.player.hp, PLAYER.maxHp - 4);
     const moving = quiet();
     moving.relics.blanket = true;
     placeEnemy(moving, 'roach', 3, 0, { hp: 1e9, damage: 10 });
     update(moving, 1 / 60, { x: 0.01, y: 1 });
-    assert.ok(moving.player.hp < PLAYER.maxHp - 8);
+    near(moving.player.hp, PLAYER.maxHp - 10);
   });
 
   it('구급상자는 한 번만 살려 준다', () => {

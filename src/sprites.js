@@ -767,29 +767,6 @@ const ITEMS = {
     fx.set(13, 3, f % 2 === 0 ? 'O' : '.').set(14, 7, f % 2 === 1 ? 'e' : '.').set(15, 2 + f, 'O');
     body.set(5 + (f % 2), 5, 'K').set(5 + ((f + 1) % 2), 6, 'W');
   }),
-  gloves: item([
-    '................',
-    '.....RR.RR.RR...',
-    '....RaR.aR.aR...',
-    '....RaR.aR.aR...',
-    '.RR.RaRRaRRaR...',
-    '.RaRRaRRRRRRR...',
-    '.RaaRRRRRRRRR...',
-    '..RaRRRRRRRRR...',
-    '..RRRRRRRRRRr...',
-    '...RRRRRRRRr....',
-    '...RRRRRRRRr....',
-    '....rrrrrrr.....',
-    '....aRRRRRa.....',
-    '....RRRRRRr.....',
-    '....aRRRRRa.....',
-    '................',
-  ], (body, fx, f) => {
-    twinkle(fx, 14, 2, f);
-    twinkle(fx, 1, 11, f + 2, 'W');
-    twinkle(fx, 14, 11, f + 3, 'a');
-    body.set(6 + f, 8, 'a').set(7 + f, 7, 'a');
-  }),
   sneakers: item([
     '................',
     '................',

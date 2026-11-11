@@ -125,7 +125,7 @@ export function statsOf(game) {
   return {
     speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed') + (relic(game, 'energy')?.speed ?? 0)
       + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
-    armor: 1 - (1 - passiveValue(game, 'gloves', 'armor')) * (1 - guard) * (1 - buildValue(game, 'armor'))
+    armor: 1 - (1 - guard) * (1 - buildValue(game, 'armor'))
       * (1 - (perk(game, 'survival', 10)?.armor ?? 0)),
     pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0) + buildValue(game, 'pickup')),
     maxHp: maxHpOf(game),
@@ -177,7 +177,6 @@ export function statSheet(game) {
 
 // 패시브 효과를 사람이 읽는 말로. [이름, 값을 글로 바꾸는 함수]
 const PASSIVE_TEXT = {
-  armor: ['받는 피해', (value) => percent(-value)],
   speed: ['이동 속도', percent],
   pickup: ['줍는 범위', percent],
   maxHp: ['최대 체력', (value) => `+${number(value)}`],
@@ -1672,8 +1671,7 @@ function applyDrop(game, drop) {
   if (drop.type === 'chest') {
     game.pendingRelics += 1;
     game.pendingLevels += perk(game, 'item', 20)?.chestLevels ?? 0;
-    const full = Object.keys(game.relics).length >= MAX_RELICS;
-    addEffect(game, { type: 'banner', text: full ? '보물 상자! 보물이 가득 차서 두 번 강화해요' : '보물 상자! 보물을 하나 골라요', life: 2 });
+    addEffect(game, { type: 'banner', text: '보물 상자 발견!', life: 2 });
   }
   addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
   if (drop.type !== 'chest') addEffect(game, { type: 'banner', text: `${DROPS[drop.type].label}!`, life: 1.1 });
@@ -1816,6 +1814,21 @@ export function reroll(game) {
   return true;
 }
 
+function finishChoice(game) {
+  if (game.choices[0].kind.startsWith('relic')) game.pendingRelics -= 1;
+  else game.pendingLevels -= 1;
+  game.swapIn = null;
+  game.weaponSwap = null;
+  game.choices = nextChoices(game);
+  game.rerollLeft = rerollsPerLevel(game);
+}
+
+export function declineChoice(game) {
+  if (!game.choices) return false;
+  finishChoice(game);
+  return true;
+}
+
 export function choose(game, index) {
   const choice = game.choices?.[index];
   if (!choice) return null;
@@ -1854,7 +1867,6 @@ export function choose(game, index) {
     const incoming = game.weaponSwap.id;
     dropWeapon(game, choice.id);
     game.weapons[incoming] = 1;
-    game.weaponSwap = null;
     addEffect(game, { type: 'banner', text: `무기 교체: ${WEAPONS[choice.id].label} → ${WEAPONS[incoming].label}`, life: 2.4 });
   }
   if (choice.kind === 'passive') game.passives[choice.id] = choice.level;
@@ -1884,14 +1896,7 @@ export function choose(game, index) {
   if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 20);
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
   game.player.hp = Math.min(game.player.hp, stats.maxHp); // 물병을 내려놓으면 넘치는 체력은 버린다.
-  if (choice.kind.startsWith('relic')) {
-    game.pendingRelics -= 1;
-    game.swapIn = null;
-  } else {
-    game.pendingLevels -= 1;
-  }
-  game.choices = nextChoices(game);
-  game.rerollLeft = rerollsPerLevel(game);
+  finishChoice(game);
   return choice;
 }
 

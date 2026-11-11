@@ -185,7 +185,7 @@ export const WEAPONS = {
   },
   swatter: {
     label: '파리채', description: '가장 센 적을 세게 내려친다',
-    cooldown: [2.0, 1.8, 1.6, 1.4, 1.2], damage: [60, 80, 105, 135, 170], radius: [42, 46, 52, 58, 66],
+    cooldown: [2.0, 1.8, 1.6, 1.4, 1.2], damage: [60, 75, 90, 105, 120], radius: [42, 46, 52, 58, 66],
   },
   slipper: {
     label: '슬리퍼', description: '던지면 돌아오는 슬리퍼',
@@ -261,7 +261,6 @@ export const WEAPONS = {
 
 // 패시브. 배열 길이가 곧 최대 레벨이다. 공격력과 이동 속도는 10레벨까지, 나머지는 5레벨까지 올린다.
 export const PASSIVES = {
-  gloves: { label: '고무장갑', description: '받는 피해가 줄어든다', armor: [0.08, 0.15, 0.21, 0.26, 0.3] },
   sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
   vitamin: { label: '비타민', description: '최대 체력과 회복력이 오른다', maxHp: [10, 20, 30, 40, 50], regen: [0.4, 0.8, 1.2, 1.6, 2] },
@@ -348,7 +347,7 @@ export const RELICS = {
   twin: { label: '쌍둥이 노즐', description: '날아가는 무기를 두 번씩 쏜다',
     stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저·종이비행기 2번 발사', '두 번째 발사는 피해 -50%'],
     weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser', 'paperplane'], echoSec: 0.12, echoDamage: 0.5 },
-  blanket: { label: '두꺼운 이불', description: '가만히 있으면 거의 다치지 않는다', stats: ['멈춰 있으면 받는 피해 -80%'], guard: 0.8 },
+  blanket: { label: '두꺼운 이불', description: '멈춰 있으면 받는 피해가 줄어든다', stats: ['멈춰 있으면 받는 피해 -60%'], guard: 0.6 },
   energy: { label: '에너지 드링크', description: '움직이는 동안 힘이 넘친다', stats: ['움직이는 동안 공격력 +30%', '이동 속도 +10%'], might: 0.3, speed: 0.1 },
   magnet: { label: '냉장고 자석', description: '먼지를 아주 멀리서 끌어온다', stats: ['줍는 범위 +200%'], pickup: 2 },
   neko: { label: '행운의 고양이', description: '운이 좋아진다', stats: ['다시 뽑기 +1회', '치명타 확률 +10%'], rerolls: 1, critChance: 0.1 },

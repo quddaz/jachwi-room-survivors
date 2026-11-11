@@ -94,7 +94,10 @@
             <p class="panel-title">레벨 업!</p>
             <p class="panel-sub">하나를 골라 주세요</p>
             <div class="choices"></div>
-            <button class="reroll" type="button" data-action="reroll">🎲 다시 뽑기 <b>1</b><small>R</small></button>
+            <div class="choice-actions">
+              <button class="reroll" type="button" data-action="reroll">🎲 다시 뽑기 <b>1</b><small>R</small></button>
+              <button class="decline-choice" type="button" data-action="decline-choice"><span aria-hidden="true">×</span> 안 고를래요</button>
+            </div>
           </div>
         </div>
         <div class="overlay paused" hidden>

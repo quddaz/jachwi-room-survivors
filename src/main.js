@@ -1,4 +1,4 @@
-import { applyBuild, choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { applyBuild, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -574,6 +574,7 @@ app.addEventListener('click', (event) => {
   if (action === 'retry') start();
   if (action === 'pause') setPaused(true);
   if (action === 'reroll') rerollChoices();
+  if (action === 'decline-choice' && game && declineChoice(game)) drawChoices();
   if (action === 'stats') document.querySelector('.stats').classList.toggle('is-open');
   if (action === 'resume') setPaused(false);
   if (action === 'giveup') {
