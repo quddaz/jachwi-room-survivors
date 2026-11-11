@@ -22,27 +22,27 @@ export function difficultyAt(time) {
 }
 
 export const ENEMIES = {
-  roach: { label: '바퀴벌레', hp: 7, speed: 72, radius: 10, damage: 5, xp: 1, from: 0, weight: 10 },
-  trash: { label: '쓰레기봉투', hp: 34, speed: 44, radius: 19, damage: 10, xp: 3, from: 25, weight: 4 },
-  scrap: { label: '쓰레기 조각', hp: 6, speed: 82, radius: 9, damage: 5, xp: 1, from: Infinity, weight: 0 },
-  rust: { label: '녹물 방울', hp: 16, speed: 58, radius: 13, damage: 7, xp: 2, from: 50, weight: 2,
+  roach: { label: '바퀴벌레', description: '빠르고 많다', hp: 7, speed: 72, radius: 10, damage: 5, xp: 1, from: 0, weight: 10 },
+  trash: { label: '쓰레기봉투', description: '느리고 단단하다. 쓰러지면 쓰레기 조각 둘로 갈라진다', hp: 34, speed: 44, radius: 19, damage: 10, xp: 3, from: 25, weight: 4 },
+  scrap: { label: '쓰레기 조각', description: '쓰레기봉투가 갈라져 나온다. 빠르다', hp: 6, speed: 82, radius: 9, damage: 5, xp: 1, from: Infinity, weight: 0 },
+  rust: { label: '녹물 방울', description: '거리를 두고 녹물을 쏜다', hp: 16, speed: 58, radius: 13, damage: 7, xp: 2, from: 50, weight: 2,
     range: 230, shootEverySec: 3.2, shotSpeed: 160, shotDamage: 6 },
-  mold: { label: '곰팡이', hp: 22, speed: 36, radius: 15, damage: 8, xp: 2, from: 80, weight: 3,
+  mold: { label: '곰팡이', description: '쓰러진 자리에 밟으면 느려지는 곰팡이 자국을 남긴다', hp: 22, speed: 36, radius: 15, damage: 8, xp: 2, from: 80, weight: 3,
     slimeSec: 5, slimeRadius: 44, slow: 0.45 },
-  fly: { label: '날파리 떼', hp: 4, speed: 140, radius: 7, damage: 4, xp: 1, from: 150, weight: 5 },
+  fly: { label: '날파리 떼', description: '아주 빠르고 약하다', hp: 4, speed: 140, radius: 7, damage: 4, xp: 1, from: 150, weight: 5 },
   // 지그재그로 날아와 맞히기 어렵다.
-  mosquito: { label: '모기', hp: 5, speed: 125, radius: 7, damage: 4, xp: 1, from: 110, weight: 4, sway: 0.9 },
+  mosquito: { label: '모기', description: '지그재그로 날아와 맞히기 어렵다', hp: 5, speed: 125, radius: 7, damage: 4, xp: 1, from: 110, weight: 4, sway: 0.9 },
   // 웅크렸다가 한 번에 뛰어든다.
-  spider: { label: '거미', hp: 20, speed: 50, radius: 12, damage: 9, xp: 2, from: 140, weight: 3,
+  spider: { label: '거미', description: '웅크렸다가 한 번에 뛰어든다', hp: 20, speed: 50, radius: 12, damage: 9, xp: 2, from: 140, weight: 3,
     leapEverySec: 2.4, crouchSec: 0.4, leapSec: 0.4, leapSpeed: 4.2, leapRange: 300 },
   // 가까이 오면 멈춰서 부풀다가 터진다. 터질 자리를 미리 보여 준다.
-  milk: { label: '상한 우유', hp: 26, speed: 62, radius: 13, damage: 6, xp: 3, from: 180, weight: 2,
+  milk: { label: '상한 우유', description: '가까이 오면 부풀다가 터진다. 터지기 전에 잡으면 안 터진다', hp: 26, speed: 62, radius: 13, damage: 6, xp: 3, from: 180, weight: 2,
     fuseRange: 85, fuseSec: 0.9, blastRadius: 72, blastDamage: 14 },
   // 빠르고 단단하다.
-  mouse: { label: '생쥐', hp: 55, speed: 98, radius: 13, damage: 11, xp: 4, from: 220, weight: 2 },
+  mouse: { label: '생쥐', description: '빠르고 단단하다', hp: 55, speed: 98, radius: 13, damage: 11, xp: 4, from: 220, weight: 2 },
   // 거리를 두고 세 갈래로 가루를 쏜다.
   // 탄막이 겹치면 감당이 안 돼서 드물게 나오고, 한 번에 여섯 마리까지만 있다.
-  moth: { label: '나방', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 0.5, maxAlive: 6,
+  moth: { label: '나방', description: '거리를 두고 세 갈래로 가루를 쏜다. 드물게 나온다', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 0.5, maxAlive: 6,
     range: 260, shootEverySec: 3.6, shotSpeed: 150, shotDamage: 6, spread: 0.3, sway: 0.35 },
 };
 
@@ -63,14 +63,14 @@ export function eliteFrom(kind) {
 // 보스는 90초마다 나오고, 나올 때마다 더 세진다.
 export const BOSS_EVERY_SEC = 90;
 export const BOSSES = [
-  { kind: 'kingRoach', label: '왕바퀴', hp: 480, speed: 78, radius: 30, damage: 20, xp: 40, chargeEverySec: 4,
+  { kind: 'kingRoach', label: '왕바퀴', description: '돌진한 뒤 사방으로 알을 뿌린다', hp: 480, speed: 78, radius: 30, damage: 20, xp: 40, chargeEverySec: 4,
     ringCount: 10, shotSpeed: 120, shotDamage: 8 },
-  { kind: 'garbageGiant', label: '쓰레기 산', hp: 1100, speed: 40, radius: 34, damage: 24, xp: 55, splitInto: 10,
+  { kind: 'garbageGiant', label: '쓰레기 산', description: '떨어질 자리를 보여 주고 쓰레기를 던진다. 쓰러지면 쓰레기봉투 10개', hp: 1100, speed: 40, radius: 34, damage: 24, xp: 55, splitInto: 10,
     lobEverySec: 3.5, lobCount: 4, lobDelaySec: 1.1, lobRadius: 36, lobDamage: 16 },
-  { kind: 'rustBoiler', label: '녹슨 보일러', hp: 900, speed: 32, radius: 32, damage: 22, xp: 50,
+  { kind: 'rustBoiler', label: '녹슨 보일러', description: '원형 탄막, 소용돌이 증기, 조준 부채꼴을 번갈아 쏜다', hp: 900, speed: 32, radius: 32, damage: 22, xp: 50,
     patternSec: 3.2, burstCount: 16, shotSpeed: 125, shotDamage: 9 },
   // 좌우로 크게 흔들리며 날아다니고, 조그만 날파리를 다섯 마리씩 불러낸다.
-  { kind: 'kingFly', label: '대왕 파리', hp: 820, speed: 92, radius: 30, damage: 18, xp: 50,
+  { kind: 'kingFly', label: '대왕 파리', description: '좌우로 흔들리며 날아다니고 날파리를 다섯 마리씩 부른다', hp: 820, speed: 92, radius: 30, damage: 18, xp: 50,
     summonEverySec: 3.5, summonCount: 5, sway: 1.1 },
 ];
 

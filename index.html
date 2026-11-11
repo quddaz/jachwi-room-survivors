@@ -34,7 +34,7 @@
           <button class="button button-primary" type="submit">시작하기</button>
         </form>
         <div class="start-links">
-          <button class="button button-ghost" type="button" data-action="recipes">🧪 조합표·보물</button>
+          <button class="button button-ghost" type="button" data-action="recipes">📖 도감</button>
           <button class="button button-ghost" type="button" data-action="ranking">🏆 순위 보기</button>
         </div>
       </section>
@@ -42,16 +42,10 @@
       <section class="screen screen-recipes" data-screen="recipes">
         <header class="ranking-header">
           <button class="back" type="button" data-action="home" aria-label="처음으로">‹</button>
-          <h2>조합표와 보물</h2>
+          <h2>도감</h2>
         </header>
-        <p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요.</p>
-        <ol class="recipe-list"></ol>
-        <h3 class="recipe-heading">보물</h3>
-        <p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 하나를 골라요. 한 판에 <b>최대 3개</b>까지 가질 수 있고, 다 채우면 상자는 레벨업 두 번이 돼요.</p>
-        <ul class="evolve-list relic-list"></ul>
-        <h3 class="recipe-heading">완성형</h3>
-        <p class="ranking-note">무기를 5레벨까지 올리면 선택지에 나와요.</p>
-        <ul class="evolve-list"></ul>
+        <div class="codex-tabs" role="tablist"></div>
+        <div class="codex-body"></div>
       </section>
 
       <section class="screen screen-game" data-screen="game" aria-label="게임">

@@ -172,6 +172,12 @@ const WEAPON_TEXT = {
 
 const EVOLUTION_TEXT = { damage: '피해', dps: '초당 피해', radius: '범위', range: '사거리', size: '크기', jump: '연쇄 거리' };
 
+// 패시브가 그 레벨일 때의 효과(도감용)
+export function passiveLines(id, level) {
+  return Object.entries(PASSIVES[id]).filter(([, values]) => Array.isArray(values))
+    .map(([key, values]) => `${PASSIVE_TEXT[key][0]} ${PASSIVE_TEXT[key][1](values[level - 1])}`);
+}
+
 // 레벨업 카드에 적을 정확한 수치. 지금 값에서 얼마나 바뀌는지 보여 준다.
 export function describeChoice(game, choice) {
   if (choice.kind === 'heal') return ['체력 +20'];

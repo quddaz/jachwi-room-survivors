@@ -1,7 +1,9 @@
-import { choose, createGame, formatTime, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
-import { EVOLUTIONS, FUSIONS, MAX_RELICS, RELICS, WEAPONS } from './rules.js';
+import {
+  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
+} from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
@@ -279,28 +281,63 @@ async function finish() {
   }
 }
 
-// 시작 화면의 조합표. 규칙에서 바로 만들어서, 합체나 완성형을 고치면 표도 같이 바뀐다.
-function openRecipes() {
+// 도감. 모두 규칙에서 바로 만들어서, 수치를 고치면 도감도 같이 바뀐다.
+const clock = (seconds) => formatTime(seconds);
+const spriteImg = (name) => `<img class="px codex-sprite" src="${iconUrl(name)}" alt="" />`;
+const statLine = (id, key, unit = '', scale = 1) => {
+  const values = WEAPONS[id][key];
+  const show = (value) => `${Math.round(value * scale * 100) / 100}${unit}`;
+  return `${show(values[0])} → ${show(values[values.length - 1])}`;
+};
+const CODEX_TABS = [
+  ['fusion', '합체', () => {
+    const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
+    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요.</p>
+      <ol class="recipe-list">${Object.entries(FUSIONS).map(([id, fusion]) => `
+        <li class="recipe">
+          <div class="recipe-formula">${part(fusion.from[0])}<span class="recipe-op">+</span>${part(fusion.from[1])}<span class="recipe-op">→</span>
+            <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span></span></div>
+          <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
+        </li>`).join('')}</ol>`;
+  }],
+  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요.</p>
+    <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
+      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+    <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
+      const lines = [
+        weapon.damage && `피해 ${statLine(id, 'damage')}`,
+        weapon.dps && `초당 피해 ${statLine(id, 'dps')}`,
+        weapon.cooldown && `쿨타임 ${statLine(id, 'cooldown', '초')}`,
+        Array.isArray(weapon.count) && `개수 ${statLine(id, 'count')}`,
+      ].filter(Boolean);
+      return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)}</b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
+        <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;
+    }).join('')}</ul>`],
+  ['passive', '패시브', () => `<p class="ranking-note">무기와 함께 레벨업 선택지에 나와요. 치명타 피해(핫소스)는 네잎클로버를 가진 뒤에만 나와요.</p>
+    <ul class="evolve-list">${Object.entries(PASSIVES).map(([id, passive]) => {
+      const max = Object.values(passive).find(Array.isArray).length;
+      return `<li>${itemIcon(id)}<span><b>${escapeHtml(passive.label)} <small>최대 ${max}레벨</small></b><em>${escapeHtml(passive.description)}</em>
+        <i>1레벨: ${escapeHtml(passiveLines(id, 1).join(', '))}</i><i>${max}레벨: ${escapeHtml(passiveLines(id, max).join(', '))}</i></span></li>`;
+    }).join('')}</ul>`],
+  ['enemy', '적', () => `<p class="ranking-note">시간이 갈수록 체력, 공격력, 속도, 수가 끝없이 늘어요. 한 번에 받는 피해는 최대 체력의 ${Math.round(PLAYER.maxHitShare * 100)}%를 넘지 않아요.
+      <b>${clock(ELITE.from)}</b>부터는 금빛 테두리에 왕관을 쓴 <b>정예</b>가 ${ELITE.step}초마다 한 종류씩 풀려요(체력 ${ELITE.hp}배, 공격력 ${ELITE.damage}배, 경험치 ${ELITE.xp}배).</p>
+    <ul class="evolve-list">${Object.entries(ENEMIES).map(([kind, enemy]) => `
+      <li>${spriteImg(kind === 'scrap' ? 'scrap' : `${kind}A`)}<span><b>${escapeHtml(enemy.label)}</b><em>${escapeHtml(enemy.description ?? '')}</em>
+        <i>${enemy.from === Infinity ? '쓰레기봉투에서 나옴' : `등장 ${clock(enemy.from)}`}${Number.isFinite(eliteFrom(kind)) ? ` · 정예 ${clock(eliteFrom(kind))}` : ''}</i></span></li>`).join('')}</ul>`],
+  ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
+    <ul class="evolve-list">${BOSSES.map((boss, index) => `
+      <li>${spriteImg(`${boss.kind}A`)}<span><b>${escapeHtml(boss.label)}</b><em>${escapeHtml(boss.description ?? '')}</em><i>첫 등장 ${clock(BOSS_EVERY_SEC * (index + 1))}</i></span></li>`).join('')}</ul>`],
+];
+let codexTab = 'fusion';
+
+function openRecipes(tab = codexTab) {
   show('recipes');
-  const list = document.querySelector('.recipe-list');
-  if (list.childElementCount > 0) return;
-  const weapon = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
-  list.innerHTML = Object.entries(FUSIONS).map(([id, fusion]) => `
-    <li class="recipe">
-      <div class="recipe-formula">
-        ${weapon(fusion.from[0])}
-        <span class="recipe-op">+</span>
-        ${weapon(fusion.from[1])}
-        <span class="recipe-op">→</span>
-        <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span></span>
-      </div>
-      <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
-    </li>`).join('');
-  document.querySelector('.relic-list').innerHTML = Object.entries(RELICS).map(([id, treasure]) => `
-    <li>${itemIcon(id)}<span><b>${escapeHtml(treasure.label)}</b>${escapeHtml(treasure.stats.join(' · '))}</span></li>`).join('');
-  document.querySelector('.evolve-list').innerHTML = Object.entries(EVOLUTIONS).map(([id, evolution]) => `
-    <li>${itemIcon(id)}<span><b>${escapeHtml(WEAPONS[id].label)} → ${escapeHtml(evolution.label)}</b>${escapeHtml(evolution.description)}</span></li>`)
-    .join('');
+  codexTab = tab;
+  document.querySelector('.codex-tabs').innerHTML = CODEX_TABS.map(([id, label]) => `
+    <button class="season-tab${id === tab ? ' is-active' : ''}" type="button" data-codex="${id}">${label}</button>`).join('');
+  document.querySelector('.codex-body').innerHTML = CODEX_TABS.find(([id]) => id === tab)[2]();
+  document.querySelector('.screen-recipes').scrollTop = 0;
 }
 
 let rankingSeason = SEASON;
@@ -430,6 +467,8 @@ app.addEventListener('click', (event) => {
   const season = event.target.closest('[data-season]')?.dataset.season;
   if (season) openRanking(Number(season));
   if (action === 'recipes') openRecipes();
+  const codex = event.target.closest('[data-codex]')?.dataset.codex;
+  if (codex) openRecipes(codex);
   if (action === 'home') show('start');
   if (action === 'retry') start();
   if (action === 'pause') setPaused(true);
