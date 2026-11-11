@@ -887,7 +887,7 @@ function fireWeapons(game, dt) {
       let target = null;
       let best = Infinity;
       for (const enemy of game.enemies) {
-        if (enemy.dead || distance(enemy, player) > 360) continue;
+        if (enemy.dead || distance(enemy, player) > 300) continue;
         // 여러 대가 한 마리에 몰리지 않게 대마다 선호가 조금씩 다르다.
         const gap = distance(enemy, robot) + ((enemy.id + index) % count) * 60;
         if (gap < best) {
@@ -921,7 +921,7 @@ function fireWeapons(game, dt) {
         if (enemy.dead || distance(enemy, robot) > reach + enemy.radius) continue;
         if (game.time - (enemy.robotHitAt ?? -9) < WEAPONS.robot.hitEverySec) continue;
         enemy.robotHitAt = game.time;
-        damageEnemy(game, enemy, damage, 6, robot);
+        damageEnemy(game, enemy, damage, 3, robot);
       }
     });
   }

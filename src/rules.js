@@ -131,7 +131,7 @@ export const WEAPONS = {
   },
   robot: {
     label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
-    damage: [8, 10, 13, 16, 20], count: [1, 1, 1, 2, 2], speed: [130, 140, 150, 165, 180], radius: 14, hitEverySec: 0.5,
+    damage: [6, 7, 9, 11, 14], count: [1, 1, 1, 1, 2], speed: [110, 118, 126, 136, 148], radius: 12, hitEverySec: 0.6,
   },
 };
 
@@ -172,7 +172,7 @@ export const EVOLUTIONS = {
   laser: { label: '레이저 쇼', description: '여섯 줄기가 사방으로 한꺼번에 뻗는다', damage: 1.3, count: 6 },
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
-  robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.3, count: 3 },
+  robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.2, count: 3 },
 };
 
 // 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
