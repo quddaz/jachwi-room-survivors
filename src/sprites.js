@@ -2129,6 +2129,66 @@ function kingFly(frame) {
   return g.rows();
 }
 
+// 세탁기 괴물: 하얀 상자, 둥근 문 안에서 물이 돈다. 문 위에 화난 눈썹과 눈
+function washer(frame) {
+  const g = canvasGrid(34, 38);
+  g.rect(3, 2, 28, 33, 'P').rect(3, 2, 28, 7, 'w').rect(4, 3, 26, 1, 'W');
+  g.rect(5, 4, 8, 3, 'z').rect(6, 5, 6, 1, 'E').set(26, 5, 'R').set(23, 5, 'G').ellipse(20, 5, 1, 1, 'd');
+  g.rect(3, 9, 28, 1, 'p');
+  // 문
+  g.ellipse(17, 22, 11, 11, 'd').ellipse(17, 22, 9, 9, 'z').ellipse(17, 22, 7, 7, 'B');
+  for (let drop = 0; drop < 14; drop += 1) {
+    const angle = (frame ? 0.45 : 0) + (drop / 14) * Math.PI * 2;
+    g.set(17 + Math.cos(angle) * (3 + (drop % 3)), 22 + Math.sin(angle) * (3 + (drop % 3)), drop % 2 ? 'l' : 'W');
+  }
+  g.ellipse(17, 22, 2, 2, 'b').set(13, 18, 'W').set(14, 17, 'W');
+  // 화난 얼굴은 문 유리 위에
+  g.rect(12, 20, 3, 2, 'W').set(13, 21, 'K').rect(20, 20, 3, 2, 'W').set(21, 21, 'K');
+  g.line(11, 18, 15, 19, 'K').line(23, 18, 19, 19, 'K');
+  g.rect(14, 26, 7, 1, 'K').set(14, 25, 'K').set(20, 25, 'K');
+  // 발
+  g.rect(5, 35, 4, 2, 'h').rect(25, 35, 4, 2, 'h');
+  if (frame) g.set(2, 12, 'l').set(32, 14, 'l').set(1, 20, 'W');
+  return g.rows();
+}
+
+// 전기밥솥: 둥글고 분홍빛, 위에 증기 구멍, 앞에 빨간 숫자 화면과 화난 얼굴
+function riceCooker(frame) {
+  const g = canvasGrid(36, 32);
+  g.ellipse(18, 18, 15, 12, 'a').ellipse(18, 19, 15, 11, 'W', 'a').ellipse(18, 9, 13, 5, 'a').ellipse(18, 8, 11, 3, 'A', 'a');
+  g.rect(16, 2, 4, 3, 'D').rect(17, 1, 2, 1, 'd');
+  g.rect(3, 15, 2, 6, 'z').rect(31, 15, 2, 6, 'z');
+  g.rect(12, 21, 12, 5, 'h').rect(13, 22, 10, 3, 'K');
+  [[14, 22], [15, 22], [14, 23], [14, 24], [15, 24], [17, 22], [18, 22], [18, 23], [17, 24], [18, 24], [20, 22], [21, 22], [21, 23], [21, 24]]
+    .forEach(([x, y]) => g.set(x, y, frame ? 'R' : 'e'));
+  g.rect(10, 14, 4, 3, 'W').rect(11, 15, 2, 2, 'K').rect(22, 14, 4, 3, 'W').rect(23, 15, 2, 2, 'K');
+  g.line(9, 12, 14, 14, 'K').line(27, 12, 22, 14, 'K');
+  g.rect(12, 27, 12, 1, 'p').rect(8, 29, 5, 2, 'h').rect(23, 29, 5, 2, 'h');
+  return g.rows();
+}
+
+// 곰팡이 여왕: 커다란 초록 덩어리에 점박이, 왕관, 흘러내리는 끈적이
+function moldQueen(frame) {
+  const g = canvasGrid(40, 36);
+  const squash = frame ? 1 : 0;
+  g.ellipse(20, 21 + squash, 17, 12 - squash, 'm').ellipse(20, 20 + squash, 16, 11 - squash, 'M');
+  g.ellipse(14, 15, 4, 2, 'g', 'M').ellipse(29, 24, 3, 2, 'g', 'M').ellipse(9, 24, 2, 2, 'm', 'M').ellipse(26, 14, 2, 1, 'm', 'M');
+  [[6, 31], [12, 33], [27, 33], [33, 31]].forEach(([x, y]) => g.line(x, y - 2, x, y + squash, 'm').set(x, y + 1 + squash, 'g'));
+  g.rect(12, 18, 5, 4, 'W').rect(14, 19, 2, 3, 'K').rect(23, 18, 5, 4, 'W').rect(24, 19, 2, 3, 'K');
+  g.line(11, 16, 17, 18, 'K').line(29, 16, 23, 18, 'K');
+  g.rect(16, 25, 8, 2, 'K').set(17, 25, 'W').set(22, 25, 'W');
+  g.rect(13, 6, 14, 3, 'O').rect(13, 8, 14, 1, 'o');
+  [13, 17, 20, 23, 26].forEach((x) => g.set(x, 5, 'O').set(x, 4, 'O'));
+  g.set(13, 3, 'Y').set(20, 3, 'Y').set(26, 3, 'Y').set(17, 7, 'R').set(23, 7, 'b');
+  return g.rows();
+}
+
+ART.washerA = washer(0);
+ART.washerB = washer(1);
+ART.riceCookerA = riceCooker(0);
+ART.riceCookerB = riceCooker(1);
+ART.moldQueenA = moldQueen(0);
+ART.moldQueenB = moldQueen(1);
 ART.kingFlyA = kingFly(0);
 ART.kingFlyB = kingFly(1);
 ART.kingRoachA = kingRoach(0);

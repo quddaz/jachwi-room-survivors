@@ -206,9 +206,11 @@ const FRAMES = {
   milk: ['milkA', 'milkB'], mouse: ['mouseA', 'mouseB'], moth: ['mothA', 'mothB'], ant: ['antA', 'antB'], slug: ['slugA', 'slugB'],
   sock: ['sockA', 'sockB'], dustbunny: ['dustbunnyA', 'dustbunnyB'], pigeon: ['pigeonA', 'pigeonB'], kingRoach: ['kingRoachA', 'kingRoachB'],
   garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'], kingFly: ['kingFlyA', 'kingFlyB'],
+  washer: ['washerA', 'washerB'], riceCooker: ['riceCookerA', 'riceCookerB'], moldQueen: ['moldQueenA', 'moldQueenB'],
 };
-const FRAME_RATE = { ant: 14, slug: 2, sock: 4, dustbunny: 6, pigeon: 8, mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
+const FRAME_RATE = { washer: 6, riceCooker: 3, moldQueen: 2.5, ant: 14, slug: 2, sock: 4, dustbunny: 6, pigeon: 8, mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
 const PARTICLES = {
+  washer: ['#efece6', '#7fb7e0', '#ffffff'], riceCooker: ['#ffb3bf', '#ffffff', '#e0645b'], moldQueen: ['#6f9646', '#a9c77f', '#ffcf3f'],
   kingFly: ['#3d3d42', '#e0645b', '#dcebff'], ant: ['#3c2414', '#6b3f1d', '#a8703d'], slug: ['#c9965c', '#e6c97a', '#8a6a2a'],
   sock: ['#efece6', '#e0645b', '#8fd19e'], dustbunny: ['#c4c9d1', '#8a8f98', '#ffffff'], pigeon: ['#8a8f98', '#55555d', '#3e9f6a'],
   trap: ['#c9965c', '#8a4a1e', '#dcebff'], water: ['#a9cdf5', '#ffffff', '#5f86cf'], roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
@@ -282,6 +284,7 @@ const BEAM = {
   green: ['rgba(62,220,120,0.45)', '#8dffb0', '#ffffff'],
   show: ['rgba(240,96,138,0.45)', '#ffb3d0', '#ffffff'],
   spin: ['rgba(127,233,255,0.5)', '#b9f3ff', '#ffffff'],
+  steam: ['rgba(255, 90, 60, 0.35)', '#f4f6fa', '#ffffff'],
 };
 
 // 가운데는 하얗고 바깥은 빛깔이 도는 굵은 빛줄기. 비스듬한 줄기에 구멍이 나지 않게 반 칸씩 겹쳐 긋는다.
@@ -388,6 +391,22 @@ function drawEnemy(ctx, enemy, x, y, time) {
       const rise = (time * 1.6 + hash(enemy.id, bubble)) % 1;
       ctx.fillStyle = rise < 0.6 ? '#8fe6a8' : '#3e9f6a';
       ctx.fillRect(Math.round(x - 4 + bubble * 7 + Math.sin(time * 6 + bubble) * 1.5), Math.round(y - image.height / 2 - rise * 7), bubble + 1, bubble + 1);
+    }
+  }
+  if (enemy.kind === 'washer' && enemy.spinning) {
+    // 탈수 중: 둘레에 물살이 빙글빙글 돈다.
+    for (let swirl = 0; swirl < 10; swirl += 1) {
+      const angle = time * 9 + (swirl / 10) * Math.PI * 2;
+      const reach = image.width / 2 + 4 + (swirl % 2) * 3;
+      ctx.fillStyle = swirl % 3 ? '#a9cdf5' : '#ffffff';
+      ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach * 0.8), 2, 1);
+    }
+  }
+  if (enemy.kind === 'riceCooker') {
+    for (let puff = 0; puff < 2; puff += 1) {
+      const rise = (time * 7 + puff * 6) % 12;
+      disc(ctx, Math.round(x + 4 + puff * 3 + Math.sin(time * 4 + puff) * 2), Math.round(y - image.height / 2 - rise), rise < 6 ? 2 : 1,
+        `rgba(255,255,255,${0.85 - rise * 0.06})`);
     }
   }
   if (enemy.kind === 'rustBoiler') {
@@ -561,7 +580,7 @@ function drawEffects(ctx, game, toBuffer) {
       }
     } else if (effect.type === 'laser') {
       const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
-      drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
+      drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.steam ? BEAM.steam : effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
     } else if (effect.type === 'towel') {
       // 젖은 수건: 두꺼운 줄무늬 수건이 채찍처럼 앞으로 쫙 펴지며 물보라를 튀긴다.
       const unroll = Math.min(1, progress * 4);
@@ -772,10 +791,30 @@ export function render(ctx, game, width, height, time) {
     const [x, y] = toBuffer(hazard);
     const radius = hazard.radius / WORLD_PER_PIXEL;
     const closing = 1 - hazard.delay / hazard.total;
-    disc(ctx, x, y, radius, `rgba(224, 100, 91, ${0.12 + closing * 0.22})`);
-    ring(ctx, x, y, radius, '#e0645b', 2, Math.floor(time * 16));
+    if (hazard.line) {
+      // 증기 줄기 예고: 빨간 띠가 차오른다.
+      const dx = Math.cos(hazard.angle);
+      const dy = Math.sin(hazard.angle);
+      const reach = hazard.length / WORLD_PER_PIXEL;
+      for (let offset = -radius; offset <= radius; offset += 1) {
+        const edge = Math.abs(offset) > radius - 1;
+        line(ctx, Math.round(x - dy * offset), Math.round(y + dx * offset), Math.round(x + dx * reach - dy * offset),
+          Math.round(y + dy * reach + dx * offset), edge ? '#e0645b' : `rgba(224, 100, 91, ${0.08 + closing * 0.2})`);
+      }
+      line(ctx, x, y, Math.round(x + dx * reach * closing), Math.round(y + dy * reach * closing), 'rgba(255,255,255,0.9)');
+      continue;
+    }
+    const [fill, edge] = hazard.spore ? [`rgba(111, 150, 70, ${0.15 + closing * 0.25})`, '#6f9646'] : [`rgba(224, 100, 91, ${0.12 + closing * 0.22})`, '#e0645b'];
+    disc(ctx, x, y, radius, fill);
+    ring(ctx, x, y, radius, edge, 2, Math.floor(time * 16));
     ring(ctx, x, y, radius * closing, 'rgba(255,255,255,0.8)');
-    if (!hazard.blast) drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
+    if (hazard.spore) {
+      // 포자가 위에서 천천히 내려온다.
+      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 3, '#a9c77f');
+      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 1.5, '#6f9646');
+    } else if (!hazard.blast) {
+      drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
+    }
   }
 
   for (const gem of game.gems) {

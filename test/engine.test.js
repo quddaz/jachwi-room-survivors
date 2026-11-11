@@ -1231,3 +1231,46 @@ describe('아이템 개수 제한', () => {
     assert.ok(game.drops.length > 2);
   });
 });
+
+describe('새 보스', () => {
+  function boss(kind, extra = {}) {
+    const game = createGame(seeded(95));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    const stats = BOSSES.find((entry) => entry.kind === kind);
+    const enemy = placeEnemy(game, kind, 250, 0, { boss: true, hp: 1e6, maxHp: 1e6, speed: 0, radius: stats.radius, stats, label: stats.label, ...extra });
+    return { game, enemy, stats };
+  }
+
+  it('보스는 일곱 종류이고, 새 셋은 7분 30초부터 차례로 나온다', () => {
+    assert.deepEqual(BOSSES.slice(4).map((entry) => entry.kind), ['washer', 'riceCooker', 'moldQueen']);
+    assert.ok(BOSSES.every((entry) => entry.description));
+  });
+
+  it('세탁기 괴물은 탈수하며 두 줄 탄막을 뿜고 오리를 빨아들인다', () => {
+    const { game, stats } = boss('washer', { timer: 99 });
+    const before = game.player.x;
+    for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
+    assert.ok(game.enemyShots.length >= 6);
+    assert.ok(game.player.x > before + stats.pull * 0.5);
+  });
+
+  it('전기밥솥의 증기 줄기는 띠 안에 있을 때만 맞는다', () => {
+    const { game } = boss('riceCooker', { timer: 99 });
+    update(game, 1 / 60);
+    assert.equal(game.hazards.filter((hazard) => hazard.line).length, 3);
+    game.player.y += 200; // 띠 밖으로 피한다
+    for (let step = 0; step < 70; step += 1) update(game, 1 / 60);
+    near(game.player.hp, PLAYER.maxHp, 0.01);
+    const second = boss('riceCooker', { timer: 99 });
+    for (let step = 0; step < 70; step += 1) update(second.game, 1 / 60);
+    assert.ok(second.game.player.hp < PLAYER.maxHp - 5);
+  });
+
+  it('곰팡이 여왕은 오리 둘레에 포자 고리를 떨어뜨리고 곰팡이를 부른다', () => {
+    const { game, stats } = boss('moldQueen', { timer: 99, sporeIn: 0.01 });
+    update(game, 1 / 60);
+    assert.equal(game.hazards.filter((hazard) => hazard.spore).length, stats.sporeCount + 1);
+    assert.equal(game.enemies.filter((enemy) => enemy.kind === 'mold').length, stats.summonCount);
+  });
+});

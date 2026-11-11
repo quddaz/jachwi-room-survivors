@@ -95,6 +95,16 @@ export const BOSSES = [
   // 좌우로 크게 흔들리며 날아다니고, 조그만 날파리를 다섯 마리씩 불러낸다.
   { kind: 'kingFly', label: '대왕 파리', description: '좌우로 흔들리며 날아다니고 날파리를 다섯 마리씩 부른다', hp: 820, speed: 92, radius: 30, damage: 18, xp: 50,
     summonEverySec: 3.5, summonCount: 5, sway: 1.1 },
+  // 6초마다 멈춰서 2.4초 동안 탈수: 두 줄 소용돌이 탄막을 뿜으며 오리를 빨아들인다.
+  { kind: 'washer', label: '세탁기 괴물', description: '멈춰서 탈수하며 소용돌이 탄막을 뿜고 오리를 빨아들인다', hp: 1050, speed: 46, radius: 32,
+    damage: 22, xp: 55, spinEverySec: 6, spinSec: 2.4, shotEverySec: 0.11, spin: 3.2, shotSpeed: 140, shotDamage: 8, pull: 70, pullRange: 420 },
+  // 오리를 겨눈 증기 줄기 세 개를 미리 보여 주고 0.9초 뒤 뿜는다.
+  { kind: 'riceCooker', label: '전기밥솥', description: '증기 줄기 세 개를 겨눴다가 뿜는다. 빨간 띠 밖으로 피하자', hp: 980, speed: 38, radius: 30,
+    damage: 22, xp: 55, ventEverySec: 3.4, vents: 3, ventSpread: 0.38, aimSec: 0.9, ventLength: 560, ventWidth: 46, ventDamage: 15 },
+  // 곰팡이를 부르고, 오리 둘레에 포자를 고리 모양으로 떨어뜨린다. 가만히 있으면 맞는다.
+  { kind: 'moldQueen', label: '곰팡이 여왕', description: '곰팡이를 부르고, 오리 둘레에 포자를 고리 모양으로 떨어뜨린다', hp: 1150, speed: 34, radius: 34,
+    damage: 24, xp: 60, summonEverySec: 5, summonCount: 4, sporeEverySec: 4, sporeCount: 6, sporeRing: 130, sporeRadius: 42, sporeSec: 1.2,
+    sporeDamage: 13 },
 ];
 
 export function bossStatsOf(index, time) {

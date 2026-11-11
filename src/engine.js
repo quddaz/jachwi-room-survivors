@@ -573,6 +573,69 @@ function moveEnemies(game, dt) {
       }
     }
     if (enemy.kind === 'rustBoiler') boilerPattern(game, enemy, dt, Math.atan2(dy, dx), difficulty);
+    if (enemy.kind === 'washer') {
+      const stats = enemy.stats;
+      if (game.time < (enemy.spinUntil ?? 0)) {
+        // 탈수: 제자리에서 돌며 두 줄 소용돌이 탄막을 뿜고, 가까운 오리를 빨아들인다.
+        direction = 0;
+        enemy.spinning = true;
+        enemy.spinAngle = (enemy.spinAngle ?? 0) + stats.spin * dt;
+        enemy.shotIn = (enemy.shotIn ?? 0) - dt;
+        if (enemy.shotIn <= 0) {
+          enemy.shotIn = stats.shotEverySec;
+          for (const offset of [0, Math.PI]) fire(game, enemy, enemy.spinAngle + offset, stats.shotSpeed, stats.shotDamage * difficulty.damage, 'rust');
+        }
+        if (gap < stats.pullRange && gap > 40) {
+          player.x = clamp(player.x - (dx / gap) * stats.pull * dt, PLAYER.radius, ARENA.width - PLAYER.radius);
+          player.y = clamp(player.y - (dy / gap) * stats.pull * dt, PLAYER.radius, ARENA.height - PLAYER.radius);
+        }
+      } else {
+        enemy.spinning = false;
+        if (enemy.timer >= stats.spinEverySec) {
+          enemy.timer = 0;
+          enemy.spinUntil = game.time + stats.spinSec;
+          addEffect(game, { type: 'banner', text: '탈수 시작!', life: 1.2, boss: true });
+        }
+      }
+    }
+    if (enemy.kind === 'riceCooker' && enemy.timer >= enemy.stats.ventEverySec) {
+      // 오리 쪽으로 증기 줄기를 겨눈다. 빨간 띠가 보이고 잠시 뒤 뿜는다.
+      enemy.timer = 0;
+      const stats = enemy.stats;
+      const aim = Math.atan2(dy, dx);
+      for (let vent = 0; vent < stats.vents; vent += 1) {
+        const angle = aim + (vent - (stats.vents - 1) / 2) * stats.ventSpread;
+        game.hazards.push({ x: enemy.x, y: enemy.y, line: true, angle, length: stats.ventLength, radius: stats.ventWidth / 2,
+          delay: stats.aimSec, total: stats.aimSec, damage: stats.ventDamage * difficulty.damage });
+      }
+    }
+    if (enemy.kind === 'moldQueen') {
+      const stats = enemy.stats;
+      enemy.sporeIn = (enemy.sporeIn ?? stats.sporeEverySec) - dt;
+      if (enemy.sporeIn <= 0) {
+        // 오리 둘레에 포자 고리, 한가운데에도 하나. 고리 밖이나 틈으로 빠져나가야 한다.
+        enemy.sporeIn = stats.sporeEverySec;
+        const turn = game.random() * Math.PI * 2;
+        const spots = [{ x: player.x, y: player.y }, ...Array.from({ length: stats.sporeCount }, (_, index) => {
+          const angle = turn + (index / stats.sporeCount) * Math.PI * 2;
+          return { x: player.x + Math.cos(angle) * stats.sporeRing, y: player.y + Math.sin(angle) * stats.sporeRing };
+        })];
+        for (const spot of spots) {
+          game.hazards.push({ ...spot, radius: stats.sporeRadius, delay: stats.sporeSec, total: stats.sporeSec,
+            damage: stats.sporeDamage * difficulty.damage, spore: true });
+        }
+      }
+      if (enemy.timer >= stats.summonEverySec) {
+        enemy.timer = 0;
+        if (game.enemies.length < 600) {
+          for (let index = 0; index < stats.summonCount; index += 1) {
+            const angle = (index / stats.summonCount) * Math.PI * 2 + game.time;
+            spawnEnemy(game, 'mold', enemy.x + Math.cos(angle) * 50, enemy.y + Math.sin(angle) * 50);
+          }
+          addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 90, color: 'mold', life: 0.4 });
+        }
+      }
+    }
     if (enemy.kind === 'kingFly') {
       const sway = Math.sin(game.time * 3.2 + enemy.id) * enemy.stats.sway;
       moveX -= (dy / gap) * sway;
@@ -1495,9 +1558,19 @@ function updateProjectiles(game, dt) {
       continue;
     }
     if (hazard.delay > 0) continue;
+    if (hazard.line) {
+      // 증기 줄기: 오리가 띠 안에 있으면 맞는다.
+      const rx = game.player.x - hazard.x;
+      const ry = game.player.y - hazard.y;
+      const along = rx * Math.cos(hazard.angle) + ry * Math.sin(hazard.angle);
+      const side = Math.abs(-rx * Math.sin(hazard.angle) + ry * Math.cos(hazard.angle));
+      if (along > -PLAYER.radius && along < hazard.length && side < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage, true);
+      addEffect(game, { type: 'laser', x: hazard.x, y: hazard.y, angle: hazard.angle, length: hazard.length, width: hazard.radius * 2, life: 0.4, steam: true });
+      continue;
+    }
     if (distance(hazard, game.player) < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage, true);
     addEffect(game, { type: 'slam', x: hazard.x, y: hazard.y, radius: hazard.radius, life: 0.4 });
-    addEffect(game, { type: 'burst', x: hazard.x, y: hazard.y, color: 'trash', count: 8, life: 0.45 });
+    addEffect(game, { type: 'burst', x: hazard.x, y: hazard.y, color: hazard.spore ? 'mold' : 'trash', count: 8, life: 0.45 });
     game.shake = Math.max(game.shake, 0.2);
   }
   game.hazards = game.hazards.filter((hazard) => hazard.delay > 0);
