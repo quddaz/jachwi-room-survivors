@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -1604,8 +1604,9 @@ export function rollChoices(game) {
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
     .map((id) => ({ kind: 'evolve', id, level: MAX_LEVEL + 1, ...EVOLUTIONS[id] }));
   // 두 완성형을 모두 갖추면 합체가 가장 먼저 나온다.
+  const fusionRoom = Object.keys(game.fusions).length < MAX_FUSIONS;
   const fusable = Object.entries(FUSIONS)
-    .filter(([id, recipe]) => !game.fusions[id] && recipe.from.every((weapon) => game.evolved[weapon]))
+    .filter(([id, recipe]) => fusionRoom && !game.fusions[id] && recipe.from.every((weapon) => game.evolved[weapon]))
     .map(([id, recipe]) => ({ kind: 'fusion', id, level: MAX_LEVEL + 2, ...recipe }));
   const special = [...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
   const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)

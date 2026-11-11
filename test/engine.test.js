@@ -4,7 +4,7 @@ import {
   choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -1198,5 +1198,18 @@ describe('합체 무기 2', () => {
     game.cooldowns.shower = 999;
     update(game, 1 / 60);
     assert.ok(side.hp < 1e6);
+  });
+});
+
+describe('합체 개수 제한', () => {
+  it('합체는 한 판에 2개까지만 선택지에 나온다', () => {
+    assert.equal(MAX_FUSIONS, 2);
+    const game = createGame(seeded(91));
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+    game.fusions = { thunderball: true };
+    assert.equal(rollChoices(game)[0].kind, 'fusion');
+    game.fusions.sawblade = true;
+    for (let roll = 0; roll < 20; roll += 1) assert.ok(!rollChoices(game).some((choice) => choice.kind === 'fusion'));
   });
 });

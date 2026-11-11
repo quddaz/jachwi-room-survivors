@@ -2,7 +2,7 @@ import { choose, createGame, formatTime, passiveLines, reroll, startWithRelic, s
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
+  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -165,7 +165,7 @@ function drawChoices() {
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' ? '' : choice.kind === 'relic-swap' ? '<small class="choice-swap">내려놓기</small>'
-      : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
+      : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
@@ -294,7 +294,7 @@ const statLine = (id, key, unit = '', scale = 1) => {
 const CODEX_TABS = [
   ['fusion', '합체', () => {
     const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
-    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요.</p>
+    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요. 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
       <ol class="recipe-list">${Object.entries(FUSIONS).map(([id, fusion]) => `
         <li class="recipe">
           <div class="recipe-formula">${part(fusion.from[0])}<span class="recipe-op">+</span>${part(fusion.from[1])}<span class="recipe-op">→</span>

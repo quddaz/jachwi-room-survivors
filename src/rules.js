@@ -250,6 +250,9 @@ export const EVOLUTIONS = {
   shower: { label: '수압 샤워', description: '물줄기가 두 배로 쏟아진다', damage: 1.3, double: true },
 };
 
+// 한 판에 만들 수 있는 합체 수. 다 채우면 합체는 더 이상 선택지에 나오지 않는다.
+export const MAX_FUSIONS = 2;
+
 // 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
 export const FUSIONS = {
   thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', from: ['ball', 'zapper'],
