@@ -7,7 +7,7 @@ export const PLAYER = { speed: 150, maxHp: 50, radius: 16, pickupRadius: 90, inv
 export function difficultyAt(time) {
   const minutes = time / 60;
   // 4분부터는 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
-  const late = Math.max(0, minutes - 4);
+  const late = Math.max(0, minutes - 6);
   return {
     hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * late * 0.35 + late * late * late * 0.04,
     damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.25,
@@ -145,7 +145,7 @@ export const PASSIVES = {
   candle: { label: '향초', description: '먼지에서 경험치를 더 얻는다', xpGain: [0.1, 0.2, 0.3, 0.4, 0.5] },
   wipes: { label: '물티슈', description: '무기가 닿는 범위가 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
   protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
-  magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.15, 0.3, 0.45, 0.6, 0.75] },
+  magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.3, 0.6, 0.9, 1.2, 1.5] },
 };
 
 export const MAX_LEVEL = 5;
@@ -193,7 +193,7 @@ export const FUSIONS = {
 
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)
 export const DROPS = {
-  ramen: { label: '라면', description: '체력 15 회복', chance: 0.0025 },
+  ramen: { label: '라면', description: '체력 15 회복', chance: 0.0015 },
   vacuumBag: { label: '청소기 먼지통', description: '바닥의 먼지를 모두 끌어온다', chance: 0.001 },
   bugBomb: { label: '연막 살충제', description: '화면의 적을 모두 쓰러뜨린다(보스 제외)', chance: 0.0005 },
   coffee: { label: '아이스 아메리카노', description: '10초 동안 빨라지고 무기를 더 자주 쓴다', chance: 0.0007 },
