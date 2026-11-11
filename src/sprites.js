@@ -180,6 +180,112 @@ const ART = {
     '..RDDDR..',
     '...DDD...',
   ],
+  mosquitoA: [
+    '..LL.LL...',
+    '...LLL....',
+    '.DSDSDDK..',
+    '..DSDSDDkk',
+    '..k.k.k...',
+    '.k..k..k..',
+  ],
+  mosquitoB: [
+    '..........',
+    '.LLL.LLL..',
+    '.DSDSDDK..',
+    '..DSDSDDkk',
+    '...k.k.k..',
+    '...k.k.k..',
+  ],
+  spiderA: [
+    'k...k...k...k',
+    '.k..k...k..k.',
+    '..k.kDDDk.k..',
+    '...kDSDDDk...',
+    'kkkDDRDRDDkkk',
+    '...kDDDDDk...',
+    '..k.kDDDk.k..',
+    '.k..k...k..k.',
+    'k...k...k...k',
+  ],
+  spiderB: [
+    '.k..k...k..k.',
+    '.k..k...k..k.',
+    '..k.kDDDk.k..',
+    '...kDSDDDk...',
+    '.kkDDRDRDDkk.',
+    '...kDDDDDk...',
+    '..k.kDDDk.k..',
+    '.k..k...k..k.',
+    '.k..k...k..k.',
+  ],
+  milkA: [
+    '...WWWW...',
+    '..WWWWWW..',
+    '.WWPPPPWW.',
+    '.WWWWWWWW.',
+    '.WBBBBBBW.',
+    '.WBWBBWBW.',
+    '.WWWWWWWW.',
+    '.WKWWWWKW.',
+    '.WWWWWWWW.',
+    '.WWKKKKWW.',
+    '.WMWWWWWW.',
+    '.WMMWWWWp.',
+    '.pppppppp.',
+  ],
+  milkB: [
+    '..........',
+    '...WWWW...',
+    '..WWWWWW..',
+    '.WWPPPPWW.',
+    '.WBBBBBBW.',
+    '.WBWBBWBW.',
+    '.WWWWWWWW.',
+    '.WKWWWWKW.',
+    '.WWWKKWWW.',
+    '.WWWWWWWW.',
+    '.WMMWWWWW.',
+    '.WMMMWWWp.',
+    '.pppppppp.',
+  ],
+  mouseA: [
+    '.........dd...',
+    '........daad..',
+    '...ddddddddd..',
+    '..ddddddddKdd.',
+    'a.dddddddddddA',
+    '.adzzzzzzzdd..',
+    '...k..k..k....',
+  ],
+  mouseB: [
+    '..............',
+    'a........dd...',
+    '.a......daad..',
+    '..addddddddKd.',
+    '...ddddddddddA',
+    '...dzzzzzzzdd.',
+    '....k.k..k.k..',
+  ],
+  mothA: [
+    '.nn.......nn.',
+    'nnnn.k.k.nnnn',
+    'nNnnn.k.nnnNn',
+    'nnYnnnHnnnYnn',
+    '.nnnnnHnnnnn.',
+    '..nnnnHnnnn..',
+    '..nNn.H.nNn..',
+    '...n.....n...',
+  ],
+  mothB: [
+    '.............',
+    '.....k.k.....',
+    '.nnn..k..nnn.',
+    'nnYnnnHnnnYnn',
+    'nNnnnnHnnnnNn',
+    'nnnnnnHnnnnnn',
+    '.nnNn.H.nNnn.',
+    '..nn.....nn..',
+  ],
   boiler: [
     '...cccccccccccc...',
     '..cCCCCCCCCCCCCc..',
@@ -1280,6 +1386,35 @@ function rustBoiler(frame) {
   return g.rows();
 }
 
+function kingFly(frame) {
+  const g = canvasGrid(40, 30);
+  // 날개는 위로 들었다 옆으로 폈다 한다.
+  if (frame === 0) {
+    g.ellipse(13, 7, 9, 5, 'L').ellipse(13, 7, 7, 3, 'i', 'L').ellipse(24, 6, 8, 5, 'L').ellipse(24, 6, 6, 3, 'i', 'L');
+    g.line(8, 9, 18, 5, 'W').line(20, 8, 29, 4, 'W');
+  } else {
+    g.ellipse(11, 12, 10, 3, 'L').ellipse(11, 12, 8, 1, 'i', 'L').ellipse(26, 10, 9, 3, 'L').ellipse(26, 10, 7, 1, 'i', 'L');
+    g.line(3, 12, 18, 12, 'W').line(19, 10, 33, 10, 'W');
+  }
+  const step = frame ? 1 : -1;
+  g.line(14, 22, 11 + step, 27, 'k').line(11 + step, 27, 9 + step, 28, 'k');
+  g.line(19, 23, 19 - step, 28, 'k').line(19 - step, 28, 17 - step, 29, 'k');
+  g.line(24, 22, 27 + step, 27, 'k').line(27 + step, 27, 29 + step, 28, 'k');
+  g.ellipse(13, 17, 9, 6, 'h').ellipse(13, 16, 9, 5, 'D').ellipse(11, 13, 5, 1, 'S', 'D');
+  [7, 11, 15, 19].forEach((x) => { for (let y = 11; y <= 23; y += 1) if (g.get(x, y) === 'D') g.set(x, y, 'h'); });
+  g.ellipse(23, 16, 6, 6, 'h').ellipse(23, 15, 5, 4, 'S', 'h').ellipse(22, 13, 2, 1, 'd', 'S');
+  g.ellipse(31, 16, 5, 5, 'h').ellipse(31, 16, 4, 4, 'D');
+  g.ellipse(32, 13, 3, 3, 'u').ellipse(32, 13, 2, 2, 'R').set(31, 12, 'a').set(33, 12, 'W');
+  g.ellipse(33, 19, 2, 2, 'u').ellipse(33, 19, 1, 1, 'R').set(33, 18, 'a');
+  g.line(35, 20, 37, 23, 'k').set(38, 23, 'k');
+  g.rect(26, 7, 8, 3, 'O').rect(26, 9, 8, 1, 'o');
+  [26, 29, 30, 33].forEach((x) => g.set(x, 6, 'O').set(x, 5, 'O'));
+  g.set(26, 4, 'Y').set(33, 4, 'Y').set(29, 4, 'O').set(30, 4, 'O').set(28, 8, 'R').set(31, 8, 'Y');
+  return g.rows();
+}
+
+ART.kingFlyA = kingFly(0);
+ART.kingFlyB = kingFly(1);
 ART.kingRoachA = kingRoach(0);
 ART.kingRoachB = kingRoach(1);
 ART.garbageGiantA = garbageGiant(0);

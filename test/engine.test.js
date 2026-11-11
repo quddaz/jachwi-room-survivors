@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
 import { rankBest } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, difficultyAt, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -43,13 +43,14 @@ describe('난이도', () => {
     const first = game.enemies.find((enemy) => enemy.boss);
     assert.equal(first.kind, 'kingRoach');
     game.enemies = [];
-    game.time = BOSS_EVERY_SEC * 4 - 0.01;
-    game.nextBossAt = BOSS_EVERY_SEC * 4;
-    game.bossIndex = 3;
+    // 보스를 한 바퀴 다 돌고 나면 처음 보스가 더 세져서 다시 나온다.
+    game.time = BOSS_EVERY_SEC * (BOSSES.length + 1) - 0.01;
+    game.nextBossAt = BOSS_EVERY_SEC * (BOSSES.length + 1);
+    game.bossIndex = BOSSES.length;
     run(game, 0.05);
-    const fourth = game.enemies.find((enemy) => enemy.boss);
-    assert.equal(fourth.kind, 'kingRoach');
-    assert.ok(fourth.maxHp > first.maxHp * 2);
+    const again = game.enemies.find((enemy) => enemy.boss);
+    assert.equal(again.kind, 'kingRoach');
+    assert.ok(again.maxHp > first.maxHp * 2);
   });
 
   it('1분마다 바퀴벌레 떼가 사방에서 몰려온다', () => {
@@ -475,5 +476,75 @@ describe('합체 무기', () => {
       return enemies.reduce((sum, enemy) => sum + (1e9 - enemy.hp), 0);
     };
     assert.ok(damageWith(true) > damageWith(false) * 1.4);
+  });
+});
+
+describe('새 적', () => {
+  function quiet() {
+    const game = createGame(seeded(8));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    return game;
+  }
+
+  it('거미는 웅크렸다가 걷는 속도보다 훨씬 빠르게 뛰어든다', () => {
+    const game = quiet();
+    const spider = placeEnemy(game, 'spider', 250, 0, { speed: 50, hp: 1e6 });
+    let fastest = 0;
+    for (let step = 0; step < 240; step += 1) {
+      const before = spider.x;
+      update(game, 1 / 60);
+      fastest = Math.max(fastest, Math.abs(spider.x - before) * 60);
+    }
+    assert.ok(fastest > 50 * 3);
+  });
+
+  it('상한 우유는 가까이 오면 터지고, 그 전에 잡으면 터지지 않는다', () => {
+    const blown = quiet();
+    placeEnemy(blown, 'milk', 60, 0, { hp: 1e6 });
+    for (let step = 0; step < 90; step += 1) update(blown, 1 / 60);
+    assert.ok(blown.player.hp < PLAYER.maxHp);
+    assert.equal(blown.enemies.length, 0);
+
+    const defused = quiet();
+    const milk = placeEnemy(defused, 'milk', 60, 0, { hp: 10 });
+    update(defused, 1 / 60);
+    assert.equal(defused.hazards.length, 1);
+    milk.x += 400; // 닿아서 다치는 것과 구분하려고 멀리 옮긴 뒤 잡는다
+    damageEnemy(defused, milk, 999);
+    for (let step = 0; step < 90; step += 1) update(defused, 1 / 60);
+    assert.equal(defused.player.hp, PLAYER.maxHp);
+    assert.equal(defused.hazards.length, 0);
+  });
+
+  it('나방은 멀리서 세 갈래로 쏜다', () => {
+    const game = quiet();
+    placeEnemy(game, 'moth', 240, 0, { speed: 0, hp: 1e6, timer: 10 });
+    update(game, 1 / 60);
+    assert.equal(game.enemyShots.length, 3);
+  });
+
+  it('모기는 곧장 오지 않고 좌우로 흔들린다', () => {
+    const game = quiet();
+    const mosquito = placeEnemy(game, 'mosquito', 400, 0, { speed: 100, hp: 1e6 });
+    let drift = 0;
+    for (let step = 0; step < 60; step += 1) {
+      update(game, 1 / 60);
+      drift = Math.max(drift, Math.abs(mosquito.y - game.player.y));
+    }
+    assert.ok(drift > 4);
+  });
+});
+
+describe('대왕 파리', () => {
+  it('네 번째 보스로 나와 날파리를 다섯 마리씩 불러낸다', () => {
+    assert.equal(BOSSES[3].kind, 'kingFly');
+    const game = createGame(seeded(8));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    const stats = BOSSES[3];
+    placeEnemy(game, 'kingFly', 300, 0, { boss: true, hp: 1e6, speed: 0, radius: 30, stats, label: stats.label });
+    for (let step = 0; step < Math.ceil(stats.summonEverySec * 60) + 2; step += 1) update(game, 1 / 60);
+    assert.equal(game.enemies.filter((enemy) => enemy.kind === 'fly').length, 5);
   });
 });

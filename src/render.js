@@ -66,15 +66,18 @@ function drawCentered(ctx, image, x, y) {
 
 const FRAMES = {
   roach: ['roachA', 'roachB'], trash: ['trashA', 'trashB'], scrap: ['scrap', 'scrap'], rust: ['rustA', 'rustB'],
-  mold: ['moldA', 'moldB'], fly: ['flyA', 'flyB'], kingRoach: ['kingRoachA', 'kingRoachB'],
-  garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'],
+  mold: ['moldA', 'moldB'], fly: ['flyA', 'flyB'], mosquito: ['mosquitoA', 'mosquitoB'], spider: ['spiderA', 'spiderB'],
+  milk: ['milkA', 'milkB'], mouse: ['mouseA', 'mouseB'], moth: ['mothA', 'mothB'], kingRoach: ['kingRoachA', 'kingRoachB'],
+  garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'], kingFly: ['kingFlyA', 'kingFlyB'],
 };
-const FRAME_RATE = { roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5 };
+const FRAME_RATE = { mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
 const PARTICLES = {
-  roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
+  kingFly: ['#3d3d42', '#e0645b', '#dcebff'], roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
   trash: ['#5c6470', '#8f99a6', '#7fb069'], scrap: ['#8f99a6', '#5c6470', '#d9dee5'], garbageGiant: ['#5c6470', '#7fb069', '#d9dee5'],
   rust: ['#b5651d', '#e8a468', '#8c4f22'], rustBoiler: ['#b5651d', '#ffb21f', '#e8e8e8'],
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
+  mosquito: ['#3d3d42', '#dcebff', '#e0645b'], spider: ['#3d3d42', '#55555d', '#e0645b'], milk: ['#ffffff', '#6f8a4a', '#5f86cf'],
+  mouse: ['#8a8f98', '#c4c9d1', '#ffb3bf'], moth: ['#c9965c', '#8a4a1e', '#ffe08a'],
   spark: ['#7fe9ff', '#ffffff', '#fff6b0'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
@@ -188,7 +191,7 @@ function drawNumber(ctx, value, x, y, color) {
 function drawEnemy(ctx, enemy, x, y, time) {
   const frames = FRAMES[enemy.kind];
   const rate = FRAME_RATE[enemy.kind] ?? 1;
-  const frame = enemy.frozen ? 0 : Math.floor(time * rate + enemy.id) % 2;
+  const frame = enemy.frozen || enemy.crouching ? 0 : Math.floor(time * rate + enemy.id) % 2;
   const tint = enemy.hitFlash > 0 ? FLASH : enemy.frozen ? FROZEN : null;
   const image = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint });
   const bob = enemy.boss && !enemy.dashing ? Math.round(Math.sin(time * 4 + enemy.id)) : 0;
@@ -453,7 +456,7 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x, y, radius, `rgba(224, 100, 91, ${0.12 + closing * 0.22})`);
     ring(ctx, x, y, radius, '#e0645b', 2, Math.floor(time * 16));
     ring(ctx, x, y, radius * closing, 'rgba(255,255,255,0.8)');
-    drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
+    if (!hazard.blast) drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
   }
 
   for (const gem of game.gems) {

@@ -247,7 +247,62 @@ function moveEnemies(game, dt) {
     const gap = Math.hypot(dx, dy) || 1;
     let direction = 1;
     let speed = enemy.speed * (game.time < (enemy.slowUntil ?? 0) ? enemy.slowBy : 1);
+    let moveX = dx / gap;
+    let moveY = dy / gap;
     enemy.timer += dt;
+
+    if (enemy.kind === 'mosquito' || enemy.kind === 'moth') {
+      // 날벌레는 다가오는 방향에서 좌우로 흔들린다.
+      const sway = Math.sin(game.time * 7 + enemy.id) * ENEMIES[enemy.kind].sway;
+      moveX -= (dy / gap) * sway;
+      moveY += (dx / gap) * sway;
+    }
+    if (enemy.kind === 'moth') {
+      const base = ENEMIES.moth;
+      if (gap < base.range * 0.7) direction = -0.6;
+      else if (gap < base.range) direction = 0.15;
+      if (enemy.timer >= base.shootEverySec && gap < base.range + 80) {
+        enemy.timer = 0;
+        for (let lane = -1; lane <= 1; lane += 1) {
+          fire(game, enemy, Math.atan2(dy, dx) + lane * base.spread, base.shotSpeed, base.shotDamage * difficulty.damage, 'rust');
+        }
+      }
+    }
+    if (enemy.kind === 'spider') {
+      const base = ENEMIES.spider;
+      enemy.crouching = false;
+      if (game.time < (enemy.leapUntil ?? 0)) {
+        moveX = enemy.leapX;
+        moveY = enemy.leapY;
+        speed *= base.leapSpeed;
+      } else if (enemy.timer >= base.leapEverySec && gap < base.leapRange) {
+        enemy.timer = 0;
+        enemy.leapUntil = game.time + base.leapSec;
+        enemy.leapX = dx / gap;
+        enemy.leapY = dy / gap;
+      } else if (enemy.timer >= base.leapEverySec - base.crouchSec && gap < base.leapRange) {
+        // 뛰기 직전에 잠깐 멈춰 웅크린다.
+        direction = 0;
+        enemy.crouching = true;
+      }
+    }
+    if (enemy.kind === 'milk') {
+      const base = ENEMIES.milk;
+      if (!enemy.fuseAt && gap < base.fuseRange) {
+        enemy.fuseAt = game.time + base.fuseSec;
+        game.hazards.push({ x: enemy.x, y: enemy.y, radius: base.blastRadius, delay: base.fuseSec, total: base.fuseSec,
+          damage: base.blastDamage * difficulty.damage, blast: true, owner: enemy });
+      }
+      if (enemy.fuseAt) {
+        direction = 0;
+        enemy.hitFlash = Math.floor(game.time * 14) % 2 === 0 ? 0.05 : 0;
+        if (game.time >= enemy.fuseAt) {
+          enemy.exploded = true;
+          killEnemy(game, enemy);
+          continue;
+        }
+      }
+    }
 
     if (enemy.kind === 'rust') {
       const base = ENEMIES.rust;
@@ -284,6 +339,23 @@ function moveEnemies(game, dt) {
       }
     }
     if (enemy.kind === 'rustBoiler') boilerPattern(game, enemy, dt, Math.atan2(dy, dx), difficulty);
+    if (enemy.kind === 'kingFly') {
+      const sway = Math.sin(game.time * 3.2 + enemy.id) * enemy.stats.sway;
+      moveX -= (dy / gap) * sway;
+      moveY += (dx / gap) * sway;
+      if (enemy.timer >= enemy.stats.summonEverySec) {
+        enemy.timer = 0;
+        // 화면이 날파리로 꽉 차지 않게, 적이 너무 많을 때는 부르지 않는다.
+        if (game.enemies.length < 600) {
+          for (let index = 0; index < enemy.stats.summonCount; index += 1) {
+            const angle = (index / enemy.stats.summonCount) * Math.PI * 2 + game.time;
+            spawnEnemy(game, 'fly', enemy.x + Math.cos(angle) * 36, enemy.y + Math.sin(angle) * 36);
+          }
+          addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 80, color: 'fly', life: 0.4 });
+          addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'fly', count: 14, life: 0.5 });
+        }
+      }
+    }
     if (enemy.kind === 'garbageGiant' && enemy.timer >= enemy.stats.lobEverySec) {
       // 쓰레기를 던져 잠시 뒤 떨어질 자리를 미리 보여 준다.
       enemy.timer = 0;
@@ -295,8 +367,8 @@ function moveEnemies(game, dt) {
       }
     }
 
-    enemy.vx = (dx / gap) * speed * direction + enemy.kx;
-    enemy.vy = (dy / gap) * speed * direction + enemy.ky;
+    enemy.vx = moveX * speed * direction + enemy.kx;
+    enemy.vy = moveY * speed * direction + enemy.ky;
     enemy.x += enemy.vx * dt;
     enemy.y += enemy.vy * dt;
     enemy.kx *= 0.86;
@@ -945,6 +1017,11 @@ function updateProjectiles(game, dt) {
 
   for (const hazard of game.hazards) {
     hazard.delay -= dt;
+    // 터지기 전에 잡힌 상한 우유는 터지지 않는다.
+    if (hazard.owner?.dead && !hazard.owner.exploded) {
+      hazard.delay = 0;
+      continue;
+    }
     if (hazard.delay > 0) continue;
     if (distance(hazard, game.player) < hazard.radius + PLAYER.radius * 0.5) damagePlayer(game, hazard.damage);
     addEffect(game, { type: 'slam', x: hazard.x, y: hazard.y, radius: hazard.radius, life: 0.4 });

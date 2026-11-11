@@ -26,6 +26,19 @@ export const ENEMIES = {
   mold: { label: '곰팡이', hp: 22, speed: 36, radius: 15, damage: 8, xp: 2, from: 80, weight: 3,
     slimeSec: 5, slimeRadius: 44, slow: 0.45 },
   fly: { label: '날파리 떼', hp: 4, speed: 140, radius: 7, damage: 4, xp: 1, from: 150, weight: 5 },
+  // 지그재그로 날아와 맞히기 어렵다.
+  mosquito: { label: '모기', hp: 5, speed: 125, radius: 7, damage: 4, xp: 1, from: 110, weight: 4, sway: 0.9 },
+  // 웅크렸다가 한 번에 뛰어든다.
+  spider: { label: '거미', hp: 20, speed: 50, radius: 12, damage: 9, xp: 2, from: 140, weight: 3,
+    leapEverySec: 2.4, crouchSec: 0.4, leapSec: 0.4, leapSpeed: 4.2, leapRange: 300 },
+  // 가까이 오면 멈춰서 부풀다가 터진다. 터질 자리를 미리 보여 준다.
+  milk: { label: '상한 우유', hp: 26, speed: 62, radius: 13, damage: 6, xp: 3, from: 180, weight: 2,
+    fuseRange: 85, fuseSec: 0.9, blastRadius: 72, blastDamage: 14 },
+  // 빠르고 단단하다.
+  mouse: { label: '생쥐', hp: 55, speed: 98, radius: 13, damage: 11, xp: 4, from: 220, weight: 2 },
+  // 거리를 두고 세 갈래로 가루를 쏜다.
+  moth: { label: '나방', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 2,
+    range: 260, shootEverySec: 3.6, shotSpeed: 150, shotDamage: 6, spread: 0.3, sway: 0.35 },
 };
 
 // 보스는 90초마다 나오고, 나올 때마다 더 세진다.
@@ -37,6 +50,9 @@ export const BOSSES = [
     lobEverySec: 3.5, lobCount: 4, lobDelaySec: 1.1, lobRadius: 36, lobDamage: 16 },
   { kind: 'rustBoiler', label: '녹슨 보일러', hp: 900, speed: 32, radius: 32, damage: 22, xp: 50,
     patternSec: 3.2, burstCount: 16, shotSpeed: 125, shotDamage: 9 },
+  // 좌우로 크게 흔들리며 날아다니고, 조그만 날파리를 다섯 마리씩 불러낸다.
+  { kind: 'kingFly', label: '대왕 파리', hp: 820, speed: 92, radius: 30, damage: 18, xp: 50,
+    summonEverySec: 3.5, summonCount: 5, sway: 1.1 },
 ];
 
 export function bossStatsOf(index, time) {
