@@ -699,8 +699,9 @@ function weaponValue(game, id, key) {
   const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? flatDamageOf(game) : 0;
-  return WEAPONS[id][key][game.weapons[id] - 1] * might
-    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat;
+  const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
+  return (WEAPONS[id][key][game.weapons[id] - 1] * might
+    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo;
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -721,9 +722,12 @@ function ready(game, id, dt) {
     const gap = Math.min(twin.echoSec, cooldown / 2);
     game.echoes[id] = !game.echoes[id];
     game.cooldowns[id] = game.echoes[id] ? gap : cooldown - gap;
+    // 두 번째 발사는 피해가 줄어든다. 바로 뒤에 이 무기가 피해를 계산할 때 쓴다.
+    game.echoing = game.echoes[id] ? null : id;
     return true;
   }
   game.cooldowns[id] = cooldown;
+  game.echoing = null;
   return true;
 }
 

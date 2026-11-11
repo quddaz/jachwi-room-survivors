@@ -222,7 +222,8 @@ export const MAX_RELICS = 3;
 // stats는 카드에 적는 정확한 효과다.
 export const RELICS = {
   twin: { label: '쌍둥이 노즐', description: '날아가는 무기를 두 번씩 쏜다',
-    stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저 2번 발사'], weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser'], echoSec: 0.12 },
+    stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저 2번 발사', '두 번째 발사는 피해 -50%'],
+    weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser'], echoSec: 0.12, echoDamage: 0.5 },
   blanket: { label: '두꺼운 이불', description: '가만히 있으면 거의 다치지 않는다', stats: ['멈춰 있으면 받는 피해 -80%'], guard: 0.8 },
   energy: { label: '에너지 드링크', description: '움직이는 동안 힘이 넘친다', stats: ['움직이는 동안 공격력 +30%', '이동 속도 +10%'], might: 0.3, speed: 0.1 },
   magnet: { label: '냉장고 자석', description: '먼지를 아주 멀리서 끌어온다', stats: ['줍는 범위 +200%'], pickup: 2 },

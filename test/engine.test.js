@@ -993,3 +993,21 @@ describe('정예와 한 방 피해 상한', () => {
     assert.equal(game.over, false);
   });
 });
+
+describe('쌍둥이 노즐 너프', () => {
+  it('두 번째 발사는 피해가 절반이다', () => {
+    const game = createGame(seeded(61));
+    game.spawnCarry = -100000;
+    game.weapons = { spray: 1 };
+    game.relics.twin = true;
+    placeEnemy(game, 'trash', 300, 0, { hp: 1e9 });
+    const damages = [];
+    for (let step = 0; step < 60; step += 1) {
+      const before = game.shots.length;
+      update(game, 1 / 60);
+      game.shots.slice(before).forEach((shot) => damages.push(shot.damage));
+    }
+    assert.ok(damages.includes(WEAPONS.spray.damage[0]));
+    assert.ok(damages.includes(WEAPONS.spray.damage[0] * RELICS.twin.echoDamage));
+  });
+});
