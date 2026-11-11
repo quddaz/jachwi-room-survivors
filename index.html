@@ -20,6 +20,7 @@
   <body>
     <main class="app">
       <section class="screen screen-start is-active" data-screen="start">
+        <div class="start-intro">
         <div class="hero"><img src="./assets/duck-room.jpg" alt="방에서 휴대폰을 든 오리" /></div>
         <h1 class="title"><img class="logo" src="./assets/logo.png" alt="자취선배" />자취방 <span>서바이벌</span></h1>
         <p class="lead">바퀴벌레, 쓰레기봉투, 녹물, 곰팡이가 끝없이 몰려와요. 살림살이로 버티며 최대한 오래 살아남으세요.</p>
@@ -33,12 +34,17 @@
           <li>레벨업마다 <b>한 번 다시 뽑기</b></li>
           <li><b>버틴 시간</b>으로 순위</li>
         </ul>
+        </div>
         <form class="start-form" novalidate>
-          <label class="field-label" for="crew-name">크루 이름</label>
-          <input id="crew-name" class="field" name="crewName" maxlength="12" autocomplete="nickname" placeholder="예: 쿠다" required />
-          <p class="field-error" role="alert"></p>
-          <p class="field-label">맵</p>
-          <div class="map-picker" role="group" aria-label="맵 고르기"></div>
+          <div class="start-crew">
+            <label class="field-label" for="crew-name">크루 이름</label>
+            <input id="crew-name" class="field" name="crewName" maxlength="12" autocomplete="nickname" placeholder="예: 쿠다" required />
+            <p class="field-error" role="alert"></p>
+          </div>
+          <div class="start-map">
+            <p class="field-label">맵</p>
+            <div class="map-picker" role="group" aria-label="맵 고르기"></div>
+          </div>
           <div class="build">
             <p class="field-label">능력치 <span class="build-hint">남은 포인트 <b class="build-left">30</b></span>
               <button class="build-reset" type="button" data-action="build-reset">초기화</button></p>
