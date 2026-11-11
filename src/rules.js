@@ -214,7 +214,7 @@ export const RELICS = {
   firstaid: { label: '구급상자', description: '쓰러져도 한 번 일어난다', stats: ['한 번 체력 50%로 부활', '부활 뒤 3초 무적'], reviveHp: 0.5, reviveGuardSec: 3 },
   scrubber: { label: '철수세미', description: '부딪힌 적에게 따끔하게 돌려준다', stats: ['맞으면 주변 적에게 받은 피해의 500%'], reflect: 5, radius: 110 },
   alarm: { label: '알람시계', description: '때마다 울려 적을 얼린다', stats: ['20초마다 적 2.5초 얼림(보스 제외)'], everySec: 20, freezeSec: 2.5 },
-  piggy: { label: '돼지 저금통', description: '차곡차곡 모아 더 빨리 큰다', stats: ['경험치 +40%', '레벨업마다 체력 +10'], xpGain: 0.4, levelHeal: 10 },
+  piggy: { label: '돼지 저금통', description: '차곡차곡 모아 더 빨리 큰다', stats: ['경험치 +20%', '레벨업마다 체력 +4'], xpGain: 0.2, levelHeal: 4 },
   lastcup: { label: '마지막 컵라면', description: '궁지에 몰리면 강해진다', stats: ['체력 30% 이하일 때 공격력 +60%', '쿨타임 -20%'],
     below: 0.3, might: 0.6, haste: 0.2 },
   bigpot: { label: '큰 냄비', description: '무엇이든 크게 만든다', stats: ['무기 범위 +25%', '투사체 크기 +25%'], area: 0.25, projectile: 0.25 },
