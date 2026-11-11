@@ -134,7 +134,7 @@ export const WEAPONS = {
   fan: {
     label: '선풍기', description: '강풍으로 앞의 적을 멀리 날린다',
     // cone은 바라보는 쪽에서 양옆으로 바람이 닿는 각도(라디안)다.
-    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], knockback: 95, cone: 1.0,
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], knockback: 38, cone: 1.0,
   },
   laser: {
     label: '레이저 포인터', description: '아무 방향으로나 곧게 뻗는 레이저를 쏜다',

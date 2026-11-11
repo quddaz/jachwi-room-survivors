@@ -620,8 +620,10 @@ export function damageEnemy(game, enemy, amount, knockback = 0, from = game.play
   }
   if (knockback > 0 && !enemy.boss) {
     const gap = distance(enemy, from) || 1;
-    enemy.kx += ((enemy.x - from.x) / gap) * knockback * 8;
-    enemy.ky += ((enemy.y - from.y) / gap) * knockback * 8;
+    // 정예는 무거워서 절반만 밀린다.
+    const push = knockback * 8 * (enemy.elite ? 0.5 : 1);
+    enemy.kx += ((enemy.x - from.x) / gap) * push;
+    enemy.ky += ((enemy.y - from.y) / gap) * push;
   }
   if (enemy.hp <= 0) killEnemy(game, enemy);
 }
