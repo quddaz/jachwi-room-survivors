@@ -242,6 +242,13 @@ function drawEnemy(ctx, enemy, x, y, time) {
       ctx.fillRect(Math.round(x + enemy.swoopX * step), Math.round(y + enemy.swoopY * step), 2, 2);
     }
   }
+  if (enemy.burning) {
+    for (let flame = 0; flame < 3; flame += 1) {
+      const rise = (time * 2.2 + hash(enemy.id, flame)) % 1;
+      ctx.fillStyle = rise < 0.5 ? '#ffd23f' : '#f08a1d';
+      ctx.fillRect(Math.round(x - 4 + flame * 4 + Math.sin(time * 9 + flame) * 1.5), Math.round(y - image.height / 2 - rise * 6), 1, 2);
+    }
+  }
   if (enemy.poisoned) {
     for (let bubble = 0; bubble < 2; bubble += 1) {
       const rise = (time * 1.6 + hash(enemy.id, bubble)) % 1;
@@ -563,7 +570,8 @@ export function render(ctx, game, width, height, time) {
     ctx.fillRect(x + w - 3, y, 1, 1);
   }
   for (const wave of game.waves) {
-    // 전자레인지 파동: 노란빛 고리가 두 겹으로 퍼진다.
+    // 전자레인지 파동: 노란빛 고리가 두 겹으로 퍼진다(건조 오븐의 두 번째 파동은 출발 전까지 안 보인다).
+    if (wave.r <= 0) continue;
     const [x, y] = toBuffer(wave);
     const r = wave.r / WORLD_PER_PIXEL;
     const fade = 1 - wave.r / wave.max;

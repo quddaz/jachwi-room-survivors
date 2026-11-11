@@ -253,6 +253,15 @@ export const FUSIONS = {
     damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
   sawblade: { label: '회전 톱날', description: '커다란 톱날 둘이 화면을 크게 돌며 닿는 적을 갈아 버린다', from: ['slipper', 'roller'],
     count: 2, orbit: 170, spin: 2.6, radius: 30, damage: 1.2, hitEverySec: 0.22 },
+  mopstorm: { label: '물걸레 회오리', description: '물걸레가 주위를 한 바퀴 휘감아 적을 끌어당기며 때린다', from: ['towel', 'broom'],
+    everySec: 1.6, damage: 1.2, pull: 60 },
+  bomber: { label: '파리채 폭격기', description: '종이비행기가 맞힌 자리에 파리채가 함께 내려친다', from: ['paperplane', 'swatter'],
+    damage: 0.6, radius: 55 },
+  foammine: { label: '거품 지뢰', description: '쥐덫이 닫힐 때 거품 여섯 개가 사방으로 터져 나간다', from: ['mousetrap', 'detergent'], bubbles: 6 },
+  dryoven: { label: '건조 오븐', description: '파동이 두 번 퍼지고, 맞은 적을 느리게 하며 바싹 태운다', from: ['microwave', 'dehumidifier'],
+    burnSec: 2, burn: 1, slow: 0.5 },
+  shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', from: ['shower', 'zapper'],
+    targets: 3, range: 170, damage: 0.8 },
 };
 
 // 한 판에 가질 수 있는 보물 수. 다 채운 뒤의 보물 상자는 레벨업 두 번이 된다.

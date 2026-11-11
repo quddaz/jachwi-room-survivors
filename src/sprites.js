@@ -1902,6 +1902,102 @@ ITEMS.sawblade = item([], (body, fx, f) => {
   const sparks = [[[14, 13], [15, 14]], [[13, 14], [15, 12], [1, 1]], [[0, 2], [1, 0], [14, 15]], [[15, 15], [0, 0]]];
   sparks[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'Y'));
 });
+ITEMS.mopstorm = item([], (body, fx, f) => {
+  // 물걸레가 빙글빙글 돌며 물방울을 튀긴다.
+  const spin = (f / ITEM_FRAMES) * Math.PI * 2;
+  for (let reach = 1; reach <= 6; reach += 1) {
+    body.set(7.5 + Math.cos(spin) * reach, 7.5 + Math.sin(spin) * reach, 'N');
+    body.set(7.5 + Math.cos(spin + Math.PI) * reach, 7.5 + Math.sin(spin + Math.PI) * reach, reach > 3 ? 'T' : 'N');
+  }
+  body.ellipse(7, 7, 2, 2, 'T').set(7, 7, 'W');
+  for (let swirl = 0; swirl < 12; swirl += 1) {
+    const angle = spin + (swirl / 12) * Math.PI * 2;
+    fx.set(7.5 + Math.cos(angle) * 7, 7.5 + Math.sin(angle) * 7, swirl % 3 === 0 ? 'W' : 'l');
+  }
+});
+ITEMS.bomber = item([], (body, fx, f) => {
+  const bob = [0, -1, 0, 1][f];
+  body.line(0, 8 + bob, 10, 3 + bob, 'W').line(0, 8 + bob, 6, 11 + bob, 'W').line(6, 11 + bob, 10, 3 + bob, 'W').line(0, 8 + bob, 10, 3 + bob, 'z');
+  body.rect(9, 9, 6, 5, 'R').rect(10, 10, 4, 3, 'u').set(10, 10, 'R').set(12, 10, 'R').set(11, 11, 'R').set(13, 11, 'R').line(12, 14, 12, 15, 'N');
+  if (f === 1 || f === 2) fx.set(8, 14, 'W').set(15, 8, 'W').set(15, 15, 'Y');
+  twinkle(fx, 2, 1, f, 'Y');
+});
+ITEMS.foammine = item([
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '......zzzzzz....',
+  '.....z......z...',
+  '..nnnznnnnnnznn.',
+  '.nNNNzNNNNNNzNNn',
+  '.nNNNNNNNNNNNNNn',
+  '.nNNNNNYYyNNNNNn',
+  '..nnnnnnnnnnnnn.',
+  '................',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 거품이 사방으로 터져 나간다.
+  const r = [2, 4, 6, 7][f];
+  for (let bubble = 0; bubble < 6; bubble += 1) {
+    const angle = (bubble / 6) * Math.PI * 2 + 0.3;
+    const x = 7.5 + Math.cos(angle) * r;
+    const y = 8 + Math.sin(angle) * r * 0.8;
+    fx.set(x, y, 'W').set(x + 1, y, 'V').set(x, y + 1, 'V');
+  }
+});
+ITEMS.dryoven = item([
+  '................',
+  '................',
+  '.hhhhhhhhhhhhhh.',
+  '.hzzzzzzzzzzzzh.',
+  '.hzKKKKKKKKzddh.',
+  '.hzKeeeeeeKzdKh.',
+  '.hzKeOOOOeKzddh.',
+  '.hzKeOYYOeKzdKh.',
+  '.hzKeeeeeeKzddh.',
+  '.hzKKKKKKKKzRdh.',
+  '.hzzzzzzzzzzzzh.',
+  '.hhhhhhhhhhhhhh.',
+  '..h..........h..',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 뜨거운 기운이 두 겹으로 올라온다.
+  steam(fx, 4, 1, f, 2);
+  steam(fx, 11, 1, f + 2, 2);
+  body.set(6 + (f % 2), 7, 'W');
+  if (f % 2) fx.set(0, 6, 'e').set(15, 8, 'e');
+});
+ITEMS.shockshower = item([
+  '..........hhh...',
+  '.........hzzh...',
+  '........hzzh....',
+  '...hhhhhhzh.....',
+  '..hzzzzzzh......',
+  '..hEEEEEEh......',
+  '...hhhhhh.......',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  [3, 5, 7, 9].forEach((x, lane) => {
+    for (let drop = 0; drop < 2; drop += 1) fx.set(x - 1, 8 + ((f + lane + drop * 4) % 6), drop === 0 ? 'E' : 'l');
+  });
+  // 바닥에서 전기가 튄다.
+  const bolts = [[[2, 14], [3, 13], [4, 14]], [[8, 15], [9, 14], [10, 15], [11, 14]], [[12, 13], [13, 14], [14, 13]], [[5, 15], [6, 14]]][f];
+  bolts.forEach(([x, y], index) => fx.set(x, y, index % 2 ? 'W' : 'Y'));
+});
 ITEMS.ramen = ITEMS.heal;
 
 // 보스는 크기가 커서 글자 격자 대신 작은 그리기 함수로 찍는다. frame은 0 또는 1이다.

@@ -1125,3 +1125,77 @@ describe('새 적 2', () => {
     assert.ok(fastest > 60 * 4);
   });
 });
+
+describe('합체 무기 2', () => {
+  function fused(fusionId, weapons) {
+    const game = createGame(seeded(81));
+    game.spawnCarry = -100000;
+    game.weapons = Object.fromEntries(weapons.map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(weapons.map((id) => [id, true]));
+    game.fusions = { [fusionId]: true };
+    return game;
+  }
+  const run3 = (game, seconds) => { for (let step = 0; step < seconds * 60; step += 1) update(game, 1 / 60); };
+
+  it('새 합체 다섯 개도 모두 실제 무기 둘로 만든다', () => {
+    for (const id of ['mopstorm', 'bomber', 'foammine', 'dryoven', 'shockshower']) {
+      assert.ok(FUSIONS[id].from.every((weapon) => WEAPONS[weapon]));
+    }
+  });
+
+  it('물걸레 회오리는 주위 적을 때리고 오리 쪽으로 끌어당긴다', () => {
+    const game = fused('mopstorm', ['towel', 'broom']);
+    game.weapons = {};
+    game.weapons.towel = MAX_LEVEL;
+    game.cooldowns.towel = 999;
+    game.mopIn = 0.01;
+    const enemy = placeEnemy(game, 'trash', 0, 150, { hp: 1e6 });
+    update(game, 1 / 60);
+    assert.ok(enemy.hp < 1e6);
+    assert.ok(enemy.ky < 0);
+  });
+
+  it('파리채 폭격기는 비행기가 맞힌 적 옆의 적도 때린다', () => {
+    const game = fused('bomber', ['paperplane', 'swatter']);
+    game.weapons = { paperplane: MAX_LEVEL, swatter: MAX_LEVEL };
+    game.cooldowns.swatter = 999;
+    game.player.heading = 0;
+    placeEnemy(game, 'trash', 150, 0, { hp: 1e6 });
+    const beside = placeEnemy(game, 'trash', 150, 40, { hp: 1e6, radius: 4 });
+    run3(game, 1.5);
+    assert.ok(beside.hp < 1e6);
+  });
+
+  it('거품 지뢰는 덫이 닫힐 때 거품을 내보낸다', () => {
+    const game = fused('foammine', ['mousetrap', 'detergent']);
+    game.weapons = { mousetrap: MAX_LEVEL, detergent: MAX_LEVEL };
+    game.cooldowns.detergent = 999;
+    run3(game, 0.05);
+    const trap = game.traps[0];
+    placeEnemy(game, 'trash', trap.x - game.player.x, trap.y - game.player.y, { hp: 1e6 });
+    // 덫이 닫히는 순간 나온 거품은 바로 그 적에 닿아 터지므로, 터진 거품 고리로 확인한다.
+    for (let step = 0; step < 60 && game.traps.includes(trap); step += 1) update(game, 1 / 60);
+    assert.ok(game.effects.filter((effect) => effect.type === 'ring' && effect.color === 'bubble').length >= FUSIONS.foammine.bubbles - 1);
+  });
+
+  it('건조 오븐 파동은 맞은 적을 느리게 하고 태운다', () => {
+    const game = fused('dryoven', ['microwave', 'dehumidifier']);
+    game.weapons = { microwave: MAX_LEVEL };
+    const enemy = placeEnemy(game, 'trash', 100, 0, { hp: 1e6 });
+    run3(game, 0.4);
+    assert.ok(enemy.burning);
+    assert.ok(enemy.slowUntil > game.time);
+  });
+
+  it('감전 샤워는 물줄기 자리에서 떨어진 적에게도 전기를 튀긴다', () => {
+    const game = fused('shockshower', ['shower', 'zapper']);
+    game.weapons = { shower: MAX_LEVEL, zapper: MAX_LEVEL };
+    game.cooldowns.zapper = 999;
+    const target = placeEnemy(game, 'trash', 150, 0, { hp: 1e6 });
+    const side = placeEnemy(game, 'trash', 150, 120, { hp: 1e6 });
+    game.splashes.push({ x: target.x, y: target.y, delay: 0.01, total: 0.01, radius: 30, damage: 1, mega: false });
+    game.cooldowns.shower = 999;
+    update(game, 1 / 60);
+    assert.ok(side.hp < 1e6);
+  });
+});

@@ -1083,6 +1083,12 @@ function fireWeapons(game, dt) {
     }
     game.staplerAt = game.time;
   }
+  if (game.fusions.dryoven) {
+    for (const enemy of game.enemies) {
+      enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
+      if (enemy.burning) damageEnemy(game, enemy, enemy.burnDps * dt);
+    }
+  }
   if (game.fusions.poisongun) {
     for (const enemy of game.enemies) {
       enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
@@ -1228,6 +1234,7 @@ function fireWeapons(game, dt) {
       const angle = forward + (index - (count - 1) / 2) * 0.5;
       game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'paperplane', 'damage'), pierce: crane ? crane.pierce : 0, life: lifeSec, radius: 8 * projectile,
+        bomb: fusion(game, 'bomber') ? { damage: weaponValue(game, 'swatter', 'damage') * FUSIONS.bomber.damage, radius: FUSIONS.bomber.radius * area } : null,
         scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, knockback: 4, mega: Boolean(crane) });
     }
   }
@@ -1253,6 +1260,16 @@ function fireWeapons(game, dt) {
         if (!enemy.dead && distance(enemy, trap) < trap.radius * 1.5 + enemy.radius) damageEnemy(game, enemy, trap.damage, 4, trap);
       }
       addEffect(game, { type: 'slam', x: trap.x, y: trap.y, radius: trap.radius * 1.5, life: 0.3 });
+      const foam = fusion(game, 'foammine');
+      if (foam) {
+        // 거품 지뢰: 닫힌 덫에서 거품이 사방으로 터져 나간다.
+        for (let index = 0; index < foam.bubbles; index += 1) {
+          const angle = (index / foam.bubbles) * Math.PI * 2;
+          game.shots.push({ x: trap.x, y: trap.y, vx: Math.cos(angle) * 140, vy: Math.sin(angle) * 140,
+            damage: weaponValue(game, 'detergent', 'damage'), pierce: 0, life: 1.4, radius: 9 * projectile, scale: projectile, hit: new Set(),
+            kind: 'bubble', pop: weaponValue(game, 'detergent', 'radius') * area, mega: true, seed: game.nextId++ });
+        }
+      }
       addEffect(game, { type: 'burst', x: trap.x, y: trap.y, color: 'trap', count: 8, life: 0.35 });
       trap.life = 0;
     }
@@ -1261,8 +1278,12 @@ function fireWeapons(game, dt) {
   if (game.weapons.microwave) {
     if (ready(game, 'microwave', dt)) {
       const max = weaponValue(game, 'microwave', 'radius') * area;
-      game.waves.push({ x: player.x, y: player.y, r: 8, max, speed: max / WEAPONS.microwave.growSec,
-        damage: weaponValue(game, 'microwave', 'damage'), hit: new Set(), mega: Boolean(evolution(game, 'microwave')) });
+      const oven = Boolean(fusion(game, 'dryoven'));
+      // 건조 오븐이면 조금 늦게 출발하는 두 번째 파동이 따라간다(r이 음수인 동안은 보이지 않는다).
+      for (const start of oven ? [8, -max * 0.45] : [8]) {
+        game.waves.push({ x: player.x, y: player.y, r: start, max, speed: max / WEAPONS.microwave.growSec,
+          damage: weaponValue(game, 'microwave', 'damage'), hit: new Set(), mega: Boolean(evolution(game, 'microwave')), oven });
+      }
     }
     for (const wave of game.waves) {
       wave.r += wave.speed * dt;
@@ -1272,6 +1293,14 @@ function fireWeapons(game, dt) {
         if (gap - enemy.radius < wave.r && gap + enemy.radius > wave.r - 20) {
           wave.hit.add(enemy.id);
           damageEnemy(game, enemy, wave.damage, 6, wave);
+          if (wave.oven && !enemy.boss) {
+            enemy.slowUntil = game.time + FUSIONS.dryoven.burnSec;
+            enemy.slowBy = FUSIONS.dryoven.slow;
+          }
+          if (wave.oven) {
+            enemy.burnUntil = game.time + FUSIONS.dryoven.burnSec;
+            enemy.burnDps = weaponValue(game, 'dehumidifier', 'dps') * FUSIONS.dryoven.burn;
+          }
         }
       }
     }
@@ -1297,9 +1326,42 @@ function fireWeapons(game, dt) {
         if (!enemy.dead && distance(enemy, splash) < splash.radius + enemy.radius) damageEnemy(game, enemy, splash.damage, 4, splash);
       }
       addEffect(game, { type: 'ring', x: splash.x, y: splash.y, radius: splash.radius, color: 'water', life: 0.3 });
+      const shock = fusion(game, 'shockshower');
+      if (shock) {
+        // 감전 샤워: 젖은 자리에서 가까운 적 셋에게 전기가 튄다.
+        const struck = game.enemies
+          .filter((enemy) => !enemy.dead && distance(enemy, splash) < shock.range * area)
+          .sort((a, b) => distance(a, splash) - distance(b, splash))
+          .slice(0, shock.targets);
+        for (const enemy of struck) {
+          addEffect(game, { type: 'bolt', points: [{ x: splash.x, y: splash.y }, { x: enemy.x, y: enemy.y }], life: 0.18, mega: true });
+          damageEnemy(game, enemy, weaponValue(game, 'zapper', 'damage') * shock.damage);
+        }
+      }
       addEffect(game, { type: 'burst', x: splash.x, y: splash.y, color: 'water', count: 8, life: 0.35 });
     }
     game.splashes = game.splashes.filter((splash) => splash.delay > 0);
+  }
+  const mop = fusion(game, 'mopstorm');
+  if (mop) {
+    game.mopIn = (game.mopIn ?? mop.everySec) - dt;
+    if (game.mopIn <= 0) {
+      // 물걸레 회오리: 주위를 한 바퀴 휘감고, 맞은 적을 오리 쪽으로 끌어당긴다.
+      game.mopIn = mop.everySec * statsOf(game).cooldownScale;
+      const radius = weaponValue(game, 'towel', 'length') * area;
+      const damage = weaponValue(game, 'towel', 'damage') * mop.damage;
+      for (const enemy of game.enemies) {
+        const gap = distance(enemy, player);
+        if (enemy.dead || gap > radius + enemy.radius) continue;
+        damageEnemy(game, enemy, damage);
+        if (!enemy.boss && gap > 30) {
+          enemy.kx -= ((enemy.x - player.x) / gap) * mop.pull * 8;
+          enemy.ky -= ((enemy.y - player.y) / gap) * mop.pull * 8;
+        }
+      }
+      addEffect(game, { type: 'sweep', x: player.x, y: player.y, radius, life: 0.35, facing: player.facing, mega: true });
+      addEffect(game, { type: 'ring', x: player.x, y: player.y, radius, color: 'water', life: 0.35 });
+    }
   }
   const saw = fusion(game, 'sawblade');
   if (saw) {
@@ -1354,6 +1416,14 @@ function updateProjectiles(game, dt) {
         break;
       }
       damageEnemy(game, enemy, shot.damage, shot.knockback ?? 6, shot);
+      if (shot.bomb) {
+        // 파리채 폭격기: 비행기가 맞힌 자리를 파리채가 함께 내려친다.
+        for (const other of game.enemies) {
+          if (other !== enemy && !other.dead && distance(other, enemy) < shot.bomb.radius + other.radius) damageEnemy(game, other, shot.bomb.damage, 10, enemy);
+        }
+        damageEnemy(game, enemy, shot.bomb.damage, 10, shot);
+        addEffect(game, { type: 'swat', x: enemy.x, y: enemy.y, radius: shot.bomb.radius, life: 0.3, mega: true });
+      }
       if (shot.poison) {
         enemy.poisonUntil = game.time + FUSIONS.poisongun.poisonSec;
         enemy.poisonDps = shot.poison;
