@@ -1,4 +1,4 @@
-import { absorbed, applyBuild, choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { applyBuild, choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -135,7 +135,7 @@ function drawHud() {
 
 function drawLoadout() {
   const items = [
-    ...Object.entries(game.weapons).filter(([id]) => !absorbed(game, id)),
+    ...Object.entries(game.weapons),
     ...Object.entries(game.passives),
   ];
   const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}</span>`).join('');
@@ -296,12 +296,12 @@ const statLine = (id, key, unit = '', scale = 1) => {
 const CODEX_TABS = [
   ['fusion', '합체', () => {
     const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
-    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체하면 <b>재료 무기는 사라지고</b> 합체 무기가 그 자리를 대신해요(아래에 사라지는 무기 표시). 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
+    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요. 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
       <ol class="recipe-list">${Object.entries(FUSIONS).map(([id, fusion]) => `
         <li class="recipe">
           <div class="recipe-formula">${part(fusion.from[0])}<span class="recipe-op">+</span>${part(fusion.from[1])}<span class="recipe-op">→</span>
             <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span></span></div>
-          <p class="recipe-desc">${escapeHtml(fusion.description)}<br /><small>사라짐: ${fusion.consumes.map((weapon) => escapeHtml(WEAPONS[weapon].label)).join(', ')}</small></p>
+          <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
         </li>`).join('')}</ol>`;
   }],
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요.</p>

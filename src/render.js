@@ -1,4 +1,4 @@
-import { coilOrbs, sawBlades, statsOf, weaponActive } from './engine.js';
+import { coilOrbs, sawBlades, statsOf } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, EVOLUTIONS, RELICS, WEAPONS } from './rules.js';
@@ -778,7 +778,7 @@ export function render(ctx, game, width, height, time) {
       ctx.fillRect(Math.round(x + Math.cos(angle) * radius * 0.5), Math.round(y + Math.sin(angle * 1.3) * radius * 0.5), 1, 1);
     }
   }
-  if (weaponActive(game, 'dehumidifier')) {
+  if (game.weapons.dehumidifier) {
     // 완성형이면 범위가 넓어진 만큼 원도 크게 그린다.
     const radius = (WEAPONS.dehumidifier.radius[game.weapons.dehumidifier - 1] * statsOf(game).area
       * (game.evolved.dehumidifier ? EVOLUTIONS.dehumidifier.radius : 1)) / WORLD_PER_PIXEL;
@@ -840,7 +840,7 @@ export function render(ctx, game, width, height, time) {
   for (const { enemy, point } of enemies) drawEnemy(ctx, enemy, point[0], point[1], time);
   const [duckX, duckY] = toBuffer(player);
 
-  if (weaponActive(game, 'dryer') && game.dryerOn) {
+  if (game.weapons.dryer && game.dryerOn) {
     // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
     const reach = game.dryerRange / WORLD_PER_PIXEL;
     const spread = game.dryerSpread;
@@ -994,7 +994,7 @@ export function render(ctx, game, width, height, time) {
       ctx.fillRect(Math.round(x + Math.cos(angle) * (radius + 5)), Math.round(y + Math.sin(angle) * (radius + 5)), 1, 1);
     }
   }
-  if (weaponActive(game, 'stapler') && game.time - (game.staplerAt ?? -9) < 0.12) {
+  if (game.weapons.stapler && game.time - (game.staplerAt ?? -9) < 0.12) {
     // 총구 불꽃
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
     const flicker = Math.floor(time * 40) % 3;

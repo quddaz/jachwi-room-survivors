@@ -235,10 +235,8 @@ export function describeChoice(game, choice) {
     });
   }
   const recipe = choice.kind === 'fusion' ? FUSIONS[choice.id] : EVOLUTIONS[choice.id];
-  const lines = Object.entries(recipe).filter(([key, value]) => EVOLUTION_TEXT[key] && typeof value === 'number' && value > 1)
+  return Object.entries(recipe).filter(([key, value]) => EVOLUTION_TEXT[key] && typeof value === 'number' && value > 1)
     .map(([key, value]) => `${EVOLUTION_TEXT[key]} ${percent(value - 1)}`);
-  if (choice.kind === 'fusion' && recipe.consumes) lines.push(`${recipe.consumes.map((id) => WEAPONS[id].label).join('·')} 사라짐`);
-  return lines;
 }
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -873,16 +871,6 @@ function fusion(game, id) {
   return game.fusions[id] ? FUSIONS[id] : null;
 }
 
-// 합체에 들어간 무기는 따로 공격하지 않는다(합체 무기가 그 자리를 대신한다).
-export function absorbed(game, id) {
-  return Object.keys(game.fusions).some((fusionId) => FUSIONS[fusionId].consumes?.includes(id));
-}
-
-// 지금 스스로 공격하는 무기인가
-export function weaponActive(game, id) {
-  return Boolean(game.weapons[id]) && !absorbed(game, id);
-}
-
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
   const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
@@ -953,7 +941,7 @@ export function sawBlades(game) {
 function fireWeapons(game, dt) {
   const { player } = game;
   const { area, projectile } = statsOf(game);
-  if (weaponActive(game, 'spray') && ready(game, 'spray', dt)) {
+  if (game.weapons.spray && ready(game, 'spray', dt)) {
     const count = weaponValue(game, 'spray', 'count');
     const targets = nearestEnemies(game, count);
     for (let index = 0; index < count; index += 1) {
@@ -974,7 +962,7 @@ function fireWeapons(game, dt) {
         scale: projectile, hit: new Set(), mega: true });
     }
   }
-  if (weaponActive(game, 'broom') && ready(game, 'broom', dt)) {
+  if (game.weapons.broom && ready(game, 'broom', dt)) {
     const radius = weaponValue(game, 'broom', 'radius') * area;
     const damage = weaponValue(game, 'broom', 'damage');
     for (const enemy of game.enemies) {
@@ -989,7 +977,7 @@ function fireWeapons(game, dt) {
       game.broomEcho = false;
     }
   }
-  if (weaponActive(game, 'bleach') && ready(game, 'bleach', dt)) {
+  if (game.weapons.bleach && ready(game, 'bleach', dt)) {
     const candidates = nearestEnemies(game, 12, 380);
     for (let index = 0; index < weaponValue(game, 'bleach', 'count'); index += 1) {
       const target = candidates.length > 0 ? candidates[Math.floor(game.random() * candidates.length)]
@@ -1001,7 +989,7 @@ function fireWeapons(game, dt) {
         maxLife: WEAPONS.bleach.lifeSec, slow: evolution(game, 'bleach')?.slow });
     }
   }
-  if (weaponActive(game, 'dehumidifier')) {
+  if (game.weapons.dehumidifier) {
     const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
     for (const enemy of game.enemies) {
@@ -1010,7 +998,7 @@ function fireWeapons(game, dt) {
       slow(game, enemy, evolution(game, 'dehumidifier')?.slow);
     }
   }
-  if (weaponActive(game, 'swatter') && ready(game, 'swatter', dt)) {
+  if (game.weapons.swatter && ready(game, 'swatter', dt)) {
     const targets = game.enemies
       .filter((enemy) => !enemy.dead && distance(enemy, player) < 420)
       .sort((a, b) => b.hp - a.hp)
@@ -1026,7 +1014,7 @@ function fireWeapons(game, dt) {
     }
     if (targets.length === 0) game.cooldowns.swatter = 0.2;
   }
-  if (weaponActive(game, 'slipper') && ready(game, 'slipper', dt)) {
+  if (game.weapons.slipper && ready(game, 'slipper', dt)) {
     const storm = evolution(game, 'slipper');
     const count = storm ? storm.count : weaponValue(game, 'slipper', 'count');
     const target = nearestEnemies(game, 1)[0];
@@ -1040,7 +1028,7 @@ function fireWeapons(game, dt) {
         spin: 0, hit: new Set() });
     }
   }
-  if (weaponActive(game, 'coil')) {
+  if (game.weapons.coil) {
     const fire = fusion(game, 'firering');
     const damage = weaponValue(game, 'coil', 'damage') * (fire?.damage ?? 1);
     if (fire) {
@@ -1065,7 +1053,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
-  if (weaponActive(game, 'zapper') && ready(game, 'zapper', dt)) {
+  if (game.weapons.zapper && ready(game, 'zapper', dt)) {
     const damage = weaponValue(game, 'zapper', 'damage');
     const points = [{ x: player.x, y: player.y }];
     const hit = new Set();
@@ -1093,7 +1081,7 @@ function fireWeapons(game, dt) {
     if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.22, mega: Boolean(evolution(game, 'zapper')) });
     else game.cooldowns.zapper = 0.2;
   }
-  if (weaponActive(game, 'detergent') && ready(game, 'detergent', dt)) {
+  if (game.weapons.detergent && ready(game, 'detergent', dt)) {
     const count = weaponValue(game, 'detergent', 'count') * (evolution(game, 'detergent') ? 2 : 1);
     const { speed, lifeSec } = WEAPONS.detergent;
     for (let index = 0; index < count; index += 1) {
@@ -1105,7 +1093,7 @@ function fireWeapons(game, dt) {
         pop: weaponValue(game, 'detergent', 'radius') * area, mega: Boolean(evolution(game, 'detergent')), seed: game.nextId++ });
     }
   }
-  if (weaponActive(game, 'roller') && ready(game, 'roller', dt)) {
+  if (game.weapons.roller && ready(game, 'roller', dt)) {
     const { speed, lifeSec } = WEAPONS.roller;
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
     for (const angle of evolution(game, 'roller') ? [forward, forward + Math.PI] : [forward]) {
@@ -1114,7 +1102,7 @@ function fireWeapons(game, dt) {
         hit: new Set(), kind: 'roller', knockback: 14, mega: Boolean(evolution(game, 'roller')) });
     }
   }
-  if (weaponActive(game, 'dryer')) {
+  if (game.weapons.dryer) {
     const range = weaponValue(game, 'dryer', 'range') * area;
     // 물티슈가 바람이 퍼지는 폭도 넓힌다.
     const spread = Math.min(1.3, (evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread) * area);
@@ -1136,7 +1124,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
-  if (weaponActive(game, 'fan') && ready(game, 'fan', dt)) {
+  if (game.weapons.fan && ready(game, 'fan', dt)) {
     const cone = Math.min(1.6, WEAPONS.fan.cone * area);
     const range = weaponValue(game, 'fan', 'range') * area;
     const damage = weaponValue(game, 'fan', 'damage');
@@ -1153,7 +1141,7 @@ function fireWeapons(game, dt) {
       mega: Boolean(evolution(game, 'fan')) });
   }
   const spin = fusion(game, 'spinlaser');
-  if (weaponActive(game, 'laser') && spin) {
+  if (game.weapons.laser && spin) {
     // 합체하면 쏘고 꺼지는 대신 줄기가 켜진 채로 돈다.
     const width = weaponValue(game, 'laser', 'width') * area * projectile;
     const damage = weaponValue(game, 'laser', 'damage') * spin.dps * dt;
@@ -1172,7 +1160,7 @@ function fireWeapons(game, dt) {
         if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) damageEnemy(game, enemy, damage);
       }
     }
-  } else if (weaponActive(game, 'laser') && ready(game, 'laser', dt)) {
+  } else if (game.weapons.laser && ready(game, 'laser', dt)) {
     const show = evolution(game, 'laser');
     const count = show ? show.count : weaponValue(game, 'laser', 'count');
     const width = weaponValue(game, 'laser', 'width') * area * projectile;
@@ -1196,7 +1184,7 @@ function fireWeapons(game, dt) {
     }
     game.shake = Math.max(game.shake, 0.08);
   }
-  if (weaponActive(game, 'stapler') && ready(game, 'stapler', dt)) {
+  if (game.weapons.stapler && ready(game, 'stapler', dt)) {
     const nailer = evolution(game, 'stapler');
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
     const { speed, lifeSec, spread } = WEAPONS.stapler;
@@ -1227,7 +1215,7 @@ function fireWeapons(game, dt) {
       if (enemy.poisoned) damageEnemy(game, enemy, enemy.poisonDps * dt);
     }
   }
-  if (weaponActive(game, 'ball')) {
+  if (game.weapons.ball) {
     const big = evolution(game, 'ball');
     const count = big ? big.count : weaponValue(game, 'ball', 'count');
     while (game.balls.length < count) {
@@ -1285,7 +1273,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
-  if (weaponActive(game, 'robot')) {
+  if (game.weapons.robot) {
     const squad = evolution(game, 'robot');
     const count = squad ? squad.count : weaponValue(game, 'robot', 'count');
     while (game.robots.length < count) {
@@ -1339,7 +1327,7 @@ function fireWeapons(game, dt) {
       }
     });
   }
-  if (weaponActive(game, 'towel') && ready(game, 'towel', dt)) {
+  if (game.weapons.towel && ready(game, 'towel', dt)) {
     const beach = evolution(game, 'towel');
     const length = weaponValue(game, 'towel', 'length') * area;
     const height = WEAPONS.towel.height * area * (beach?.size ?? 1);
@@ -1361,7 +1349,7 @@ function fireWeapons(game, dt) {
       addEffect(game, { type: 'towel', x: player.x, y: player.y, dir, length, height, life: 0.25, mega: Boolean(beach) });
     }
   }
-  if (weaponActive(game, 'paperplane') && ready(game, 'paperplane', dt)) {
+  if (game.weapons.paperplane && ready(game, 'paperplane', dt)) {
     const crane = evolution(game, 'paperplane');
     const count = crane ? crane.count : weaponValue(game, 'paperplane', 'count');
     const { speed, turn, lifeSec } = WEAPONS.paperplane;
@@ -1374,7 +1362,7 @@ function fireWeapons(game, dt) {
         scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, knockback: 4, mega: Boolean(crane) });
     }
   }
-  if (weaponActive(game, 'mousetrap')) {
+  if (game.weapons.mousetrap) {
     const sticky = evolution(game, 'mousetrap');
     if (ready(game, 'mousetrap', dt)) {
       const { lifeSec, maxTraps } = WEAPONS.mousetrap;
@@ -1411,7 +1399,7 @@ function fireWeapons(game, dt) {
     }
     game.traps = game.traps.filter((trap) => trap.life > 0);
   }
-  if (weaponActive(game, 'microwave')) {
+  if (game.weapons.microwave) {
     if (ready(game, 'microwave', dt)) {
       const max = weaponValue(game, 'microwave', 'radius') * area;
       const oven = Boolean(fusion(game, 'dryoven'));
@@ -1442,7 +1430,7 @@ function fireWeapons(game, dt) {
     }
     game.waves = game.waves.filter((wave) => wave.r < wave.max);
   }
-  if (weaponActive(game, 'shower')) {
+  if (game.weapons.shower) {
     if (ready(game, 'shower', dt)) {
       const count = weaponValue(game, 'shower', 'count') * (evolution(game, 'shower')?.double ? 2 : 1);
       const nearby = game.enemies.filter((enemy) => !enemy.dead && distance(enemy, player) < 360);
@@ -1752,8 +1740,7 @@ export function rollChoices(game) {
   // 두 완성형을 모두 갖추면 합체가 가장 먼저 나온다.
   const fusionRoom = Object.keys(game.fusions).length < MAX_FUSIONS;
   const fusable = Object.entries(FUSIONS)
-    .filter(([id, recipe]) => fusionRoom && !game.fusions[id]
-      && recipe.from.every((weapon) => game.evolved[weapon] && !absorbed(game, weapon)))
+    .filter(([id, recipe]) => fusionRoom && !game.fusions[id] && recipe.from.every((weapon) => game.evolved[weapon]))
     .map(([id, recipe]) => ({ kind: 'fusion', id, level: MAX_LEVEL + 2, ...recipe }));
   const special = [...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
   const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)
