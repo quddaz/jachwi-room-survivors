@@ -123,7 +123,7 @@ export const ELITE = {
   from: 480, step: 30,
   order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth', 'ant', 'slug', 'sock', 'dustbunny', 'pigeon'],
   chance: 0.15, chancePerMin: 0.03, maxChance: 0.4,
-  hp: 4, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
+  hp: 6, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
 };
 
 export function eliteFrom(kind) {
