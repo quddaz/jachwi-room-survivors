@@ -1729,8 +1729,7 @@ function shuffle(items, random) {
 // 레벨업 선택지 3개. 새 무기, 무기 강화, 패시브 중에서 고르고, 다 올렸으면 라면으로 회복한다.
 export function rollChoices(game) {
   const pool = [
-    ...Object.keys(WEAPONS).filter((id) => (game.weapons[id] ?? 0) < MAX_LEVEL
-      && (game.weapons[id] || Object.keys(game.weapons).length < MAX_WEAPONS))
+    ...Object.keys(WEAPONS).filter((id) => (game.weapons[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'weapon', id, level: (game.weapons[id] ?? 0) + 1, ...WEAPONS[id] })),
     ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < passiveMaxLevel(id)
       && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]))
@@ -1760,6 +1759,20 @@ const KEEP_RELICS = {
 };
 
 const relicsFull = (game) => Object.keys(game.relics).length >= MAX_RELICS;
+const weaponsFull = (game) => Object.keys(game.weapons).length >= MAX_WEAPONS;
+const inFusion = (game, id) => Object.keys(game.fusions).some((fusionId) => FUSIONS[fusionId].from.includes(id));
+
+// 무기를 내려놓는다. 그 무기가 남긴 공, 로봇, 슬리퍼, 쥐덫도 함께 치운다.
+function dropWeapon(game, id) {
+  delete game.weapons[id];
+  delete game.evolved[id];
+  delete game.cooldowns[id];
+  if (id === 'ball') game.balls = [];
+  if (id === 'robot') game.robots = [];
+  if (id === 'slipper') game.slippers = [];
+  if (id === 'mousetrap') game.traps = [];
+  if (id === 'dryer') game.dryerOn = false;
+}
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
@@ -1797,7 +1810,7 @@ export function startWithRelic(game) {
 // 선택지마다 정해진 횟수만큼 새로 뽑을 수 있다.
 export function reroll(game) {
   // 내려놓을 보물을 고르는 중에는 다시 뽑지 않는다.
-  if (!game.choices || game.rerollLeft <= 0 || game.choices[0]?.kind === 'relic-swap') return false;
+  if (!game.choices || game.rerollLeft <= 0 || game.choices[0]?.kind.endsWith('-swap')) return false;
   game.rerollLeft -= 1;
   game.choices = game.choices[0]?.kind === 'relic' ? rollRelics(game) : rollChoices(game);
   return true;
@@ -1817,8 +1830,33 @@ export function choose(game, index) {
     ];
     return choice;
   }
+  if (choice.kind === 'weapon' && choice.level === 1 && weaponsFull(game)) {
+    // 무기 칸이 가득 찼으면 무엇을 내려놓을지 고른다. 합체에 쓰인 무기는 내려놓을 수 없다.
+    game.weaponSwap = { id: choice.id, choices: game.choices };
+    game.choices = [
+      ...Object.keys(game.weapons).filter((id) => !inFusion(game, id)).map((id) => ({
+        kind: 'weapon-swap', id, level: 0, label: WEAPONS[id].label, description: `내려놓고 ${choice.label} 받기`,
+        details: [game.evolved[id] ? '완성형' : `Lv ${game.weapons[id]}`],
+      })),
+      { kind: 'weapon-cancel', id: 'cancel', icon: choice.id, level: 0, label: '그대로 두기', description: '새 무기를 받지 않고 다른 카드를 고를게요', details: [] },
+    ];
+    return choice;
+  }
+  if (choice.kind === 'weapon-cancel') {
+    // 교체를 그만두면 아까 보던 카드로 돌아간다(다시 뽑기 횟수도 그대로).
+    game.choices = game.weaponSwap.choices;
+    game.weaponSwap = null;
+    return choice;
+  }
   const before = statsOf(game).maxHp;
   if (choice.kind === 'weapon') game.weapons[choice.id] = choice.level;
+  if (choice.kind === 'weapon-swap') {
+    const incoming = game.weaponSwap.id;
+    dropWeapon(game, choice.id);
+    game.weapons[incoming] = 1;
+    game.weaponSwap = null;
+    addEffect(game, { type: 'banner', text: `무기 교체: ${WEAPONS[choice.id].label} → ${WEAPONS[incoming].label}`, life: 2.4 });
+  }
   if (choice.kind === 'passive') game.passives[choice.id] = choice.level;
   if (choice.kind === 'evolve') {
     game.evolved[choice.id] = true;

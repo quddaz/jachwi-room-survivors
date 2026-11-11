@@ -1404,23 +1404,55 @@ describe('능력치 투자', () => {
   });
 });
 
-describe('무기 개수 제한', () => {
-  it('무기를 최대로 가지면 새 무기는 나오지 않고 가진 무기 강화만 나온다', () => {
+describe('무기 개수 제한과 교체', () => {
+  const full = () => {
     const game = createGame(seeded(11));
     const owned = Object.keys(WEAPONS).slice(0, MAX_WEAPONS);
-    game.weapons = Object.fromEntries(owned.map((id) => [id, 1]));
-    for (let index = 0; index < 30; index += 1) {
-      for (const choice of rollChoices(game)) {
-        if (choice.kind === 'weapon') assert.ok(owned.includes(choice.id));
-      }
-    }
+    game.weapons = Object.fromEntries(owned.map((id) => [id, 3]));
+    const fresh = Object.keys(WEAPONS).find((id) => !game.weapons[id]);
+    game.pendingLevels = 1;
+    game.choices = [{ kind: 'weapon', id: fresh, level: 1, label: WEAPONS[fresh].label }, { kind: 'heal', id: 'ramen-1', level: 0, label: '라면' }];
+    return { game, owned, fresh };
+  };
+
+  it('무기가 가득 차도 새 무기를 고르면 내려놓을 무기를 묻는다', () => {
+    const { game, owned } = full();
+    choose(game, 0);
+    assert.ok(game.choices.filter((choice) => choice.kind === 'weapon-swap').length === owned.length);
+    assert.equal(game.choices.at(-1).kind, 'weapon-cancel');
+    assert.equal(reroll(game), false);
   });
 
-  it('한 자리가 비어 있으면 새 무기가 나올 수 있다', () => {
-    const game = createGame(seeded(11));
-    game.weapons = Object.fromEntries(Object.keys(WEAPONS).slice(0, MAX_WEAPONS - 1).map((id) => [id, MAX_LEVEL]));
-    game.evolved = Object.fromEntries(Object.keys(game.weapons).map((id) => [id, true]));
-    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, passiveMaxLevel(id)]));
-    assert.ok(rollChoices(game).some((choice) => choice.kind === 'weapon' && choice.level === 1));
+  it('내려놓으면 그 무기가 빠지고 새 무기가 1레벨로 들어온다', () => {
+    const { game, owned, fresh } = full();
+    game.evolved[owned[0]] = true;
+    choose(game, 0);
+    choose(game, game.choices.findIndex((choice) => choice.id === owned[0]));
+    assert.equal(game.weapons[owned[0]], undefined);
+    assert.equal(game.evolved[owned[0]], undefined);
+    assert.equal(game.weapons[fresh], 1);
+    assert.equal(Object.keys(game.weapons).length, MAX_WEAPONS);
+    assert.equal(game.pendingLevels, 0);
+  });
+
+  it('그대로 두기를 고르면 아까 카드로 돌아간다', () => {
+    const { game } = full();
+    const before = game.choices;
+    choose(game, 0);
+    choose(game, game.choices.length - 1);
+    assert.equal(game.choices, before);
+    assert.equal(game.pendingLevels, 1);
+  });
+
+  it('합체에 쓰인 무기는 내려놓을 수 없다', () => {
+    const { game } = full();
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).filter((id) => id !== game.choices[0].id && id !== 'ball' && id !== 'zapper')
+      .slice(0, MAX_WEAPONS - 2).map((id) => [id, 3]));
+    Object.assign(game.weapons, { ball: MAX_LEVEL, zapper: MAX_LEVEL });
+    game.fusions = { thunderball: true };
+    assert.equal(Object.keys(game.weapons).length, MAX_WEAPONS);
+    choose(game, 0);
+    const offered = game.choices.map((choice) => choice.id);
+    assert.ok(!offered.includes('ball') && !offered.includes('zapper'));
   });
 });

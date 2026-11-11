@@ -360,3 +360,15 @@ img { display: block; max-width: 100%; }
 }
 .kills { display: inline-flex; align-items: center; gap: 4px; }
 .kills img { height: 14px; }
+
+/* 무기 교체: 아홉 장이라 작은 카드로 세 줄씩 */
+.levelup.is-weapon-swap .panel { max-width: 640px; }
+.levelup.is-weapon-swap .choices { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.levelup.is-weapon-swap .choice { grid-template-columns: 40px 1fr; padding: 8px; column-gap: 8px; }
+.levelup.is-weapon-swap .choice-icon { width: 40px; height: 40px; border-radius: 10px; }
+.levelup.is-weapon-swap .choice-icon .item { --size: 36px; }
+.levelup.is-weapon-swap .choice-name { font-size: 13px; }
+.levelup.is-weapon-swap .choice-name small { display: none; }
+.levelup.is-weapon-swap .choice-desc { display: none; }
+.levelup.is-weapon-swap .choice-stats span { font-size: 11px; padding: 1px 6px; }
+@media (max-width: 520px) { .levelup.is-weapon-swap .choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
