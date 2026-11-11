@@ -1021,17 +1021,18 @@ describe('새 무기 2', () => {
   }
   const run2 = (game, seconds) => { for (let step = 0; step < seconds * 60; step += 1) update(game, 1 / 60); };
 
-  it('젖은 수건은 바라보는 쪽 적을 때리고, 3레벨부터 등 뒤도 때린다', () => {
+  it('젖은 수건은 바라보는 쪽 적을 때리고, 2레벨부터 등 뒤도 때린다', () => {
     const one = armed('towel', 1);
     const front = placeEnemy(one, 'trash', 80, 0, { hp: 1e6 });
     const back = placeEnemy(one, 'trash', -80, 0, { hp: 1e6 });
     run2(one, 0.1);
     assert.ok(front.hp < 1e6);
     assert.equal(back.hp, 1e6);
-    const three = armed('towel', 3);
-    const back3 = placeEnemy(three, 'trash', -80, 0, { hp: 1e6 });
-    run2(three, 0.1);
-    assert.ok(back3.hp < 1e6);
+    assert.ok(front.slowUntil > one.time);
+    const two = armed('towel', 2);
+    const back2 = placeEnemy(two, 'trash', -80, 0, { hp: 1e6 });
+    run2(two, 0.1);
+    assert.ok(back2.hp < 1e6);
   });
 
   it('종이비행기는 옆에 있는 적도 쫓아가 맞힌다', () => {

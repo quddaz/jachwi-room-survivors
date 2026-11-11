@@ -168,8 +168,10 @@ export const WEAPONS = {
     damage: [6, 7, 9, 11, 14], count: [1, 1, 1, 1, 2], speed: [110, 118, 126, 136, 148], radius: 12, hitEverySec: 0.6,
   },
   towel: {
-    label: '젖은 수건', description: '바라보는 쪽을 길게 후려친다. 3레벨부터 양쪽',
-    cooldown: [1.3, 1.2, 1.1, 1.0, 0.9], damage: [18, 23, 29, 36, 45], length: [130, 140, 150, 165, 180], count: [1, 1, 2, 2, 2], height: 46,
+    // 젖어서 맞은 적은 잠깐 느려진다(보스 제외).
+    label: '젖은 수건', description: '앞을 넓고 길게 후려치고, 맞은 적을 적셔 느리게 한다. 2레벨부터 양쪽',
+    cooldown: [1.0, 0.92, 0.84, 0.76, 0.68], damage: [26, 33, 41, 50, 62], length: [170, 185, 200, 220, 245], count: [1, 2, 2, 2, 2],
+    height: 64, knockback: 14, slow: 0.65, slowSec: 1,
   },
   paperplane: {
     label: '종이비행기', description: '적을 쫓아가는 비행기를 날린다',

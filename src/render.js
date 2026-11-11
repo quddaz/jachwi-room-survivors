@@ -429,19 +429,34 @@ function drawEffects(ctx, game, toBuffer) {
       const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
       drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
     } else if (effect.type === 'towel') {
-      // 젖은 수건: 물결치며 앞으로 휘둘러진다.
-      const length = (effect.length / WORLD_PER_PIXEL) * (0.4 + Math.min(1, progress * 3) * 0.6);
+      // 젖은 수건: 두꺼운 줄무늬 수건이 채찍처럼 앞으로 쫙 펴지며 물보라를 튀긴다.
+      const unroll = Math.min(1, progress * 4);
+      const length = (effect.length / WORLD_PER_PIXEL) * (0.35 + unroll * 0.65);
       const half = effect.height / WORLD_PER_PIXEL / 2;
-      const [main, stripe] = effect.mega ? ['#ffcf3f', '#ff6a8a'] : ['#7ad3c8', '#ffffff'];
+      const [main, stripe, dark] = effect.mega ? ['#ffcf3f', '#ff6a8a', '#c9692a'] : ['#7ad3c8', '#ffffff', '#3f9d94'];
+      const fade = 1 - Math.max(0, progress - 0.5) * 2;
+      const thick = Math.max(2, Math.round(half * 0.55 * fade));
+      // 휘두른 자리에 옅게 남는 바람 자국
+      ctx.fillStyle = 'rgba(169, 205, 245, 0.25)';
+      ctx.fillRect(Math.round(effect.dir > 0 ? x + 4 : x - length), Math.round(y - half), Math.round(length - 4), Math.round(half * 2));
       for (let along = 4; along < length; along += 1) {
-        const wave = Math.sin(along * 0.35 - progress * 20) * half * 0.35 * (along / length);
-        const thick = Math.max(1, Math.round(half * 0.45 * (1 - progress)));
-        ctx.fillStyle = Math.floor(along / 4) % 2 ? main : stripe;
-        ctx.fillRect(Math.round(x + effect.dir * along), Math.round(y + wave - thick), 1, thick * 2);
+        const tip = along / length;
+        const wave = Math.sin(along * 0.28 - progress * 24) * half * 0.45 * tip;
+        const px = Math.round(x + effect.dir * along);
+        const top = Math.round(y + wave - thick);
+        ctx.fillStyle = dark;
+        ctx.fillRect(px, top - 1, 1, thick * 2 + 2);
+        ctx.fillStyle = Math.floor(along / 5) % 2 ? main : stripe;
+        ctx.fillRect(px, top, 1, thick * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillRect(px, top, 1, 1);
       }
-      for (let drop = 0; drop < 6; drop += 1) {
-        const along = hash(effect.seed, drop) * length;
-        sparkle(ctx, Math.round(x + effect.dir * along), Math.round(y - half - progress * 8 + hash(effect.seed, drop + 9) * half * 2), '#a9cdf5', false);
+      // 끝에서 물보라가 튄다.
+      for (let drop = 0; drop < 14; drop += 1) {
+        const spread = hash(effect.seed, drop);
+        const along = length * (0.55 + spread * 0.5);
+        const rise = (hash(effect.seed, drop + 9) - 0.5) * half * 2.4 - progress * 6;
+        sparkle(ctx, Math.round(x + effect.dir * along), Math.round(y + rise), drop % 3 ? '#a9cdf5' : '#ffffff', drop % 4 === 0 && progress < 0.6);
       }
     } else if (effect.type === 'nova') {
       // 화염이 고리 모양으로 퍼져 나간다.

@@ -1219,7 +1219,11 @@ function fireWeapons(game, dt) {
         if (enemy.dead) continue;
         const along = (enemy.x - player.x) * dir;
         if (along > -10 && along < length + enemy.radius && Math.abs(enemy.y - player.y) < height / 2 + enemy.radius) {
-          damageEnemy(game, enemy, damage, 8);
+          damageEnemy(game, enemy, damage, WEAPONS.towel.knockback);
+          if (!enemy.boss) {
+            enemy.slowUntil = Math.max(enemy.slowUntil ?? 0, game.time + WEAPONS.towel.slowSec);
+            enemy.slowBy = WEAPONS.towel.slow;
+          }
         }
       }
       addEffect(game, { type: 'towel', x: player.x, y: player.y, dir, length, height, life: 0.25, mega: Boolean(beach) });
