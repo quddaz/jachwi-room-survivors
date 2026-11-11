@@ -286,6 +286,112 @@ const ART = {
     '.nnNn.H.nNnn.',
     '..nn.....nn..',
   ],
+  antA: [
+    'k...k...',
+    '.k.k.k..',
+    'HHkHHHkK',
+    'HnHHnHHH',
+    '.k.k.k..',
+    'k...k...',
+  ],
+  antB: [
+    '.k...k..',
+    '.k.k.k..',
+    'HHkHHHkK',
+    'HnHHnHHH',
+    'k..k..k.',
+    '........',
+  ],
+  slugA: [
+    '..........k.k.',
+    '..........kWkW',
+    '.....nnnnnnnn.',
+    '...nnyynnnnnnn',
+    '.nnnyyyynnnKnn',
+    'nnnnnnnnnnnnnn',
+    'NNNNNNNNNNNNN.',
+  ],
+  slugB: [
+    '..........k..k',
+    '..........kW.W',
+    '....nnnnnnnnn.',
+    '..nnnyynnnnnnn',
+    '.nnnyyyynnnKnn',
+    'nnnnnnnnnnnnn.',
+    '.NNNNNNNNNNNN.',
+  ],
+  sockA: [
+    '.PPPPPP...',
+    '.RRRRRR...',
+    '.PPPPPP...',
+    '.RRRRRR...',
+    '.PPPPPP...',
+    '.PKPPKP...',
+    '.PPPPPP...',
+    '.PPpppPPP.',
+    '.PPPPPPPPP',
+    '..pPPPPPPp',
+    '...pppppp.',
+  ],
+  sockB: [
+    '..PPPPPP..',
+    '..RRRRRR..',
+    '..PPPPPP..',
+    '..RRRRRR..',
+    '..PPPPPP..',
+    '..PKPPKP..',
+    '..PPPPPP..',
+    '..PPpppPPP',
+    '.PPPPPPPPP',
+    '.pPPPPPPp.',
+    '..pppppp..',
+  ],
+  dustbunnyA: [
+    '..dd...dd...',
+    '..dzd.dzd...',
+    '..dzd.dzd...',
+    '..dad.dad...',
+    '.dzzzzzzzd..',
+    'dzzWKzzWKzd.',
+    'dzzzzazzzzd.',
+    'dzzzzzzzzzd.',
+    '.dzdzzzdzd..',
+    '..d.d.d.d...',
+  ],
+  dustbunnyB: [
+    '............',
+    '..dd...dd...',
+    '..dzd.dzd...',
+    '..dad.dad...',
+    '.dzzzzzzzd..',
+    'dzzWKzzWKzd.',
+    'dzzzzazzzzd.',
+    'dzzzzzzzzzd.',
+    'dzdzzzzzdzd.',
+    '.d.d.d.d.d..',
+  ],
+  pigeonA: [
+    '...........SS.',
+    '..........SOKS',
+    '.........SSGGOo',
+    '..SSSS..SVGG..',
+    '.SddddSSSGS...',
+    'SddddddSSS....',
+    'SdSdSdSSS.....',
+    '.SSSSSSS......',
+    '....O..O......',
+  ],
+  pigeonB: [
+    '..SSS......SS.',
+    '.SddSS....SOKS',
+    '.SdddSS..SSGGOo',
+    '..SdddSSSVGG..',
+    '...SSSSSSGS...',
+    '...SSdSSS.....',
+    '....SSSS......',
+    '..............',
+    '.....O.O......',
+  ],
   boiler: [
     '...cccccccccccc...',
     '..cCCCCCCCCCCCCc..',
@@ -1244,6 +1350,100 @@ ITEMS.hotsauce = item([
   flames[f].forEach(([x, y, ch]) => fx.set(x, y, ch));
   body.set(7, 9, f % 2 === 0 ? 'Y' : 'W');
   twinkle(fx, 13, 12, f + 2, 'e');
+});
+ITEMS.towel = item([], (body, fx, f) => {
+  // 바람에 펄럭이는 줄무늬 수건
+  for (let x = 1; x <= 14; x += 1) {
+    const wave = Math.round(Math.sin(x * 0.6 + f * 1.6) * 1.5);
+    for (let y = 4; y <= 11; y += 1) body.set(x, y + wave, (y === 6 || y === 9) ? 'W' : x % 4 === 0 ? 't' : 'T');
+  }
+  [[3, 14], [8, 15], [12, 14]].forEach(([x, y], index) => fx.set(x, y - ((f + index) % 3), 'L'));
+  twinkle(fx, 14, 1, f, 'W');
+});
+ITEMS.paperplane = item([], (body, fx, f) => {
+  const bob = [0, -1, 0, 1][f];
+  body.line(1, 9 + bob, 14, 4 + bob, 'W').line(1, 9 + bob, 9, 13 + bob, 'W').line(9, 13 + bob, 14, 4 + bob, 'W');
+  for (let y = 5; y <= 12; y += 1) for (let x = 2; x <= 13; x += 1) {
+    const inTop = y >= 9 + bob - (x - 1) * (5 / 13) && y <= 9 + bob + (x - 1) * (4 / 8);
+    if (inTop && body.get(x, y) === '.') body.set(x, y, x < 9 && y > 9 + bob ? 'z' : 'W');
+  }
+  body.line(1, 9 + bob, 14, 4 + bob, 'z');
+  [[0, 12], [2, 14], [4, 15]].forEach(([x, y], index) => { if ((f + index) % 2) fx.set(x, y + bob, 'L'); });
+  twinkle(fx, 13, 12, f + 2, 'Y');
+});
+ITEMS.mousetrap = item([
+  '................',
+  '................',
+  '................',
+  '................',
+  '......zzzzzz....',
+  '.....z......z...',
+  '.....z......z...',
+  '..nnnznnnnnnznn.',
+  '.nNNNzNNNNNNzNNn',
+  '.nNNNNNNNNNNNNNn',
+  '.nNNNNNYYyNNNNNn',
+  '.nNNNNNYYYNNNNNn',
+  '..nnnnnnnnnnnnn.',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 쇠고리가 탁 닫혔다가 다시 열린다.
+  if (f === 2) for (let x = 5; x <= 12; x += 1) { body.set(x, 4, '.'); body.set(x, 7, 'W'); }
+  if (f === 2) fx.set(4, 5, 'W').set(13, 5, 'W').set(8, 3, 'Y');
+  twinkle(fx, 2, 2, f, 'W');
+});
+ITEMS.microwave = item([
+  '................',
+  '................',
+  '.hhhhhhhhhhhhhh.',
+  '.hzzzzzzzzzzzzh.',
+  '.hzKKKKKKKKzddh.',
+  '.hzKYYYYYYKzdKh.',
+  '.hzKYYYYYYKzddh.',
+  '.hzKYYYYYYKzdKh.',
+  '.hzKYYYYYYKzddh.',
+  '.hzKKKKKKKKzRdh.',
+  '.hzzzzzzzzzzzzh.',
+  '.hhhhhhhhhhhhhh.',
+  '..h..........h..',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 안쪽 접시가 돌고, 위로 파동이 퍼진다.
+  body.set(4 + f, 7, 'O').set(5 + f, 7, 'o');
+  body.set(13, 9, f % 2 ? 'G' : 'R');
+  const r = [1, 2, 3, 4][f];
+  for (let x = 7 - r; x <= 7 + r; x += 1) fx.set(x, 1 - (Math.abs(x - 7) === r ? 0 : 1) + (r > 2 ? 0 : 1), 'Y');
+});
+ITEMS.shower = item([
+  '..........hhh...',
+  '.........hzzh...',
+  '........hzzh....',
+  '...hhhhhhzh.....',
+  '..hzzzzzzh......',
+  '..hddddddh......',
+  '...hhhhhh.......',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 물줄기가 차례로 떨어진다.
+  [3, 5, 7, 9].forEach((x, lane) => {
+    for (let drop = 0; drop < 3; drop += 1) {
+      const y = 8 + ((f + lane + drop * 3) % 8);
+      fx.set(x - 1 + Math.floor((y - 8) / 4), y, drop === 0 ? 'W' : 'l');
+    }
+  });
+  twinkle(fx, 13, 13, f, 'L');
 });
 // 보물
 ITEMS.twin = item([

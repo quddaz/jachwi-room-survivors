@@ -21,6 +21,9 @@ export function createGame(random = Math.random) {
     enemies: [],
     shots: [],
     slippers: [],
+    traps: [],
+    waves: [],
+    splashes: [],
     balls: [],
     robots: [],
     enemyShots: [],
@@ -167,7 +170,7 @@ const PASSIVE_TEXT = {
 const WEAPON_TEXT = {
   damage: { name: '피해', might: true }, dps: { name: '초당 피해', might: true }, cooldown: { name: '쿨타임', lower: true, unit: '초' },
   radius: { name: '범위' }, range: { name: '사거리' }, width: { name: '굵기' }, size: { name: '크기' }, orbit: { name: '궤도' },
-  speed: { name: '속도' }, count: { name: '개수', plain: true }, pierce: { name: '관통', plain: true }, chains: { name: '연쇄', plain: true },
+  speed: { name: '속도' }, length: { name: '길이' }, count: { name: '개수', plain: true }, pierce: { name: '관통', plain: true }, chains: { name: '연쇄', plain: true },
 };
 
 const EVOLUTION_TEXT = { damage: '피해', dps: '초당 피해', radius: '범위', range: '사거리', size: '크기', jump: '연쇄 거리' };
@@ -303,8 +306,11 @@ function spawn(game, dt) {
     if (game.enemies.length >= difficulty.maxEnemies) continue;
     const point = spawnPoint(game);
     const kind = pickKind(game);
-    const enemy = spawnEnemy(game, kind, point.x, point.y);
-    if (game.time >= eliteFrom(kind) && game.random() < eliteChance(game)) makeElite(enemy);
+    // 개미처럼 무리 지어 나오는 적은 한 번에 여럿이 나온다.
+    for (let member = 0; member < (ENEMIES[kind].group ?? 1); member += 1) {
+      const enemy = spawnEnemy(game, kind, point.x + (member ? (game.random() - 0.5) * 40 : 0), point.y + (member ? (game.random() - 0.5) * 40 : 0));
+      if (game.time >= eliteFrom(kind) && game.random() < eliteChance(game)) makeElite(enemy);
+    }
   }
   // 1분마다 바퀴벌레 떼가 사방에서 몰려온다.
   if (game.time >= game.nextSwarmAt) {
@@ -468,6 +474,50 @@ function moveEnemies(game, dt) {
         // 뛰기 직전에 잠깐 멈춰 웅크린다.
         direction = 0;
         enemy.crouching = true;
+      }
+    }
+    if (enemy.kind === 'slug' && enemy.timer >= ENEMIES.slug.trailEverySec) {
+      enemy.timer = 0;
+      if (game.slimes.length < 120) game.slimes.push({ x: enemy.x, y: enemy.y, radius: ENEMIES.slug.trailRadius, life: ENEMIES.slug.trailSec });
+    }
+    if (enemy.kind === 'sock') {
+      const base = ENEMIES.sock;
+      enemy.stinking = gap < base.auraRadius;
+      if (enemy.stinking && enemy.timer >= base.auraEverySec) {
+        enemy.timer = 0;
+        damagePlayer(game, base.auraDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1));
+      }
+    }
+    if (enemy.kind === 'dustbunny') {
+      const base = ENEMIES.dustbunny;
+      if (enemy.timer >= base.blinkEverySec && gap > base.blinkMin) {
+        enemy.timer = 0;
+        addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'dust', count: 10, life: 0.4 });
+        const angle = game.random() * Math.PI * 2;
+        enemy.x = clamp(player.x + Math.cos(angle) * base.blinkTo, enemy.radius, ARENA.width - enemy.radius);
+        enemy.y = clamp(player.y + Math.sin(angle) * base.blinkTo, enemy.radius, ARENA.height - enemy.radius);
+        addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 40, color: 'dust', life: 0.35 });
+        continue;
+      }
+    }
+    if (enemy.kind === 'pigeon') {
+      const base = ENEMIES.pigeon;
+      enemy.aiming = game.time < (enemy.aimUntil ?? 0);
+      if (game.time < (enemy.swoopUntil ?? 0)) {
+        moveX = enemy.swoopX;
+        moveY = enemy.swoopY;
+        speed *= base.swoopSpeed;
+      } else if (enemy.aiming) {
+        // 겨누는 동안 멈춰서 방향을 고정한다. 끝나면 바로 내리꽂는다.
+        direction = 0;
+        if (game.time + dt >= enemy.aimUntil) enemy.swoopUntil = game.time + base.swoopSec;
+      } else if (enemy.timer >= base.swoopEverySec && gap < base.swoopRange) {
+        enemy.timer = 0;
+        enemy.aimUntil = game.time + base.aimSec;
+        enemy.swoopX = dx / gap;
+        enemy.swoopY = dy / gap;
+        enemy.swoopLen = enemy.speed * base.swoopSpeed * base.swoopSec;
+        direction = 0;
       }
     }
     if (enemy.kind === 'milk') {
@@ -1151,6 +1201,106 @@ function fireWeapons(game, dt) {
       }
     });
   }
+  if (game.weapons.towel && ready(game, 'towel', dt)) {
+    const beach = evolution(game, 'towel');
+    const length = weaponValue(game, 'towel', 'length') * area;
+    const height = WEAPONS.towel.height * area * (beach?.size ?? 1);
+    const damage = weaponValue(game, 'towel', 'damage');
+    const sides = beach || weaponValue(game, 'towel', 'count') >= 2 ? [1, -1] : [1];
+    for (const side of sides) {
+      const dir = player.facing * side;
+      for (const enemy of game.enemies) {
+        if (enemy.dead) continue;
+        const along = (enemy.x - player.x) * dir;
+        if (along > -10 && along < length + enemy.radius && Math.abs(enemy.y - player.y) < height / 2 + enemy.radius) {
+          damageEnemy(game, enemy, damage, 8);
+        }
+      }
+      addEffect(game, { type: 'towel', x: player.x, y: player.y, dir, length, height, life: 0.25, mega: Boolean(beach) });
+    }
+  }
+  if (game.weapons.paperplane && ready(game, 'paperplane', dt)) {
+    const crane = evolution(game, 'paperplane');
+    const count = crane ? crane.count : weaponValue(game, 'paperplane', 'count');
+    const { speed, turn, lifeSec } = WEAPONS.paperplane;
+    const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
+    for (let index = 0; index < count; index += 1) {
+      const angle = forward + (index - (count - 1) / 2) * 0.5;
+      game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        damage: weaponValue(game, 'paperplane', 'damage'), pierce: crane ? crane.pierce : 0, life: lifeSec, radius: 8 * projectile,
+        scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, knockback: 4, mega: Boolean(crane) });
+    }
+  }
+  if (game.weapons.mousetrap) {
+    const sticky = evolution(game, 'mousetrap');
+    if (ready(game, 'mousetrap', dt)) {
+      const { lifeSec, maxTraps } = WEAPONS.mousetrap;
+      for (let index = 0; index < weaponValue(game, 'mousetrap', 'count'); index += 1) {
+        const angle = game.random() * Math.PI * 2;
+        const reach = 40 + game.random() * 110;
+        game.traps.push({ x: player.x + Math.cos(angle) * reach, y: player.y + Math.sin(angle) * reach, armIn: 0.4, life: lifeSec,
+          radius: weaponValue(game, 'mousetrap', 'radius') * area, damage: weaponValue(game, 'mousetrap', 'damage'), mega: Boolean(sticky) });
+      }
+      if (game.traps.length > maxTraps) game.traps.splice(0, game.traps.length - maxTraps);
+    }
+    for (const trap of game.traps) {
+      trap.armIn -= dt;
+      trap.life -= dt;
+      if (trap.armIn > 0) continue;
+      if (!game.enemies.some((enemy) => !enemy.dead && distance(enemy, trap) < trap.radius + enemy.radius * 0.6)) continue;
+      // 탁! 덫 둘레의 적을 모두 문다.
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, trap) < trap.radius * 1.5 + enemy.radius) damageEnemy(game, enemy, trap.damage, 4, trap);
+      }
+      addEffect(game, { type: 'slam', x: trap.x, y: trap.y, radius: trap.radius * 1.5, life: 0.3 });
+      addEffect(game, { type: 'burst', x: trap.x, y: trap.y, color: 'trap', count: 8, life: 0.35 });
+      trap.life = 0;
+    }
+    game.traps = game.traps.filter((trap) => trap.life > 0);
+  }
+  if (game.weapons.microwave) {
+    if (ready(game, 'microwave', dt)) {
+      const max = weaponValue(game, 'microwave', 'radius') * area;
+      game.waves.push({ x: player.x, y: player.y, r: 8, max, speed: max / WEAPONS.microwave.growSec,
+        damage: weaponValue(game, 'microwave', 'damage'), hit: new Set(), mega: Boolean(evolution(game, 'microwave')) });
+    }
+    for (const wave of game.waves) {
+      wave.r += wave.speed * dt;
+      for (const enemy of game.enemies) {
+        if (enemy.dead || wave.hit.has(enemy.id)) continue;
+        const gap = distance(enemy, wave);
+        if (gap - enemy.radius < wave.r && gap + enemy.radius > wave.r - 20) {
+          wave.hit.add(enemy.id);
+          damageEnemy(game, enemy, wave.damage, 6, wave);
+        }
+      }
+    }
+    game.waves = game.waves.filter((wave) => wave.r < wave.max);
+  }
+  if (game.weapons.shower) {
+    if (ready(game, 'shower', dt)) {
+      const count = weaponValue(game, 'shower', 'count') * (evolution(game, 'shower')?.double ? 2 : 1);
+      const nearby = game.enemies.filter((enemy) => !enemy.dead && distance(enemy, player) < 360);
+      for (let index = 0; index < count; index += 1) {
+        const target = nearby.length ? nearby[Math.floor(game.random() * nearby.length)]
+          : { x: player.x + (game.random() - 0.5) * 400, y: player.y + (game.random() - 0.5) * 300 };
+        const { fallSec } = WEAPONS.shower;
+        game.splashes.push({ x: target.x, y: target.y, delay: fallSec + index * 0.06, total: fallSec + index * 0.06,
+          radius: weaponValue(game, 'shower', 'radius') * area, damage: weaponValue(game, 'shower', 'damage'),
+          mega: Boolean(evolution(game, 'shower')) });
+      }
+    }
+    for (const splash of game.splashes) {
+      splash.delay -= dt;
+      if (splash.delay > 0) continue;
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, splash) < splash.radius + enemy.radius) damageEnemy(game, enemy, splash.damage, 4, splash);
+      }
+      addEffect(game, { type: 'ring', x: splash.x, y: splash.y, radius: splash.radius, color: 'water', life: 0.3 });
+      addEffect(game, { type: 'burst', x: splash.x, y: splash.y, color: 'water', count: 8, life: 0.35 });
+    }
+    game.splashes = game.splashes.filter((splash) => splash.delay > 0);
+  }
   const saw = fusion(game, 'sawblade');
   if (saw) {
     const damage = weaponValue(game, 'roller', 'damage') * saw.damage;
@@ -1167,6 +1317,26 @@ function fireWeapons(game, dt) {
 
 function updateProjectiles(game, dt) {
   for (const shot of game.shots) {
+    if (shot.homing) {
+      // 종이비행기: 가장 가까운 적 쪽으로 조금씩 방향을 튼다.
+      let target = null;
+      let best = 420;
+      for (const enemy of game.enemies) {
+        if (enemy.dead || shot.hit.has(enemy.id)) continue;
+        const gap = distance(enemy, shot);
+        if (gap < best) {
+          best = gap;
+          target = enemy;
+        }
+      }
+      if (target) {
+        const current = Math.atan2(shot.vy, shot.vx);
+        const wanted = Math.atan2(target.y - shot.y, target.x - shot.x);
+        const turn = clamp(Math.atan2(Math.sin(wanted - current), Math.cos(wanted - current)), -shot.homing * dt, shot.homing * dt);
+        shot.vx = Math.cos(current + turn) * shot.speed;
+        shot.vy = Math.sin(current + turn) * shot.speed;
+      }
+    }
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;

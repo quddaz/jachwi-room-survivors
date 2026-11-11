@@ -1011,3 +1011,117 @@ describe('쌍둥이 노즐 너프', () => {
     assert.ok(damages.includes(WEAPONS.spray.damage[0] * RELICS.twin.echoDamage));
   });
 });
+
+describe('새 무기 2', () => {
+  function armed(weapon, level = 1) {
+    const game = createGame(seeded(71));
+    game.spawnCarry = -100000;
+    game.weapons = { [weapon]: level };
+    return game;
+  }
+  const run2 = (game, seconds) => { for (let step = 0; step < seconds * 60; step += 1) update(game, 1 / 60); };
+
+  it('젖은 수건은 바라보는 쪽 적을 때리고, 3레벨부터 등 뒤도 때린다', () => {
+    const one = armed('towel', 1);
+    const front = placeEnemy(one, 'trash', 80, 0, { hp: 1e6 });
+    const back = placeEnemy(one, 'trash', -80, 0, { hp: 1e6 });
+    run2(one, 0.1);
+    assert.ok(front.hp < 1e6);
+    assert.equal(back.hp, 1e6);
+    const three = armed('towel', 3);
+    const back3 = placeEnemy(three, 'trash', -80, 0, { hp: 1e6 });
+    run2(three, 0.1);
+    assert.ok(back3.hp < 1e6);
+  });
+
+  it('종이비행기는 옆에 있는 적도 쫓아가 맞힌다', () => {
+    const game = armed('paperplane');
+    game.player.heading = 0;
+    const side = placeEnemy(game, 'trash', 0, 200, { hp: 1e6 });
+    run2(game, 2);
+    assert.ok(side.hp < 1e6);
+  });
+
+  it('쥐덫은 적이 밟으면 닫히며 피해를 준다', () => {
+    const game = armed('mousetrap');
+    run2(game, 0.05);
+    assert.equal(game.traps.length, 1);
+    const trap = game.traps[0];
+    const roach = placeEnemy(game, 'trash', trap.x - game.player.x, trap.y - game.player.y, { hp: 1e6 });
+    run2(game, 0.6);
+    assert.ok(roach.hp <= 1e6 - WEAPONS.mousetrap.damage[0]);
+    assert.equal(game.traps.length, 0);
+  });
+
+  it('전자레인지 파동은 퍼지면서 한 적을 한 번만 때린다', () => {
+    const game = armed('microwave');
+    const near = placeEnemy(game, 'trash', 60, 0, { hp: 1e6 });
+    const far = placeEnemy(game, 'trash', 130, 0, { hp: 1e6 });
+    run2(game, 0.8);
+    assert.equal(near.hp, 1e6 - WEAPONS.microwave.damage[0]);
+    assert.equal(far.hp, 1e6 - WEAPONS.microwave.damage[0]);
+  });
+
+  it('샤워기는 근처 적 머리 위에 물줄기를 떨어뜨린다', () => {
+    const game = armed('shower');
+    const roach = placeEnemy(game, 'trash', 150, 40, { hp: 1e6 });
+    run2(game, 0.6);
+    assert.ok(roach.hp < 1e6);
+  });
+});
+
+describe('새 적 2', () => {
+  function quiet() {
+    const game = createGame(seeded(72));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    return game;
+  }
+
+  it('개미는 다섯 마리씩 무리 지어 나온다', () => {
+    // 3분 50초에는 개미가 가중치 목록의 맨 끝이라, 난수 0.999면 개미를 고른다.
+    const game = createGame(() => 0.999);
+    game.time = 230;
+    game.nextSwarmAt = Infinity;
+    game.nextBossAt = Infinity;
+    game.spawnCarry = 1;
+    update(game, 1 / 60);
+    assert.equal(game.enemies.filter((enemy) => enemy.kind === 'ant').length, 5);
+  });
+
+  it('민달팽이는 지나간 자리에 점액을 남긴다', () => {
+    const game = quiet();
+    placeEnemy(game, 'slug', 300, 0, { hp: 1e6, speed: 20 });
+    for (let step = 0; step < 120; step += 1) update(game, 1 / 60);
+    assert.ok(game.slimes.length >= 2);
+  });
+
+  it('양말은 가까이 있으면 닿지 않아도 냄새로 아프게 한다', () => {
+    const game = quiet();
+    placeEnemy(game, 'sock', 60, 0, { hp: 1e6, speed: 0, timer: 5 });
+    update(game, 1 / 60);
+    assert.ok(game.player.hp < PLAYER.maxHp);
+  });
+
+  it('먼지 토끼는 멀리 있으면 오리 근처로 순간 이동한다', () => {
+    const game = quiet();
+    const bunny = placeEnemy(game, 'dustbunny', 600, 0, { hp: 1e6, speed: 0, timer: 10 });
+    update(game, 1 / 60);
+    assert.ok(Math.hypot(bunny.x - game.player.x, bunny.y - game.player.y) < 160);
+  });
+
+  it('비둘기는 겨눈 뒤 걷는 속도보다 훨씬 빠르게 내리꽂는다', () => {
+    const game = quiet();
+    const pigeon = placeEnemy(game, 'pigeon', 300, 0, { hp: 1e6, speed: 60, timer: 10 });
+    let fastest = 0;
+    let aimed = false;
+    for (let step = 0; step < 90; step += 1) {
+      const before = pigeon.x;
+      update(game, 1 / 60);
+      aimed ||= pigeon.aiming;
+      fastest = Math.max(fastest, Math.abs(pigeon.x - before) * 60);
+    }
+    assert.ok(aimed);
+    assert.ok(fastest > 60 * 4);
+  });
+});

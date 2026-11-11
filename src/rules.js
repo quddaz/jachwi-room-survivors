@@ -44,13 +44,27 @@ export const ENEMIES = {
   // 탄막이 겹치면 감당이 안 돼서 드물게 나오고, 한 번에 여섯 마리까지만 있다.
   moth: { label: '나방', description: '거리를 두고 세 갈래로 가루를 쏜다. 드물게 나온다', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 0.5, maxAlive: 6,
     range: 260, shootEverySec: 3.6, shotSpeed: 150, shotDamage: 6, spread: 0.3, sway: 0.35 },
+  // 다섯 마리씩 무리 지어 나온다.
+  ant: { label: '개미 떼', description: '다섯 마리씩 무리 지어 몰려온다', hp: 3, speed: 105, radius: 6, damage: 3, xp: 1, from: 200, weight: 2, group: 5 },
+  // 지나간 자리에 밟으면 느려지는 점액을 남긴다.
+  slug: { label: '민달팽이', description: '느리고 질기다. 지나간 자리에 미끄러운 점액을 남긴다', hp: 60, speed: 28, radius: 14, damage: 8, xp: 4,
+    from: 240, weight: 2, trailEverySec: 0.7, trailRadius: 26, trailSec: 4 },
+  // 가까이 있으면 냄새로 계속 피해를 준다.
+  sock: { label: '냄새나는 양말', description: '가까이 있으면 지독한 냄새로 계속 아프다', hp: 30, speed: 50, radius: 12, damage: 6, xp: 3,
+    from: 300, weight: 2, auraRadius: 85, auraEverySec: 1.2, auraDamage: 4 },
+  // 때때로 오리 근처로 순간 이동한다.
+  dustbunny: { label: '먼지 토끼', description: '때때로 오리 근처로 휙 순간 이동한다', hp: 24, speed: 70, radius: 11, damage: 7, xp: 3,
+    from: 340, weight: 2, blinkEverySec: 3.2, blinkMin: 220, blinkTo: 140 },
+  // 오리를 겨눈 뒤 일직선으로 내리꽂는다. 겨누는 동안 빨간 선이 보인다.
+  pigeon: { label: '비둘기', description: '오리를 겨눈 뒤 일직선으로 날아와 내리꽂는다', hp: 18, speed: 60, radius: 12, damage: 9, xp: 3,
+    from: 380, weight: 1.5, swoopEverySec: 4, aimSec: 0.6, swoopSec: 0.7, swoopSpeed: 6, swoopRange: 380 },
 };
 
 // 8분부터 일반 적의 정예가 order 순서대로 step초마다 한 종류씩 나오기 시작한다.
 // 정예는 그 종류가 나올 때 chance 확률로 섞여 나오고, 그 확률은 분마다 조금씩 올라간다.
 export const ELITE = {
   from: 480, step: 30,
-  order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth'],
+  order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth', 'ant', 'slug', 'sock', 'dustbunny', 'pigeon'],
   chance: 0.15, chancePerMin: 0.03, maxChance: 0.4,
   hp: 4, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
 };
@@ -153,6 +167,27 @@ export const WEAPONS = {
     label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
     damage: [6, 7, 9, 11, 14], count: [1, 1, 1, 1, 2], speed: [110, 118, 126, 136, 148], radius: 12, hitEverySec: 0.6,
   },
+  towel: {
+    label: '젖은 수건', description: '바라보는 쪽을 길게 후려친다. 3레벨부터 양쪽',
+    cooldown: [1.3, 1.2, 1.1, 1.0, 0.9], damage: [18, 23, 29, 36, 45], length: [130, 140, 150, 165, 180], count: [1, 1, 2, 2, 2], height: 46,
+  },
+  paperplane: {
+    label: '종이비행기', description: '적을 쫓아가는 비행기를 날린다',
+    cooldown: [1.6, 1.45, 1.3, 1.15, 1.0], damage: [14, 17, 21, 25, 30], count: [1, 2, 2, 3, 3], speed: 260, turn: 4.5, lifeSec: 3,
+  },
+  mousetrap: {
+    label: '쥐덫', description: '주변에 덫을 놓는다. 적이 밟으면 탁 닫힌다',
+    cooldown: [2.5, 2.3, 2.1, 1.9, 1.7], damage: [60, 75, 95, 115, 140], count: [1, 1, 2, 2, 3], radius: [30, 32, 34, 37, 40],
+    lifeSec: 8, maxTraps: 12,
+  },
+  microwave: {
+    label: '전자레인지', description: '퍼져 나가는 파동으로 주변을 데운다',
+    cooldown: [3, 2.8, 2.6, 2.4, 2.2], damage: [20, 25, 31, 38, 46], radius: [150, 165, 180, 200, 220], growSec: 0.55,
+  },
+  shower: {
+    label: '샤워기', description: '적 머리 위로 물줄기를 떨어뜨린다',
+    cooldown: [1.4, 1.3, 1.2, 1.1, 1.0], damage: [22, 27, 33, 40, 48], count: [2, 3, 3, 4, 5], radius: [34, 36, 38, 41, 44], fallSec: 0.35,
+  },
 };
 
 // 패시브. 배열 길이가 곧 최대 레벨이다. 공격력과 이동 속도는 10레벨까지, 나머지는 5레벨까지 올린다.
@@ -197,6 +232,11 @@ export const EVOLUTIONS = {
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
   robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.2, count: 3 },
+  towel: { label: '비치 타월', description: '양쪽을 한꺼번에, 더 넓고 세게 후려친다', damage: 1.5, size: 1.6 },
+  paperplane: { label: '종이학 편대', description: '여섯 마리가 날아가 적을 꿰뚫는다', damage: 1.3, count: 6, pierce: 2 },
+  mousetrap: { label: '대형 끈끈이', description: '덫이 커지고 훨씬 아프게 문다', damage: 1.6, radius: 1.5 },
+  microwave: { label: '업소용 전자레인지', description: '더 멀리, 더 세게 데운다', damage: 1.5, radius: 1.35 },
+  shower: { label: '수압 샤워', description: '물줄기가 두 배로 쏟아진다', damage: 1.3, double: true },
 };
 
 // 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
@@ -222,8 +262,8 @@ export const MAX_RELICS = 3;
 // stats는 카드에 적는 정확한 효과다.
 export const RELICS = {
   twin: { label: '쌍둥이 노즐', description: '날아가는 무기를 두 번씩 쏜다',
-    stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저 2번 발사', '두 번째 발사는 피해 -50%'],
-    weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser'], echoSec: 0.12, echoDamage: 0.5 },
+    stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저·종이비행기 2번 발사', '두 번째 발사는 피해 -50%'],
+    weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser', 'paperplane'], echoSec: 0.12, echoDamage: 0.5 },
   blanket: { label: '두꺼운 이불', description: '가만히 있으면 거의 다치지 않는다', stats: ['멈춰 있으면 받는 피해 -80%'], guard: 0.8 },
   energy: { label: '에너지 드링크', description: '움직이는 동안 힘이 넘친다', stats: ['움직이는 동안 공격력 +30%', '이동 속도 +10%'], might: 0.3, speed: 0.1 },
   magnet: { label: '냉장고 자석', description: '먼지를 아주 멀리서 끌어온다', stats: ['줍는 범위 +200%'], pickup: 2 },

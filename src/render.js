@@ -69,12 +69,15 @@ function drawCentered(ctx, image, x, y) {
 const FRAMES = {
   roach: ['roachA', 'roachB'], trash: ['trashA', 'trashB'], scrap: ['scrap', 'scrap'], rust: ['rustA', 'rustB'],
   mold: ['moldA', 'moldB'], fly: ['flyA', 'flyB'], mosquito: ['mosquitoA', 'mosquitoB'], spider: ['spiderA', 'spiderB'],
-  milk: ['milkA', 'milkB'], mouse: ['mouseA', 'mouseB'], moth: ['mothA', 'mothB'], kingRoach: ['kingRoachA', 'kingRoachB'],
+  milk: ['milkA', 'milkB'], mouse: ['mouseA', 'mouseB'], moth: ['mothA', 'mothB'], ant: ['antA', 'antB'], slug: ['slugA', 'slugB'],
+  sock: ['sockA', 'sockB'], dustbunny: ['dustbunnyA', 'dustbunnyB'], pigeon: ['pigeonA', 'pigeonB'], kingRoach: ['kingRoachA', 'kingRoachB'],
   garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'], kingFly: ['kingFlyA', 'kingFlyB'],
 };
-const FRAME_RATE = { mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
+const FRAME_RATE = { ant: 14, slug: 2, sock: 4, dustbunny: 6, pigeon: 8, mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
 const PARTICLES = {
-  kingFly: ['#3d3d42', '#e0645b', '#dcebff'], roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
+  kingFly: ['#3d3d42', '#e0645b', '#dcebff'], ant: ['#3c2414', '#6b3f1d', '#a8703d'], slug: ['#c9965c', '#e6c97a', '#8a6a2a'],
+  sock: ['#efece6', '#e0645b', '#8fd19e'], dustbunny: ['#c4c9d1', '#8a8f98', '#ffffff'], pigeon: ['#8a8f98', '#55555d', '#3e9f6a'],
+  trap: ['#c9965c', '#8a4a1e', '#dcebff'], water: ['#a9cdf5', '#ffffff', '#5f86cf'], roach: ['#6b3f1d', '#a8703d', '#3c2414'], kingRoach: ['#6b3f1d', '#ffcf3f', '#3c2414'],
   trash: ['#5c6470', '#8f99a6', '#7fb069'], scrap: ['#8f99a6', '#5c6470', '#d9dee5'], garbageGiant: ['#5c6470', '#7fb069', '#d9dee5'],
   rust: ['#b5651d', '#e8a468', '#8c4f22'], rustBoiler: ['#b5651d', '#ffb21f', '#e8e8e8'],
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
@@ -221,6 +224,24 @@ function drawEnemy(ctx, enemy, x, y, time) {
   }
   drawCentered(ctx, image, x, y + bob);
   ctx.globalAlpha = 1;
+  if (enemy.kind === 'sock') {
+    // 냄새 구름: 가까이 있으면 진해진다.
+    const reach = Math.round(42 + Math.sin(time * 3 + enemy.id) * 2);
+    ring(ctx, Math.round(x), Math.round(y), reach, enemy.stinking ? 'rgba(111, 170, 70, 0.75)' : 'rgba(111, 170, 70, 0.35)', 3, Math.floor(time * 6));
+    for (let puff = 0; puff < 3; puff += 1) {
+      const angle = time * 1.5 + puff * 2.1 + enemy.id;
+      disc(ctx, Math.round(x + Math.cos(angle) * 9), Math.round(y - 6 - ((time * 8 + puff * 5) % 10)), 1.5, 'rgba(143, 209, 158, 0.7)');
+    }
+  }
+  if (enemy.kind === 'pigeon' && enemy.aiming) {
+    // 내리꽂을 길을 빨간 점선으로 미리 보여 준다.
+    const length = (enemy.swoopLen ?? 200) / 2;
+    for (let step = 6; step < length; step += 4) {
+      if (Math.floor(step / 4 + time * 20) % 2) continue;
+      ctx.fillStyle = 'rgba(255, 59, 47, 0.85)';
+      ctx.fillRect(Math.round(x + enemy.swoopX * step), Math.round(y + enemy.swoopY * step), 2, 2);
+    }
+  }
   if (enemy.poisoned) {
     for (let bubble = 0; bubble < 2; bubble += 1) {
       const rise = (time * 1.6 + hash(enemy.id, bubble)) % 1;
@@ -400,6 +421,21 @@ function drawEffects(ctx, game, toBuffer) {
     } else if (effect.type === 'laser') {
       const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
       drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
+    } else if (effect.type === 'towel') {
+      // 젖은 수건: 물결치며 앞으로 휘둘러진다.
+      const length = (effect.length / WORLD_PER_PIXEL) * (0.4 + Math.min(1, progress * 3) * 0.6);
+      const half = effect.height / WORLD_PER_PIXEL / 2;
+      const [main, stripe] = effect.mega ? ['#ffcf3f', '#ff6a8a'] : ['#7ad3c8', '#ffffff'];
+      for (let along = 4; along < length; along += 1) {
+        const wave = Math.sin(along * 0.35 - progress * 20) * half * 0.35 * (along / length);
+        const thick = Math.max(1, Math.round(half * 0.45 * (1 - progress)));
+        ctx.fillStyle = Math.floor(along / 4) % 2 ? main : stripe;
+        ctx.fillRect(Math.round(x + effect.dir * along), Math.round(y + wave - thick), 1, thick * 2);
+      }
+      for (let drop = 0; drop < 6; drop += 1) {
+        const along = hash(effect.seed, drop) * length;
+        sparkle(ctx, Math.round(x + effect.dir * along), Math.round(y - half - progress * 8 + hash(effect.seed, drop + 9) * half * 2), '#a9cdf5', false);
+      }
     } else if (effect.type === 'nova') {
       // 화염이 고리 모양으로 퍼져 나간다.
       const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
@@ -503,6 +539,49 @@ export function render(ctx, game, width, height, time) {
   for (const slime of game.slimes) {
     const [x, y] = toBuffer(slime);
     disc(ctx, x, y, slime.radius / WORLD_PER_PIXEL, `rgba(111, 150, 70, ${slime.life > 1 ? 0.4 : 0.2})`);
+  }
+  for (const trap of game.traps) {
+    // 쥐덫: 납작한 연한 나무판에 은색 쇠고리와 치즈. 준비되면 쇠고리가 반짝인다(보물 상자와 헷갈리지 않게 낮고 밝게).
+    const [x, y] = toBuffer(trap);
+    const scale = trap.radius / 30;
+    const w = Math.round(6 * scale);
+    const h = Math.max(2, Math.round(2 * scale));
+    ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
+    ctx.fillRect(x - w, y + h, w * 2, 1);
+    ctx.fillStyle = '#8a6a2a';
+    ctx.fillRect(x - w - 1, y - h - 1, w * 2 + 2, h * 2 + 2);
+    ctx.fillStyle = trap.mega ? '#ffe08a' : '#e6c97a';
+    ctx.fillRect(x - w, y - h, w * 2, h * 2);
+    const shine = trap.armIn > 0 ? '#8a8f98' : Math.floor(time * 6) % 2 ? '#ffffff' : '#c4c9d1';
+    ctx.fillStyle = shine;
+    ctx.fillRect(x - w + 1, y - h - 3, w * 2 - 2, 1);
+    ctx.fillRect(x - w + 1, y - h - 3, 1, 3);
+    ctx.fillRect(x + w - 2, y - h - 3, 1, 3);
+    ctx.fillStyle = '#ffcf3f';
+    ctx.fillRect(x + w - 4, y - 1, 3, 2);
+    ctx.fillStyle = '#e8871a';
+    ctx.fillRect(x + w - 3, y, 1, 1);
+  }
+  for (const wave of game.waves) {
+    // 전자레인지 파동: 노란빛 고리가 두 겹으로 퍼진다.
+    const [x, y] = toBuffer(wave);
+    const r = wave.r / WORLD_PER_PIXEL;
+    const fade = 1 - wave.r / wave.max;
+    ring(ctx, x, y, r, wave.mega ? `rgba(255, 106, 42, ${0.4 + fade * 0.6})` : `rgba(255, 207, 63, ${0.4 + fade * 0.6})`);
+    ring(ctx, x, y, r - 2, `rgba(255, 255, 255, ${0.3 + fade * 0.5})`, 2, Math.floor(time * 20));
+    ring(ctx, x, y, Math.max(1, r - 6), `rgba(255, 138, 61, ${fade * 0.5})`, 3, 0);
+  }
+  for (const splash of game.splashes) {
+    // 샤워기: 떨어질 자리를 파란 원으로 보여 주고, 물줄기가 위에서 내려온다.
+    const [x, y] = toBuffer(splash);
+    const radius = splash.radius / WORLD_PER_PIXEL;
+    const left = splash.delay / splash.total;
+    ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.6)', 2, Math.floor(time * 16));
+    const top = Math.round(y - 4 - left * 50);
+    ctx.fillStyle = splash.mega ? '#7fe9ff' : '#a9cdf5';
+    ctx.fillRect(x - 1, top - 8, 2, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x, top - 8, 1, 3);
   }
   for (const puddle of game.puddles) {
     const [x, y] = toBuffer(puddle);
@@ -628,6 +707,28 @@ export function render(ctx, game, width, height, time) {
         ctx.fillRect(Math.round(x - Math.cos(along) * dust * 4 + sideX * (hash(dust, Math.floor(time * 20)) - 0.5) * half * 2),
           Math.round(y - Math.sin(along) * dust * 4 + sideY * (hash(dust + 9, Math.floor(time * 20)) - 0.5) * half * 2), 1, 1);
       }
+      continue;
+    }
+    if (shot.kind === 'plane') {
+      // 종이비행기: 날아가는 쪽을 향한 하얀 삼각형과 바람 꼬리
+      const angle = Math.atan2(shot.vy, shot.vx);
+      const size = 4 * (shot.scale ?? 1);
+      const nose = [x + Math.cos(angle) * size, y + Math.sin(angle) * size];
+      const left = [x + Math.cos(angle + 2.5) * size, y + Math.sin(angle + 2.5) * size];
+      const right = [x + Math.cos(angle - 2.5) * size, y + Math.sin(angle - 2.5) * size];
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      for (let step = 1; step <= 3; step += 1) ctx.fillRect(Math.round(x - Math.cos(angle) * step * 3), Math.round(y - Math.sin(angle) * step * 3), 1, 1);
+      ctx.beginPath();
+      ctx.moveTo(...nose);
+      ctx.lineTo(...left);
+      ctx.lineTo(x - Math.cos(angle) * size * 0.3, y - Math.sin(angle) * size * 0.3);
+      ctx.lineTo(...right);
+      ctx.closePath();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = '#2a1c14';
+      ctx.stroke();
+      ctx.fillStyle = shot.mega ? '#ffb3bf' : '#ffffff';
+      ctx.fill();
       continue;
     }
     if (shot.kind === 'staple') {
