@@ -407,7 +407,7 @@ describe('새 무기', () => {
     for (let index = 0; index < 12; index += 1) placeEnemy(game, 'roach', 90 + index * 20, (index % 3) * 40 - 40, { hp: 5000 });
     for (let step = 0; step < 300; step += 1) update(game, 1 / 60);
     assert.equal(game.balls.length, 5);
-    assert.equal(game.robots.length, 4);
+    assert.equal(game.robots.length, 3);
   });
 });
 

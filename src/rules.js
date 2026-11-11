@@ -115,7 +115,7 @@ export const WEAPONS = {
   },
   robot: {
     label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
-    damage: [12, 15, 19, 24, 30], count: [1, 1, 1, 2, 2], speed: [160, 175, 190, 205, 225], radius: 14, hitEverySec: 0.3,
+    damage: [8, 10, 13, 16, 20], count: [1, 1, 1, 2, 2], speed: [130, 140, 150, 165, 180], radius: 14, hitEverySec: 0.5,
   },
 };
 
@@ -156,7 +156,7 @@ export const EVOLUTIONS = {
   laser: { label: '레이저 쇼', description: '여섯 줄기가 사방으로 한꺼번에 뻗는다', damage: 1.3, count: 6 },
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
-  robot: { label: '로봇청소기 부대', description: '네 대가 몰려다니며 더 세게 들이받는다', damage: 1.4, count: 4 },
+  robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.3, count: 3 },
 };
 
 // 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
@@ -168,7 +168,7 @@ export const FUSIONS = {
   poisongun: { label: '독침 기관총', description: '세 줄로 쏘는 독침이 적을 모두 뚫고 중독시킨다', from: ['stapler', 'spray'],
     poison: 0.9, poisonSec: 3 },
   bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
-    damage: 1.5, speed: 1.25, dropEverySec: 0.3, radius: 36, dps: 0.8, lifeSec: 2.2, slow: 0.5 },
+    damage: 1.3, speed: 1.15, dropEverySec: 0.45, radius: 34, dps: 0.6, lifeSec: 2, slow: 0.4 },
   firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],
     damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
   sawblade: { label: '회전 톱날', description: '커다란 톱날 둘이 화면을 크게 돌며 닿는 적을 갈아 버린다', from: ['slipper', 'roller'],
