@@ -84,7 +84,7 @@ const PARTICLES = {
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
-const ENEMY_SHOT = { core: '#ffe3de', body: '#f0463a', edge: '#8f1712', trail: 'rgba(240,70,58,0.5)' };
+const ENEMY_SHOT = { core: '#ffffff', body: '#ff3b2f', edge: '#c0150d', outline: '#2a0a08', glow: 'rgba(255, 59, 47, 0.32)', trail: 'rgba(255,59,47,0.55)' };
 
 // 바닥 아이템마다 다른 빛깔. [밝은 빛, 짙은 빛]
 const DROP_GLOW = {
@@ -239,7 +239,8 @@ function drawEnemy(ctx, enemy, x, y, time) {
 
 function drawDuck(ctx, game, x, y, time) {
   const { player } = game;
-  if (player.invulnerable > 0 && Math.floor(time * 16) % 2 === 0) return;
+  // 맞은 뒤 무적일 때는 사라지지 않고 반투명하게 깜빡인다(복잡한 화면에서 놓치지 않게).
+  const blink = player.invulnerable > 0 && Math.floor(time * 16) % 2 === 0;
   let name = 'duckA';
   if (player.moving) name = Math.floor(time * 9) % 2 === 0 ? 'duckA' : 'duckB';
   else if (Math.floor(time * 2) % 5 === 0) name = 'duckBlink';
@@ -247,14 +248,19 @@ function drawDuck(ctx, game, x, y, time) {
   const image = sprite(name, { flip: player.facing < 0, tint });
   ctx.fillStyle = 'rgba(120, 80, 40, 0.28)';
   ctx.fillRect(Math.round(x) - 6, Math.round(y) + 7, 12, 2);
+  if (blink) ctx.globalAlpha = 0.4;
+  // 흰 테두리를 한 겹 둘러 어떤 배경 위에서도 오리가 보이게 한다.
+  const rim = sprite(name, { flip: player.facing < 0, tint: '#ffffff' });
+  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawCentered(ctx, rim, x + ox, y + oy);
   if (game.time < game.coffeeUntil && player.moving) {
     ctx.globalAlpha = 0.3;
     drawCentered(ctx, image, x - player.facing * 5, y);
     ctx.globalAlpha = 0.15;
     drawCentered(ctx, image, x - player.facing * 10, y);
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = blink ? 0.4 : 1;
   }
   drawCentered(ctx, image, x, y);
+  ctx.globalAlpha = 1;
   if (game.time < game.shieldUntil) ring(ctx, Math.round(x), Math.round(y), 12, '#c9965c', 3, Math.floor(time * 20));
   // 보물 효과가 켜져 있으면 오리 둘레에 보인다.
   if (game.relics?.blanket && !player.moving) {
@@ -550,7 +556,6 @@ export function render(ctx, game, width, height, time) {
     .sort((a, b) => a.enemy.y - b.enemy.y);
   for (const { enemy, point } of enemies) drawEnemy(ctx, enemy, point[0], point[1], time);
   const [duckX, duckY] = toBuffer(player);
-  drawDuck(ctx, game, duckX, duckY, time);
 
   if (game.weapons.dryer && game.dryerOn) {
     // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
@@ -769,18 +774,25 @@ export function render(ctx, game, width, height, time) {
     drawCentered(ctx, sprite('slipper'), 0, 0);
     ctx.restore();
   }
+  drawEffects(ctx, game, toBuffer);
+  // 적 탄막은 내 무기와 이펙트 위에 그려서 무엇을 피해야 하는지 바로 보이게 한다.
   for (const shot of game.enemyShots) {
     const [x, y] = toBuffer(shot);
     const look = ENEMY_SHOT;
+    const pulse = Math.floor((shot.age ?? 0) * 12) % 2;
     ctx.fillStyle = look.trail;
-    ctx.fillRect(Math.round(x - shot.vx * 0.02) - 1, Math.round(y - shot.vy * 0.02) - 1, 2, 2);
-    ctx.fillRect(Math.round(x - shot.vx * 0.04), Math.round(y - shot.vy * 0.04), 1, 1);
-    const pulse = Math.floor((shot.age ?? 0) * 10) % 2;
+    for (let step = 1; step <= 3; step += 1) {
+      const size = 4 - step;
+      ctx.fillRect(Math.round(x - shot.vx * 0.016 * step) - 1, Math.round(y - shot.vy * 0.016 * step) - 1, size, size);
+    }
+    disc(ctx, x, y, 5 + pulse, look.glow);
+    disc(ctx, x, y, 4, look.outline);
     disc(ctx, x, y, 3, look.edge);
     disc(ctx, x, y, 2, look.body);
-    disc(ctx, x, y, pulse ? 1 : 0.5, look.core);
+    disc(ctx, x - 1, y - 1, 1, look.core);
   }
-  drawEffects(ctx, game, toBuffer);
+  // 오리는 맨 위에. 무기와 적, 탄막이 아무리 많아도 가려지지 않는다.
+  drawDuck(ctx, game, duckX, duckY, time);
   drawBossArrows(ctx, game, toBuffer, width, height, time);
 
   if (game.time < game.freezeUntil) {
