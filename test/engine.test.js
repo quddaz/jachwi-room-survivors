@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -1272,5 +1272,72 @@ describe('새 보스', () => {
     update(game, 1 / 60);
     assert.equal(game.hazards.filter((hazard) => hazard.spore).length, stats.sporeCount + 1);
     assert.equal(game.enemies.filter((enemy) => enemy.kind === 'mold').length, stats.summonCount);
+  });
+});
+
+describe('능력치 투자', () => {
+  it('효율은 5·10·20점에 올라 20점이면 2배다', () => {
+    assert.deepEqual([0, 4, 5, 9, 10, 19, 20].map(buildEfficiency), [1, 1, 1.25, 1.25, 1.5, 1.5, 2]);
+  });
+
+  it('배분은 파트당 20, 합계 30을 넘지 못한다', () => {
+    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, item: 'x' }), { crit: 20, haste: 10, survival: 0, item: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 5.7, item: 3 }), { crit: 5, haste: 0, survival: 0, item: 3 });
+  });
+
+  it('투자한 만큼 능력치가 오르고, 체력은 늘어난 최대치로 시작한다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { haste: 20, survival: 10 });
+    const stats = statsOf(game);
+    near(stats.cooldownScale, 1 / 1.4, 1e-9);
+    assert.equal(stats.maxHp, PLAYER.maxHp + 10 * 2 * 1.5);
+    assert.equal(game.player.hp, stats.maxHp);
+    near(stats.armor, 10 * 0.005 * 1.5, 1e-9);
+  });
+
+  it('공속 마스터는 계속 닿는 무기를 30% 더 세게 한다', () => {
+    const plain = createGame(seeded(97));
+    const master = createGame(seeded(97));
+    applyBuild(master, { haste: 20 });
+    for (const game of [plain, master]) {
+      game.spawnCarry = -1000;
+      game.weapons = { dehumidifier: 1 };
+    }
+    const a = placeEnemy(plain, 'trash', 30, 0, { hp: 1e6 });
+    const b = placeEnemy(master, 'trash', 30, 0, { hp: 1e6 });
+    update(plain, 1 / 60);
+    update(master, 1 / 60);
+    near((1e6 - b.hp) / (1e6 - a.hp), 1.3, 1e-6);
+  });
+
+  it('치명 마스터의 치명타는 적을 잠깐 기절시킨다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { crit: 20 });
+    game.random = () => 0;
+    const enemy = { id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0 };
+    damageEnemy(game, enemy, 10);
+    assert.ok(enemy.chillUntil > game.time);
+  });
+
+  it('생존 마스터는 한 번 부활한다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { survival: 20 });
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.player.hp = 1;
+    placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 500 });
+    update(game, 1 / 60);
+    assert.equal(game.over, false);
+    assert.ok(game.player.hp > 1);
+  });
+
+  it('아이템 마스터는 시작 보물을 두 번 고른다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { item: 20 });
+    startWithRelic(game);
+    choose(game, 0);
+    assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
+    choose(game, 0);
+    assert.equal(Object.keys(game.relics).length, 2);
   });
 });

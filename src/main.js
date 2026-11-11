@@ -1,13 +1,14 @@
-import { choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { applyBuild, choose, createGame, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
+  BOSS_EVERY_SEC, BOSSES, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
 const MAP_KEY = 'room-survivors:map';
+const BUILD_KEY = 'room-survivors:build';
 const STEP = 1 / 60;
 const JOYSTICK_RADIUS = 50;
 
@@ -228,6 +229,7 @@ function start() {
   cancelAnimationFrame(frameId);
   game = createGame();
   game.map = selectedMap;
+  applyBuild(game, selectedBuild);
   paused = false;
   carry = 0;
   touch = null;
@@ -327,6 +329,16 @@ const CODEX_TABS = [
     <ul class="evolve-list">${Object.entries(ENEMIES).map(([kind, enemy]) => `
       <li>${spriteImg(kind === 'scrap' ? 'scrap' : `${kind}A`)}<span><b>${escapeHtml(enemy.label)}</b><em>${escapeHtml(enemy.description ?? '')}</em>
         <i>${enemy.from === Infinity ? '쓰레기봉투에서 나옴' : `등장 ${clock(enemy.from)}`}${Number.isFinite(eliteFrom(kind)) ? ` · 정예 ${clock(eliteFrom(kind))}` : ''}</i></span></li>`).join('')}</ul>`],
+  ['item', '아이템', () => `<p class="ranking-note">적이 가끔 떨어뜨려요. 같은 종류는 맵에 ${DROP_LIMIT}개까지만 떨어져 있어요.</p>
+    <ul class="evolve-list">${Object.entries(DROPS).map(([id, drop]) => `
+      <li>${itemIcon(id)}<span><b>${escapeHtml(drop.label)}</b><em>${escapeHtml(drop.description)}</em></span></li>`).join('')}</ul>`],
+  ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 네 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 5·10·20점에 효율이 +25%·+25%·+50% 올라 20점이면 2배가 되고, 마스터 능력도 붙어요.</p>
+    <ul class="evolve-list">${Object.entries(BUILD).map(([tree, def]) => `
+      <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점: ${escapeHtml(buildEffect(tree, 1))}</em><i>10점: ${escapeHtml(buildEffect(tree, 10))}</i>
+        <i>20점: ${escapeHtml(buildEffect(tree, 20))}</i><i class="is-evolve">마스터: ${escapeHtml(def.master)}</i></span></li>`).join('')}</ul>`],
+  ['map', '맵', () => `<p class="ranking-note">바닥과 소품만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
+    <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
+      <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
   ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
     <ul class="evolve-list">${BOSSES.map((boss, index) => `
       <li>${spriteImg(`${boss.kind}A`)}<span><b>${escapeHtml(boss.label)}</b><em>${escapeHtml(boss.description ?? '')}</em><i>첫 등장 ${clock(BOSS_EVERY_SEC * (index + 1))}</i></span></li>`).join('')}</ul>`],
@@ -340,6 +352,65 @@ function openRecipes(tab = codexTab) {
     <button class="season-tab${id === tab ? ' is-active' : ''}" type="button" data-codex="${id}">${label}</button>`).join('');
   document.querySelector('.codex-body').innerHTML = CODEX_TABS.find(([id]) => id === tab)[2]();
   document.querySelector('.screen-recipes').scrollTop = 0;
+}
+
+// 시작 화면의 능력치 투자. 모두 같은 30점을 네 파트에 나누고, 나눈 대로 다음 판에도 기억한다.
+let selectedBuild = normalizeBuildSafe();
+
+function normalizeBuildSafe(raw) {
+  try {
+    return normalizeBuild(raw ?? JSON.parse(recall(BUILD_KEY) || '{}'));
+  } catch {
+    return normalizeBuild({});
+  }
+}
+
+const BUILD_TEXT = {
+  critChance: ['치명타 확률', (value) => `+${Math.round(value * 1000) / 10}%`],
+  critDamage: ['치명타 피해', (value) => `+${Math.round(value * 100)}%`],
+  attackSpeed: ['공격 속도', (value) => `+${Math.round(value * 100)}%`],
+  maxHp: ['최대 체력', (value) => `+${Math.round(value)}`],
+  armor: ['받는 피해', (value) => `-${Math.round(value * 1000) / 10}%`],
+  xpGain: ['경험치', (value) => `+${Math.round(value * 100)}%`],
+  pickup: ['줍는 범위', (value) => `+${Math.round(value * 100)}%`],
+  drop: ['아이템 드랍', (value) => `+${Math.round(value * 100)}%`],
+};
+
+// 그 파트에 points점을 넣었을 때의 효과 글
+function buildEffect(tree, points) {
+  const efficiency = buildEfficiency(points);
+  return Object.entries(BUILD[tree].per).map(([key, per]) => `${BUILD_TEXT[key][0]} ${BUILD_TEXT[key][1](per * points * efficiency)}`).join(', ');
+}
+
+function drawBuild() {
+  const used = Object.values(selectedBuild).reduce((sum, points) => sum + points, 0);
+  document.querySelector('.build-left').textContent = `${BUILD_POINTS - used}`;
+  document.querySelector('.build-list').innerHTML = Object.entries(BUILD).map(([tree, def]) => {
+    const points = selectedBuild[tree];
+    const steps = BUILD_STEPS.map(([at, bonus]) => `<span class="build-step${points >= at ? ' is-on' : ''}" style="left: ${(at / BUILD_MAX) * 100}%">${at}</span>`).join('');
+    const milestones = BUILD_STEPS.map(([at, bonus]) => `<span class="${points >= at ? 'is-on' : ''}">${at} 효율 +${Math.round(bonus * 100)}%${at === BUILD_MAX ? ` · ${escapeHtml(def.master)}` : ''}</span>`).join('');
+    return `
+      <li class="build-row">
+        <div class="build-head">
+          ${itemIcon(def.icon)}<b>${def.label}</b><span class="build-points">${points}<small>/${BUILD_MAX}</small></span>
+          <span class="build-eff">효율 ×${buildEfficiency(points)}</span>
+          <button class="build-button" type="button" data-build="${tree}" data-delta="-1" aria-label="${def.label} 빼기"${points === 0 ? ' disabled' : ''}>−</button>
+          <button class="build-button" type="button" data-build="${tree}" data-delta="1" aria-label="${def.label} 더하기"${points >= BUILD_MAX || used >= BUILD_POINTS ? ' disabled' : ''}>+</button>
+        </div>
+        <div class="build-bar"><div class="build-fill" style="width: ${(points / BUILD_MAX) * 100}%"></div>${steps}</div>
+        <p class="build-effect">${points ? escapeHtml(buildEffect(tree, points)) : '포인트를 넣으면 효과가 생겨요'}</p>
+        <p class="build-milestones">${milestones}</p>
+      </li>`;
+  }).join('');
+}
+
+function changeBuild(tree, delta) {
+  const next = { ...selectedBuild, [tree]: selectedBuild[tree] + delta };
+  const used = Object.values(next).reduce((sum, points) => sum + points, 0);
+  if (next[tree] < 0 || next[tree] > BUILD_MAX || used > BUILD_POINTS) return;
+  selectedBuild = next;
+  remember(BUILD_KEY, JSON.stringify(selectedBuild));
+  drawBuild();
 }
 
 // 시작 화면의 맵 고르기. 바닥과 소품만 달라서 순위는 함께 매긴다.
@@ -480,6 +551,13 @@ app.addEventListener('click', (event) => {
   const season = event.target.closest('[data-season]')?.dataset.season;
   if (season) openRanking(Number(season));
   if (action === 'recipes') openRecipes();
+  const buildButton = event.target.closest('[data-build]');
+  if (buildButton) changeBuild(buildButton.dataset.build, Number(buildButton.dataset.delta));
+  if (action === 'build-reset') {
+    selectedBuild = normalizeBuild({});
+    remember(BUILD_KEY, JSON.stringify(selectedBuild));
+    drawBuild();
+  }
   const map = event.target.closest('[data-map]')?.dataset.map;
   if (map && MAPS[map]) {
     selectedMap = map;
@@ -505,6 +583,8 @@ document.querySelector('.kills-icon').src = iconUrl('roachA');
 crewName = recall(NAME_KEY);
 selectedMap = MAPS[recall(MAP_KEY)] ? recall(MAP_KEY) : 'room';
 drawMapPicker();
+selectedBuild = normalizeBuildSafe();
+drawBuild();
 nameInput.value = crewName;
 
 

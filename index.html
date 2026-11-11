@@ -11,6 +11,11 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <link rel="stylesheet" href="./styles.css" />
     <script type="module" src="./src/main.js"></script>
+    <!-- Vercel Web Analytics: 방문 수와 페이지 조회를 모은다. Vercel 프로젝트 설정에서 Analytics를 켜야 기록된다. -->
+    <script>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
   </head>
   <body>
     <main class="app">
@@ -24,6 +29,7 @@
           <li>90초마다 <b>보스</b></li>
           <li>무기를 5레벨까지 올리면 <b>완성형</b>으로 진화</li>
           <li>시작할 때와 보스를 잡을 때 <b>보물</b> 하나(최대 3개)</li>
+          <li>시작할 때 <b>능력치 30점</b> 투자</li>
           <li>레벨업마다 <b>한 번 다시 뽑기</b></li>
           <li><b>버틴 시간</b>으로 순위</li>
         </ul>
@@ -33,6 +39,11 @@
           <p class="field-error" role="alert"></p>
           <p class="field-label">맵</p>
           <div class="map-picker" role="group" aria-label="맵 고르기"></div>
+          <div class="build">
+            <p class="field-label">능력치 <span class="build-hint">남은 포인트 <b class="build-left">30</b></span>
+              <button class="build-reset" type="button" data-action="build-reset">초기화</button></p>
+            <ol class="build-list"></ol>
+          </div>
           <button class="button button-primary" type="submit">시작하기</button>
         </form>
         <div class="start-links">

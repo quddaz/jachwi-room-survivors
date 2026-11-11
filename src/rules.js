@@ -1,6 +1,35 @@
 // 숫자는 모두 여기서 바꾼다. 시간 단위는 초, 거리는 월드 픽셀이다.
 export const ARENA = { width: 3000, height: 3000 };
 
+// 능력치 투자. 게임을 시작할 때 모두 같은 30점을 네 파트에 나눈다(파트당 최대 20).
+// 포인트마다 기본 효과가 오르고, 5·10·20점에 도달하면 그 파트의 효율이 오른다(합하면 2배). 20점이면 마스터 능력도 붙는다.
+export const BUILD_POINTS = 30;
+export const BUILD_MAX = 20;
+export const BUILD_STEPS = [[5, 0.25], [10, 0.25], [20, 0.5]];
+export const BUILD = {
+  crit: { label: '치명', icon: 'clover', per: { critChance: 0.0075, critDamage: 0.025 },
+    master: '치명타 맞은 적이 0.6초 기절(보스 제외)', masterStun: 0.6 },
+  haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.01 }, master: '계속 닿는 무기 피해 +30%', masterDps: 0.3 },
+  survival: { label: '생존', icon: 'vitamin', per: { maxHp: 2, armor: 0.005 }, master: '한 번 쓰러져도 체력 30%로 부활', masterRevive: 0.3 },
+  item: { label: '아이템', icon: 'vacuum', per: { xpGain: 0.01, pickup: 0.03, drop: 0.04 }, master: '시작 보물 하나 더, 다시 뽑기 +1',
+    masterRelics: 1, masterRerolls: 1 },
+};
+
+// 그 파트에 투자한 점수에 따른 효율 배율(1, 1.25, 1.5, 2)
+export function buildEfficiency(points) {
+  return 1 + BUILD_STEPS.reduce((sum, [at, bonus]) => sum + (points >= at ? bonus : 0), 0);
+}
+
+// 저장된 배분을 믿지 않고 0~20 정수, 합계 30 이하로 맞춘다.
+export function normalizeBuild(build = {}) {
+  let left = BUILD_POINTS;
+  return Object.fromEntries(Object.keys(BUILD).map((tree) => {
+    const points = Math.max(0, Math.min(BUILD_MAX, left, Math.floor(Number(build[tree]) || 0)));
+    left -= points;
+    return [tree, points];
+  }));
+}
+
 // 맵. 바닥과 소품만 다르고 규칙은 같아서 순위는 맵과 상관없이 함께 매긴다.
 // swatch는 시작 화면의 맵 고르기 버튼 색이다.
 export const MAPS = {
