@@ -2,11 +2,12 @@ import { choose, createGame, formatTime, passiveLines, reroll, startWithRelic, s
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
+  BOSS_EVERY_SEC, BOSSES, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_RELICS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
+const MAP_KEY = 'room-survivors:map';
 const STEP = 1 / 60;
 const JOYSTICK_RADIUS = 50;
 
@@ -226,6 +227,7 @@ function frame(now) {
 function start() {
   cancelAnimationFrame(frameId);
   game = createGame();
+  game.map = selectedMap;
   paused = false;
   carry = 0;
   touch = null;
@@ -338,6 +340,17 @@ function openRecipes(tab = codexTab) {
     <button class="season-tab${id === tab ? ' is-active' : ''}" type="button" data-codex="${id}">${label}</button>`).join('');
   document.querySelector('.codex-body').innerHTML = CODEX_TABS.find(([id]) => id === tab)[2]();
   document.querySelector('.screen-recipes').scrollTop = 0;
+}
+
+// 시작 화면의 맵 고르기. 바닥과 소품만 달라서 순위는 함께 매긴다.
+let selectedMap = 'room';
+
+function drawMapPicker() {
+  document.querySelector('.map-picker').innerHTML = Object.entries(MAPS).map(([id, map]) => `
+    <button class="map-choice${id === selectedMap ? ' is-active' : ''}" type="button" data-map="${id}" aria-pressed="${id === selectedMap}">
+      <span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span>
+      <b>${escapeHtml(map.label)}</b><small>${escapeHtml(map.description)}</small>
+    </button>`).join('');
 }
 
 let rankingSeason = SEASON;
@@ -467,6 +480,12 @@ app.addEventListener('click', (event) => {
   const season = event.target.closest('[data-season]')?.dataset.season;
   if (season) openRanking(Number(season));
   if (action === 'recipes') openRecipes();
+  const map = event.target.closest('[data-map]')?.dataset.map;
+  if (map && MAPS[map]) {
+    selectedMap = map;
+    remember(MAP_KEY, map);
+    drawMapPicker();
+  }
   const codex = event.target.closest('[data-codex]')?.dataset.codex;
   if (codex) openRecipes(codex);
   if (action === 'home') show('start');
@@ -484,6 +503,8 @@ app.addEventListener('click', (event) => {
 
 document.querySelector('.kills-icon').src = iconUrl('roachA');
 crewName = recall(NAME_KEY);
+selectedMap = MAPS[recall(MAP_KEY)] ? recall(MAP_KEY) : 'room';
+drawMapPicker();
 nameInput.value = crewName;
 
 

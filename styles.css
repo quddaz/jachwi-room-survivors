@@ -49,6 +49,13 @@ img { display: block; max-width: 100%; }
 .field { height: 52px; padding: 0 16px; border: 2px solid var(--color-wood); border-radius: var(--radius-md); background: #fff; font: inherit; font-size: 17px; caret-color: var(--color-beak); }
 .field:focus { outline: none; border-color: var(--color-beak); }
 .field-error { min-height: 18px; margin: 0; color: var(--color-bad); font-size: 13px; }
+.start-form p.field-label { margin: 0; }
+.map-picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 6px; }
+.map-choice { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border: 2px solid var(--color-wood); border-radius: 14px; background: #fff; cursor: pointer; }
+.map-choice b { font-size: 13px; }
+.map-choice small { color: var(--color-muted); font-size: 10px; line-height: 1.2; text-align: center; word-break: keep-all; }
+.map-choice.is-active { border-color: var(--color-beak); box-shadow: 0 0 0 3px rgb(255 178 31 / 25%); }
+.map-swatch { width: 36px; height: 22px; border: 2px solid #2a1c14; border-radius: 6px; background: repeating-conic-gradient(var(--a) 0 25%, var(--b) 0 50%) 0 0 / 12px 12px; image-rendering: pixelated; }
 .button { height: 56px; border: 0; border-radius: var(--radius-md); font-size: 17px; font-weight: 800; cursor: pointer; }
 .button-primary { background: var(--color-beak); color: #fff; box-shadow: 0 6px 0 var(--color-beak-deep); }
 .button-primary:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--color-beak-deep); }
