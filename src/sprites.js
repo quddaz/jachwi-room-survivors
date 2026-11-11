@@ -4,6 +4,10 @@ const PALETTE = {
   R: '#e0645b', r: '#a83a33', G: '#3e9f6a', g: '#8fd19e', Y: '#ffe08a', N: '#8a4a1e', n: '#c9965c',
   D: '#3d3d42', d: '#8a8f98', L: '#dcebff', P: '#efece6', p: '#bfb7a8', M: '#6f8a4a', m: '#4b6330',
   C: '#c9692a', c: '#8c4f22', T: '#7ad3c8', V: '#b08be0', k: '#4a250e', H: '#5a2f12', S: '#55555d',
+  // 아이템 아이콘용 밝은 색과 그림자 색
+  y: '#fff4c2', e: '#ff6a2a', v: '#7a57b8', t: '#3f9d94', l: '#a9cdf5', q: '#3a5a9c', x: '#2a7048', a: '#ffb3bf',
+  A: '#f0608a', E: '#7fe9ff', i: '#d3f3ff', u: '#7a2620', z: '#c4c9d1', h: '#2a2a30', F: '#e8a33a', f: '#b8731f',
+  s: '#fff1d6', j: '#5dff9a',
 };
 const OUTLINE = '#2a1c14';
 
@@ -212,44 +216,890 @@ const ART = {
   gemBig: ['.OO.', 'OYYO', 'OYYO', '.OO.'],
 };
 
-const ICON_ART = {
-  spray: ['...DD....', '..DDD.L..', '...d..L.L', '..GGG....', '.GGGGG...', '.GWWWG...', '.GGGGG...', '.GGGGG...', '..GGG....'],
-  broom: ['.......N.', '......N..', '.....N...', '....N....', '...N.....', '..OOO....', '.OOOOO...', '.OoOoO...', '.O.O.O...'],
-  bleach: ['...BB....', '...BB....', '..TTTT...', '.TTTTTT..', '.TWWWWT..', '.TWRRWT..', '.TWWWWT..', '.TTTTTT..', '..TTTT...'],
-  dehumidifier: ['.dddddd..', '.dWWWWd..', '.dWbbWd..', '.dWBBWd..', '.dWWWWd..', '.dddddd..', '.dLLLLd..', '.dddddd..', '.D....D..'],
-  swatter: ['.RRRRR...', '.RrRrR...', '.RRRRR...', '.RrRrR...', '.RRRRR...', '...N.....', '...N.....', '...N.....', '...N.....'],
-  slipper: ['..BBBB...', '.BBBBBB..', '.BWWWWB..', '.BbbbbB..', '.BbbbbB..', '.BbbbbB..', '.BbbbbB..', '..BBBB...', '.........'],
-  coil: ['..GGGGG..', '.G.....G.', 'G..GGG..G', 'G.G...G.G', 'G.G.R.G.G', 'G.G..GG.G', 'G..GG...G', '.G.....G.', '..GGGGG..'],
-  zapper: ['.YYYYY...', '.YKYKY...', '.YYOYY...', '.YKYKY...', '.YYYYY...', '...D.....', '...D.....', '...DD....', '...DD....'],
-  fan: ['..ddddd..', '.dLLbLLd.', 'dLLLbLLLd', 'dbbbKbbbd', 'dLLLbLLLd', '.dLLbLLd.', '..ddddd..', '....d....', '..ddddd..'],
-  gloves: ['.R.R.R...', '.R.R.R.R.', '.RRRRR.R.', '.RRRRRRR.', '.RRRRRRR.', '..RRRRR..', '..RRRRR..', '..rrrrr..', '..RRRRR..'],
-  sneakers: ['.........', '....WW...', '...WWWW..', '..WWBWW..', '.WWBWWWWW', 'WWWWWWWWW', 'WRRRRRRRW', 'ddddddddd', '.........'],
-  vacuum: ['......D..', '.....D...', '....D....', '...D.....', '.BBBB....', 'BBBBBB...', 'BbBBBB.dd', 'BBBBBB.dd', '.K..K....'],
-  vitamin: ['.........', '..RRR....', '.RRRRR...', '.RRRRW...', '..RRWWW..', '...WWWWW.', '...WWWWW.', '....WWW..', '.........'],
-  battery: ['...dd....', '..GGGG...', '..GGGG...', '..GYGG...', '..GYYG...', '..GGYG...', '..GGGG...', '..GGGG...', '.........'],
-  candle: ['....O....', '...OYO...', '....O....', '...VVV...', '...VVV...', '...VVV...', '...VVV...', '..VVVVV..', '.........'],
-  wipes: ['.........', '.bbbbbbb.', '.bWWWWWb.', '.bWBBBWb.', '.bWWWWWb.', '.bbbbbbb.', '.bbbbbbb.', '.........', '.........'],
-  protein: ['...DDD...', '...DDD...', '..WWWWW..', '.WWWWWWW.', '.WRRRRRW.', '.WRWRWRW.', '.WRRRRRW.', '.WWWWWWW.', '..WWWWW..'],
-  detergent: ['..L...L..', '.LWL.LWL.', '..L.L.L..', '...LWL...', '..VVVVV..', '.VVVVVVV.', '.VWWWWWV.', '.VVVVVVV.', '..VVVVV..'],
-  roller: ['.........', '.WWWWWWW.', 'WpWpWpWpW', 'WWWWWWWWW', '.WWWWWWW.', '....R....', '....R....', '...RRR...', '...RRR...'],
-  dryer: ['.........', '.RRRRRR.O', 'RRRRRRRdO', 'RRWWRRRdo', 'RRRRRRRdO', '.RRRRRR.O', '..RR.....', '..RR.....', '..rr.....'],
-  heal: ['..L.L.L..', '...L.L...', 'RRRRRRRRR', 'RYYYYYYYR', 'RYOYYOYYR', '.RRRRRRR.', '.RRRRRRR.', '..RRRRR..', '.........'],
-  vacuumBag: ['...dd....', '..dddd...', '.dddddd..', '.dWdddd..', '.dddddd..', '.dddddd..', '.dddddd..', '..dddd...', '.........'],
-  bugBomb: ['..L.L....', '...L.L...', '...DD....', '..RRRR...', '..RWWR...', '..RKKR...', '..RWWR...', '..RRRR...', '.........'],
-  coffee: ['....N....', '...N.....', '.WWWWWW..', '.WNNNNW..', '.WNNNNW..', '.WNLNNW..', '..WNNW...', '..WWWW...', '.........'],
-  chicken: ['...NNN...', '..NnNNN..', '.NNNNNN..', '.NNNnNN..', '..NNNN...', '...NN....', '....W....', '...WWW...', '...W.W...'],
-  icepack: ['.........', '.LLLLLLL.', '.LbLLLbL.', '.LLLbLLL.', '.LbLLLbL.', '.LLLLLLL.', '.LLLLLLL.', '.........', '.........'],
-  box: ['.........', '.nnnnnnn.', 'nnnNnnnnn', 'nnnNnnnnn', 'nNNNNNNNn', 'nnnNnnnnn', 'nnnnnnnnn', '.nnnnnnn.', '.........'],
-  chest: ['.........', '.NNNNNNN.', 'NnnnnnnnN', 'NNNNNNNNN', 'NnnOOOnnN', 'NnnOKOnnN', 'NnnnnnnnN', 'NNNNNNNNN', '.........'],
+// 아이템 아이콘은 16x16 격자에 4프레임으로 그린다. body는 외곽선을 두르는 본체, fx는 외곽선 없이 덧그리는 반짝임·김·불꽃이다.
+export const ITEM_FRAMES = 4;
+const ITEM_SIZE = 16;
+
+function item(rows, animate) {
+  return (frame) => {
+    const body = canvasGrid(ITEM_SIZE, ITEM_SIZE).stamp(0, 0, rows);
+    const fx = canvasGrid(ITEM_SIZE, ITEM_SIZE);
+    animate?.(body, fx, frame);
+    return [body.rows(), fx.rows()];
+  };
+}
+
+// 네 프레임에 걸쳐 점 → 십자 → 점 → 꺼짐으로 깜빡이는 반짝임
+function twinkle(fx, x, y, frame, color = 'y') {
+  const phase = ((frame % ITEM_FRAMES) + ITEM_FRAMES) % ITEM_FRAMES;
+  if (phase === 0) return;
+  if (phase === 2) fx.set(x - 1, y, color).set(x + 1, y, color).set(x, y - 1, color).set(x, y + 1, color);
+  fx.set(x, y, phase === 2 ? 'W' : color);
+}
+
+// 구불구불 올라가는 김
+function steam(fx, x, bottom, frame, height = 4) {
+  for (let step = 0; step < height; step += 1) {
+    const wave = (step + frame) % 4;
+    if (wave === 3 && step > 1) continue;
+    fx.set(x + (wave === 1 ? 1 : wave === 3 ? -1 : 0), bottom - step, step < 2 ? 'W' : 'z');
+  }
+}
+
+const ITEMS = {
+  spray: item([
+    '................',
+    '.....DDD........',
+    '....DdddD.......',
+    '....DDDDD.......',
+    '.....zzz........',
+    '....xGGGx.......',
+    '...xGgGGGx......',
+    '...xGgGGGx......',
+    '...xWWWWWx......',
+    '...xWRRKWx......',
+    '...xWWWWWx......',
+    '...xGgGGGx......',
+    '...xGgGGGx......',
+    '...xGGGGGx......',
+    '....xxxxx.......',
+    '................',
+  ], (body, fx, f) => {
+    const mist = [
+      [[9, 2, 'W']],
+      [[9, 2, 'W'], [10, 2, 'L'], [11, 1, 'L'], [11, 3, 'L']],
+      [[10, 2, 'L'], [12, 1, 'W'], [12, 3, 'W'], [13, 2, 'g'], [14, 0, 'L'], [14, 4, 'L']],
+      [[11, 2, 'L'], [13, 0, 'g'], [13, 4, 'g'], [15, 2, 'W'], [15, 5, 'L'], [14, 1, 'L']],
+    ];
+    mist[f].forEach(([x, y, ch]) => fx.set(x, y, ch));
+    body.set(5, 6 + f, 'W');
+  }),
+  broom: item([
+    '.............NN.',
+    '............NnN.',
+    '...........NnN..',
+    '..........NnN...',
+    '.........NnN....',
+    '........NnN.....',
+    '.......NnN......',
+    '......RRR.......',
+    '.....RaRRR......',
+    '....OYOOOoo.....',
+    '...OYOYOOooo....',
+    '..OYOYOYOoOo....',
+    '..OYOYOYOoOo....',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    body.stamp(f % 2 === 0 ? 2 : 1, 13, 'YO.YO.Oo.o');
+    const dust = [[[0, 14], [12, 13]], [[1, 15], [13, 12], [0, 12]], [[13, 14], [0, 11], [14, 11]], [[14, 13], [1, 13]]];
+    dust[f].forEach(([x, y], index) => fx.set(x, y, index % 2 === 0 ? 'P' : 'W'));
+    twinkle(fx, 13, 9, f + 1);
+  }),
+  bleach: item([
+    '................',
+    '.....qBBq.......',
+    '.....qBlq.......',
+    '....tTTTTt......',
+    '...tTiTTTTtt....',
+    '..tTiTTTTT..t...',
+    '..tTiTTTTT..t...',
+    '..tTWWWWWTtt....',
+    '..tTWRRRWTt.....',
+    '..tTWRWRWTt.....',
+    '..tTWWWWWTt.....',
+    '..tTiTTTTTt.....',
+    '..tTTTTTTTt.....',
+    '...tttttttt.....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    [[13, 12], [14, 9], [12, 6], [14, 3]].forEach(([x, y], index) => {
+      const rise = (f + index) % ITEM_FRAMES;
+      fx.set(x + (rise % 2), y - rise, rise === 3 ? 'W' : 'T');
+      if (rise === 1) fx.set(x + 1, y - rise - 1, 'i');
+    });
+    twinkle(fx, 12, 1, f);
+  }),
+  dehumidifier: item([
+    '................',
+    '..zzzzzzzzzz....',
+    '.zWWWWWWWWWWd...',
+    '.zWDDDDDDDWWd...',
+    '.zWWWWWWWWWGd...',
+    '.zWDDDDDDDWWd...',
+    '.zWWWWWWWWWWd...',
+    '.zWDDDDDDDWWd...',
+    '.zWWWWWWWWWWd...',
+    '.zPPPPPPPPPPd...',
+    '.zPqLLLLLLqPd...',
+    '.zPqBBBBBBqPd...',
+    '.zPqBBBBBBqPd...',
+    '.zPPPPPPPPPPd...',
+    '..dD......Dd....',
+    '................',
+  ], (body, fx, f) => {
+    body.set(11, 4, f % 2 === 0 ? 'G' : 'Y');
+    for (let x = 4; x <= 9; x += 1) body.set(x, 10, (x + f) % 3 === 0 ? 'l' : (x + f) % 3 === 1 ? 'b' : 'L');
+    body.set(5 + f, 11, 'l');
+    [[14, 2], [15, 6], [14, 10]].forEach(([x, y], index) => {
+      const pull = (f + index) % ITEM_FRAMES;
+      if (pull < 3) fx.set(x - pull, y + (index === 2 ? -pull : pull > 1 ? 1 : 0), pull === 0 ? 'L' : 'b');
+    });
+  }),
+  swatter: item([
+    '..rRRRRRRr......',
+    '..RuRuRuRR......',
+    '..RRuRuRuR......',
+    '..RuRuRuRR......',
+    '..RRuRuRuR......',
+    '..RuRuRuRR......',
+    '..rRRRRRRr......',
+    '.....RR.........',
+    '.....nN.........',
+    '.....nN.........',
+    '.....nN.........',
+    '.....nN.........',
+    '.....nN.........',
+    '.....aR.........',
+    '.....RR.........',
+    '................',
+  ], (body, fx, f) => {
+    twinkle(fx, 12, 3, f + 1, 'Y');
+    twinkle(fx, 13, 8, f + 3, 'W');
+    if (f % 2 === 1) fx.set(11, 6, 'W').set(12, 7, 'W').set(10, 9, 'W').set(11, 10, 'W');
+    body.set(3 + f, 0, 'a').set(4 + f, 0, 'a');
+  }),
+  slipper: item([
+    '................',
+    '................',
+    '.........qqqq...',
+    '.......qqBBBBq..',
+    '.....qqBBbbbBq..',
+    '....qBBbbWWbBq..',
+    '...qBbbbWWLWBq..',
+    '..qBbbbWLWWbBq..',
+    '..qBblWWWbbBq...',
+    '.qBblbWLbbBq....',
+    '.qBbbbbbbBq.....',
+    '.qBbbbbBBq......',
+    '..qBBBBqq.......',
+    '...qqqq.........',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const orbit = [[2, 3], [6, 1], [14, 1], [15, 6], [13, 11], [8, 14], [1, 14], [0, 8]];
+    for (let trail = 0; trail < 3; trail += 1) {
+      const [x, y] = orbit[(f * 2 + 8 - trail) % 8];
+      fx.set(x, y, trail === 0 ? 'W' : trail === 1 ? 'L' : 'b');
+      const [ox, oy] = orbit[(f * 2 + 12 - trail) % 8];
+      fx.set(ox, oy, trail === 0 ? 'W' : trail === 1 ? 'L' : 'b');
+    }
+  }),
+  coil: item([
+    '................',
+    '................',
+    '................',
+    '....Gg..........',
+    '...G..gGGGG.....',
+    '..G..g.....G....',
+    '..G.G..gGG..G...',
+    '..G.G.G...G.G...',
+    '..G.G.GGx.G.x...',
+    '..G.G.....x.x...',
+    '..G..GGxxx..x...',
+    '...G.......x....',
+    '....GGxxxxx.....',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    body.set(6, 3, f % 2 === 0 ? 'e' : 'O');
+    fx.set(6, 3, f % 2 === 0 ? 'Y' : 'W');
+    if (f % 2 === 1) fx.set(7, 2, 'O').set(5, 2, 'e');
+    steam(fx, 8, 2, f, 3);
+    steam(fx, 11, 2, f + 2, 3);
+    twinkle(fx, 14, 12, f + 1, 'O');
+    twinkle(fx, 1, 13, f + 3, 'Y');
+  }),
+  zapper: item([
+    '...OYYYYYYO.....',
+    '..OYhhhhhhYO....',
+    '..YhhhhhhhhY....',
+    '..YhhhhhhhhY....',
+    '..YhhhhhhhhY....',
+    '..YhhhhhhhhY....',
+    '..OYhhhhhhYO....',
+    '...OYYYYYYO.....',
+    '.....OYYO.......',
+    '......DD........',
+    '.....DddD.......',
+    '.....DdRD.......',
+    '.....DddD.......',
+    '.....DddD.......',
+    '.....DDDD.......',
+    '................',
+  ], (body, fx, f) => {
+    for (let y = 1; y <= 6; y += 1) {
+      for (let x = 3; x <= 10; x += 1) {
+        if (body.get(x, y) === 'h' && (x + y) % 2 === 0) body.set(x, y, (x + y * 3 + f * 2) % 8 < 2 ? 'W' : 'E');
+      }
+    }
+    body.set(7, 11, f % 2 === 0 ? 'R' : 'Y');
+    const bolts = [
+      [[12, 0], [13, 1], [12, 2], [13, 3]],
+      [[13, 4], [14, 5], [13, 6], [14, 7], [0, 3], [1, 4]],
+      [[12, 8], [13, 9], [12, 10], [0, 6], [1, 7], [0, 8]],
+      [[1, 0], [0, 1], [1, 2], [14, 2], [15, 3]],
+    ];
+    bolts[f].forEach(([x, y], index) => fx.set(x, y, index % 2 === 0 ? 'E' : 'W'));
+  }),
+  fan: item([], (body, fx, f) => {
+    body.rect(7, 12, 2, 2, 'd').rect(4, 14, 8, 1, 'D').rect(5, 13, 6, 1, 'S');
+    body.ellipse(7, 6, 6, 6, 'd').ellipse(7, 6, 5, 5, 'L').ellipse(7, 6, 4, 4, 'i');
+    for (let blade = 0; blade < 3; blade += 1) {
+      const angle = (blade / 3) * Math.PI * 2 + (f / ITEM_FRAMES) * ((Math.PI * 2) / 3);
+      for (let reach = 1; reach <= 4; reach += 1) {
+        const x = 7 + Math.cos(angle) * reach;
+        const y = 6 + Math.sin(angle) * reach;
+        body.set(Math.round(x), Math.round(y), 'B');
+        body.set(Math.round(x - Math.sin(angle) * 0.9), Math.round(y + Math.cos(angle) * 0.9), reach > 1 ? 'b' : 'B');
+      }
+    }
+    body.set(7, 6, 'K').set(1, 6, 'S').set(13, 6, 'S').set(7, 0, 'S');
+    [[14, 3], [15, 6], [14, 9]].forEach(([x, y], index) => {
+      const shift = (f + index * 2) % ITEM_FRAMES;
+      if (shift < 3) fx.set(x + shift - 1, y, 'W').set(x + shift, y, shift === 0 ? 'W' : 'L');
+    });
+  }),
+  detergent: item([
+    '................',
+    '................',
+    '......vVv.......',
+    '......vVv.......',
+    '.....vVVVv......',
+    '....vVVVVVv.....',
+    '...vVaVVVVVv....',
+    '...vVaVVVVVv....',
+    '...vVWWWWWVv....',
+    '...vVWlBlWVv....',
+    '...vVWWWWWVv....',
+    '...vVaVVVVVv....',
+    '...vVVVVVVVv....',
+    '....vvvvvvv.....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const bubble = (x, y, big) => {
+      if (big) fx.set(x, y - 1, 'L').set(x - 1, y, 'L').set(x + 1, y, 'L').set(x, y + 1, 'l').set(x, y, 'W');
+      else fx.set(x, y, 'L');
+    };
+    bubble(13, 11 - f * 2, f < 3);
+    bubble(1, 8 - f, f % 2 === 1);
+    bubble(11, 2 + (f % 2), false);
+    if (f === 3) twinkle(fx, 13, 4, 2, 'a');
+    bubble(7, 1 - (f % 2), f === 2);
+  }),
+  roller: item([
+    '................',
+    '................',
+    '..zWWWWWWWWWz...',
+    '.zWWWWWWWWWWWz..',
+    '.zWWWWWWWWWWWz..',
+    '.zWWWWWWWWWWWz..',
+    '.zPPPPPPPPPPPz..',
+    '..zzzzzzzzzzz...',
+    '......DD........',
+    '......rR........',
+    '......rR........',
+    '.....rRRR.......',
+    '.....rRaR.......',
+    '.....rRRR.......',
+    '.....rrrr.......',
+    '................',
+  ], (body, fx, f) => {
+    for (let y = 2; y <= 6; y += 1) {
+      for (let x = 2; x <= 12; x += 1) {
+        if ('WP'.includes(body.get(x, y)) && (x + y + f) % 4 === 0) body.set(x, y, y === 6 ? 'p' : 'z');
+      }
+    }
+    [[4, 4], [9, 3], [11, 5]].forEach(([x, y], index) => body.set(2 + ((x + f * 2 + index) % 10), y, index === 1 ? 'n' : 'D'));
+    [[14, 1], [0, 9], [14, 9]].forEach(([x, y], index) => twinkle(fx, x, y, f + index));
+  }),
+  dryer: item([
+    '................',
+    '................',
+    '..rRRRRRRr......',
+    '.rRaaRRRRRdd....',
+    '.RaRRRRRRRdzd...',
+    '.RRRRWWRRRdzd...',
+    '.RRRRWKRRRdzd...',
+    '.rRRRRRRRRdd....',
+    '..rRRRRRRr......',
+    '....rRRr........',
+    '....rRRr........',
+    '....rRRr........',
+    '....rRRr........',
+    '....uRRu........',
+    '.....uu.........',
+    '................',
+  ], (body, fx, f) => {
+    const flames = [
+      ['Yy.', 'WYO', 'Ye.'],
+      ['YO.', 'WYe', 'YYO'],
+      ['Ye.', 'WYO', 'yO.'],
+      ['YYO', 'WYe', 'YO.'],
+    ];
+    fx.stamp(13, 4, flames[f]);
+    fx.set(13, 3, f % 2 === 0 ? 'O' : '.').set(14, 7, f % 2 === 1 ? 'e' : '.').set(15, 2 + f, 'O');
+    body.set(5 + (f % 2), 5, 'K').set(5 + ((f + 1) % 2), 6, 'W');
+  }),
+  gloves: item([
+    '................',
+    '.....RR.RR.RR...',
+    '....RaR.aR.aR...',
+    '....RaR.aR.aR...',
+    '.RR.RaRRaRRaR...',
+    '.RaRRaRRRRRRR...',
+    '.RaaRRRRRRRRR...',
+    '..RaRRRRRRRRR...',
+    '..RRRRRRRRRRr...',
+    '...RRRRRRRRr....',
+    '...RRRRRRRRr....',
+    '....rrrrrrr.....',
+    '....aRRRRRa.....',
+    '....RRRRRRr.....',
+    '....aRRRRRa.....',
+    '................',
+  ], (body, fx, f) => {
+    twinkle(fx, 14, 2, f);
+    twinkle(fx, 1, 11, f + 2, 'W');
+    twinkle(fx, 14, 11, f + 3, 'a');
+    body.set(6 + f, 8, 'a').set(7 + f, 7, 'a');
+  }),
+  sneakers: item([
+    '................',
+    '................',
+    '................',
+    '.........WWWW...',
+    '........WWPPW...',
+    '.......WWBWPW...',
+    '......WWBWWWW...',
+    '....WWWBWWWWWWW.',
+    '...WWWWWWBBWWWWW',
+    '...WPWWWWBBWWWWP',
+    '...RRRRRRRRRRRRR',
+    '...dzzdzzdzzdzzd',
+    '................',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    [[5, 3], [8, 4], [11, 2], [13, 3]].forEach(([y, length], index) => {
+      const slide = (f + index) % ITEM_FRAMES;
+      for (let step = 0; step < length; step += 1) {
+        const x = 2 - slide - step + (index % 2);
+        fx.set(x, y, step === 0 ? 'W' : 'L');
+      }
+    });
+    twinkle(fx, 14, 4, f + 1);
+    body.set(9, 8, f % 2 === 0 ? 'B' : 'l');
+  }),
+  vacuum: item([
+    '............DD..',
+    '...........Dd...',
+    '..........Dd....',
+    '.........Dd.....',
+    '........Dd......',
+    '...qBBBBDq......',
+    '..qBbbBBBBq.....',
+    '.qBblBBBBBBq....',
+    '.qBbBBWWBBBq....',
+    '.qBBBBWKBBBq.zz.',
+    '.qBBBBBBBBBqzdDz',
+    '..qBBBBBBBq.zzzz',
+    '..hKh...hKh.....',
+    '...h.....h......',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    [[15, 6], [13, 13], [15, 13], [12, 7]].forEach(([x, y], index) => {
+      const pull = (f + index) % ITEM_FRAMES;
+      const towardX = 14;
+      const towardY = 10;
+      const at = pull / ITEM_FRAMES;
+      fx.set(Math.round(x + (towardX - x) * at), Math.round(y + (towardY - y) * at), index % 2 === 0 ? 'n' : 'P');
+    });
+    body.set(6 + (f % 2), 8, 'W').set(7 - (f % 2), 9, 'K');
+  }),
+  vitamin: item([
+    '................',
+    '................',
+    '.........uRRu...',
+    '........uRaRRu..',
+    '.......uRaRRRR..',
+    '......uRaRRRRu..',
+    '.....zWRRRRRu...',
+    '....zWWWRRRu....',
+    '...zWWWWWRu.....',
+    '..zWWWWWWd......',
+    '..zWWWWWd.......',
+    '..zPWWWd........',
+    '...zPPd.........',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    twinkle(fx, 3, 3, f);
+    twinkle(fx, 13, 9, f + 2, 'g');
+    const rise = 13 - f;
+    fx.set(11, rise, 'G').set(10, rise, 'g').set(12, rise, 'g').set(11, rise - 1, 'g').set(11, rise + 1, 'g');
+    body.set(9 - f, 4 + f, 'W');
+  }),
+  battery: item([
+    '................',
+    '.....zddz.......',
+    '...xGGGGGGx.....',
+    '...GgGGGGGG.....',
+    '...GgGGGYGG.....',
+    '...GgGGYYGG.....',
+    '...GgGYYYYG.....',
+    '...GGGGYYGG.....',
+    '...GGGYYGGG.....',
+    '...GGGYGGGG.....',
+    '...GGGGGGGG.....',
+    '...GhhhhhhG.....',
+    '...GGGGGGGG.....',
+    '...xGGGGGGx.....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    for (let led = 0; led <= f; led += 1) body.rect(4 + led * 2 - (led > 2 ? 1 : 0), 11, led > 2 ? 1 : 2, 1, 'E');
+    if (f === 3) {
+      for (let y = 4; y <= 9; y += 1) for (let x = 5; x <= 9; x += 1) if (body.get(x, y) === 'Y') body.set(x, y, 'W');
+    }
+    const sparks = [[[12, 3], [13, 4]], [[12, 7], [13, 6], [1, 5]], [[13, 10], [1, 9], [0, 8]], [[1, 2], [12, 5], [14, 5]]];
+    sparks[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'E'));
+  }),
+  candle: item([
+    '................',
+    '................',
+    '................',
+    '................',
+    '.......K........',
+    '....vVVVVVVv....',
+    '...vVaVVVVVVv...',
+    '...vVaVVVVVVv...',
+    '...vWWWWWWWWv...',
+    '...vAAAAAAAAv...',
+    '...vWWWWWWWWv...',
+    '...vVaVVVVVVv...',
+    '...vVVVVVVVVv...',
+    '....vvvvvvvv....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const flames = [
+      ['.e.', '.O.', 'OYO', '.W.'],
+      ['..e', '.OO', 'OYO', '.W.'],
+      ['.e.', 'eOe', 'OYO', '.W.'],
+      ['e..', 'OO.', 'OYO', '.W.'],
+    ];
+    fx.stamp(6, 0, flames[f]);
+    const glow = f % 2 === 0 ? [[4, 2], [10, 2], [5, 0], [9, 0]] : [[4, 1], [10, 1], [3, 3], [11, 3]];
+    glow.forEach(([x, y]) => fx.set(x, y, 'y'));
+    twinkle(fx, 13, 7, f + 1, 'a');
+    twinkle(fx, 1, 10, f + 3, 'V');
+  }),
+  wipes: item([
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '..qbbbWWWbbbq...',
+    '.qbLLbbbbbLLbq..',
+    '.qblbWWWWWblbq..',
+    '.qbbbWqBqWbbbq..',
+    '.qbbbWBqBWbbbq..',
+    '.qbbbWWWWWbbbq..',
+    '.qbbbbbbbbbbbq..',
+    '..qqqqqqqqqqq...',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const sway = [0, 1, 0, -1][f];
+    body.stamp(5 + sway * 2, 1, ['.WWW.']).stamp(5 + sway, 2, ['WWWWW']).stamp(5 + sway, 3, ['WPWWP']).stamp(5, 4, ['WWWWW']);
+    twinkle(fx, 13, 3, f);
+    twinkle(fx, 1, 13, f + 2, 'L');
+    twinkle(fx, 14, 13, f + 1, 'W');
+  }),
+  protein: item([], (body, fx, f) => {
+    const shake = [0, 1, 0, -1][f];
+    body.stamp(shake, 0, [
+      '................',
+      '.....hDDDDh.....',
+      '.....DddddD.....',
+      '....hDDDDDDh....',
+      '....zWWWWWWz....',
+      '....zRRRRRRz....',
+      '....zRWRRWRz....',
+      '....zRWWWWRz....',
+      '....zRWRRWRz....',
+      '....zRRRRRRz....',
+      '....zWWWWWPz....',
+      '....zWaaaaPz....',
+      '....zWaaaaPz....',
+      '.....zPPPPz.....',
+    ]);
+    for (let x = 6; x <= 9; x += 1) body.set(x + shake, 10, (x + f) % 2 === 0 ? 'a' : 'W');
+    const power = [[[13, 3], [2, 8]], [[14, 5], [1, 6], [13, 1]], [[13, 8], [2, 3], [14, 2]], [[12, 10], [1, 11]]];
+    power[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'Y'));
+    twinkle(fx, 13, 12, f + 1, 'a');
+  }),
+  heal: item([
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '.uRRRRRRRRRRRu..',
+    '.RYYOYYYYsWYYR..',
+    '.RYOYYOYYWOWYR..',
+    '.uRYYOYYYsWYRu..',
+    '..RRRRRRRRRRR...',
+    '..uRaRRRRRRRu...',
+    '...uRRRRRRRu....',
+    '....uuRRRuu.....',
+    '.....uuuuu......',
+    '................',
+  ], (body, fx, f) => {
+    steam(fx, 4, 5, f, 5);
+    steam(fx, 7, 5, f + 1, 6);
+    steam(fx, 10, 5, f + 2, 5);
+    body.set(2 + f, 7, 'O').set(4 + f, 8, 'y');
+    body.line(12, 5, 14, 1, 'n').line(13, 5, 15, 2, 'N');
+  }),
+  vacuumBag: item([
+    '................',
+    '....DDDDDDDD....',
+    '...DddddddddD...',
+    '...DDDDDDDDDD...',
+    '...zLLLLLLLLz...',
+    '...zLiLLLLLLz...',
+    '...zLiLLLLLLz...',
+    '...zLLLLLLLLz...',
+    '...zLLLLLLLLz...',
+    '...znnPnnPnnz...',
+    '...znPnnnnPnz...',
+    '...zPnnPnnnPz...',
+    '...DDDDDDDDDD...',
+    '....DDDDDDDD....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    for (let speck = 0; speck < 5; speck += 1) {
+      const angle = (speck / 5) * Math.PI * 2 + (f / ITEM_FRAMES) * Math.PI * 0.4 * 5;
+      const reach = 1 + (speck % 3);
+      body.set(Math.round(7.5 + Math.cos(angle) * reach * 1.1), Math.round(6 + Math.sin(angle) * reach * 0.7), speck % 2 === 0 ? 'n' : 'P');
+    }
+    [[1, 3], [14, 5], [1, 10], [14, 11]].forEach(([x, y], index) => {
+      const pull = (f + index) % ITEM_FRAMES;
+      if (pull < 3) fx.set(x + (x < 8 ? pull : -pull) * 0.7, y, pull === 2 ? 'W' : 'n');
+    });
+    body.set(8, 2, f % 2 === 0 ? 'G' : 'Y');
+  }),
+  bugBomb: item([
+    '................',
+    '................',
+    '................',
+    '................',
+    '.......DD.......',
+    '.....uzzzzu.....',
+    '....uRRRRRRu....',
+    '....RaRRRRRR....',
+    '....RWWWWWWR....',
+    '....RWKWWKWR....',
+    '....RWWKKWWR....',
+    '....RWKWWKWR....',
+    '....RWWWWWWR....',
+    '....RaRRRRRR....',
+    '....uRRRRRRu....',
+    '.....uuuuuu.....',
+  ], (body, fx, f) => {
+    const clouds = [
+      [[7, 3, 1]],
+      [[7, 2, 2], [5, 3, 1]],
+      [[7, 2, 2], [4, 2, 1], [11, 2, 2], [9, 0, 1]],
+      [[6, 1, 2], [2, 2, 1], [12, 1, 2], [9, 3, 1], [14, 4, 1]],
+    ];
+    clouds[f].forEach(([x, y, radius], index) => {
+      fx.ellipse(x, y, radius, radius, index % 2 === 0 ? 'W' : 'g');
+      fx.set(x - 1, y - radius + 1, 'W');
+    });
+    if (f > 1) fx.set(1, 6, 'g').set(14, 7, 'W');
+  }),
+  coffee: item([
+    '..........GG....',
+    '.........GG.....',
+    '.........G......',
+    '...zzzzzzGzzz...',
+    '...zWWWWWGWWz...',
+    '....zzzzzzzz....',
+    '....zHHHHHHz....',
+    '....zHHHHHHz....',
+    '....zHHHHHHz....',
+    '....zcHHHHHz....',
+    '....zcHHHHHz....',
+    '.....zHHHHz.....',
+    '.....zccHHz.....',
+    '.....zzzzzz.....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const bob = f % 2;
+    [[6, 6], [8, 8], [6, 10]].forEach(([x, y], index) => {
+      const top = y + ((index + bob) % 2);
+      body.rect(x + (index === 1 ? 1 : 0), top, 2, 2, 'i').set(x + (index === 1 ? 1 : 0), top, 'W');
+    });
+    fx.set(3, 7 + f, 'L').set(12, 6 + ((f + 2) % ITEM_FRAMES), 'L');
+    twinkle(fx, 13, 2, f);
+    twinkle(fx, 2, 12, f + 2, 'i');
+  }),
+  chicken: item([
+    '................',
+    '.....fFFFf......',
+    '....fFsFFFFf....',
+    '...fFsFFFFFFf...',
+    '...FsFFFFFFFf...',
+    '...FFFFFFsFFf...',
+    '...fFFFFFFFFf...',
+    '....fFFFFFFf....',
+    '.....ffFFFf.....',
+    '.......fWf......',
+    '........WW......',
+    '........WPW.....',
+    '.......WW.WW....',
+    '.......WP.PW....',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    twinkle(fx, 13, 2, f, 'y');
+    twinkle(fx, 1, 6, f + 2, 'y');
+    twinkle(fx, 12, 9, f + 1, 'W');
+    steam(fx, 5, 0, f, 2);
+    steam(fx, 9, 0, f + 2, 2);
+    body.set(5 + f, 3 + (f % 2), 's');
+  }),
+  icepack: item([
+    '................',
+    '................',
+    '...qllllllllq...',
+    '..qliiiiiiiilq..',
+    '..liiiiiiiiiil..',
+    '..liiiiiiiiibl..',
+    '..liiiiiiiiibl..',
+    '..liiiiiiiiibl..',
+    '..liiiiiiiiibl..',
+    '..liiiiiiiiibl..',
+    '..liiiiiiiibbl..',
+    '..qlbbbbbbbblq..',
+    '...qllllllllq...',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    for (let step = 0; step < 9; step += 1) {
+      const x = 3 + f * 3 - step + 3;
+      const y = 3 + step;
+      if (body.get(x, y) === 'i') body.set(x, y, 'W');
+      if (body.get(x + 1, y) === 'i' && step % 2 === 0) body.set(x + 1, y, 'W');
+    }
+    body.set(7, 6, 'W').set(6, 7, 'W').set(7, 7, 'E').set(8, 7, 'W').set(7, 8, 'W');
+    twinkle(fx, 14, 2, f, 'i');
+    twinkle(fx, 1, 5, f + 1, 'W');
+    twinkle(fx, 13, 13, f + 2, 'i');
+    twinkle(fx, 2, 14, f + 3, 'L');
+  }),
+  box: item([
+    '................',
+    '....ccccccccc...',
+    '...cnnnnPPnnnc..',
+    '..cnnnnPPnnnnc..',
+    '..NNNNNNNNNNNc..',
+    '..NnnnnPPnnnNc..',
+    '..NnnnnPPnnnNc..',
+    '..NnsnnPPnnnNc..',
+    '..NnnnnnnnnnNc..',
+    '..NnWWWnnnnnNc..',
+    '..NnWKWnnnnnNc..',
+    '..NnnnnnnnnnNc..',
+    '..NNNNNNNNNNN...',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    const shield = [[1, 1], [8, 0], [15, 2], [15, 8], [14, 14], [7, 14], [0, 13], [0, 7]];
+    shield.forEach(([x, y], index) => {
+      const lit = (index + f * 2) % 8;
+      if (lit < 3) fx.set(x, y, lit === 0 ? 'W' : lit === 1 ? 'Y' : 'O');
+    });
+    body.set(4 + f * 2, 5 + (f % 2), 's');
+  }),
+  chest: item([
+    '................',
+    '................',
+    '...HNNNNNNNNH...',
+    '..HNnnOnnOnnNH..',
+    '..NnsnOnnOnnnN..',
+    '..NnnnOnnOnnnN..',
+    '..OOOOOOOOOOOO..',
+    '..HHHHHOYOHHHH..',
+    '..NnnnnOKOnnnN..',
+    '..NnnnnOOOnnnN..',
+    '..NnnnOnnOnnnN..',
+    '..NnnnOnnOnnnN..',
+    '..HNNNNNNNNNNH..',
+    '................',
+    '................',
+    '................',
+  ], (body, fx, f) => {
+    if (f > 0) {
+      for (let x = 2; x <= 13; x += 1) if (body.get(x, 7) === 'H') body.set(x, 7, f === 2 ? 'W' : (x + f) % 2 === 0 ? 'Y' : 'y');
+    }
+    body.set(8, 7, f % 2 === 0 ? 'Y' : 'W');
+    for (let x = 2; x <= 13; x += 1) if (body.get(x, 6) === 'O' && (x + 13 - f * 3) % 12 === 0) body.set(x, 6, 'W');
+    twinkle(fx, 3, 0, f, 'Y');
+    twinkle(fx, 12, 0, f + 2, 'Y');
+    twinkle(fx, 15, 6, f + 1, 'Y');
+    twinkle(fx, 0, 9, f + 3, 'Y');
+    twinkle(fx, 8, 1, f + 1, 'W');
+  }),
 };
-ICON_ART.ramen = ICON_ART.heal;
+ITEMS.laser = item([
+  '................',
+  '................',
+  '................',
+  '................',
+  '.........hzzh...',
+  '........hzzDh...',
+  '.......hzRDh....',
+  '......hzzDh.....',
+  '.....hzzDh......',
+  '....hzzDh.......',
+  '...hzzDh........',
+  '..hzzDh.........',
+  '..hDDh..........',
+  '...hh...........',
+  '................',
+  '................',
+], (body, fx, f) => {
+  const beam = [[12, 3], [13, 2], [14, 1], [15, 0]];
+  beam.forEach(([x, y], index) => {
+    fx.set(x, y, (index + f) % 2 === 0 ? 'W' : 'j');
+    if ((index + f) % 2 === 0) fx.set(x - 1, y - 1, 'g').set(x + 1, y + 1, 'g');
+  });
+  body.set(8, 6, f % 2 === 0 ? 'R' : 'e');
+  twinkle(fx, 13, 6, f + 1, 'j');
+  twinkle(fx, 9, 1, f + 3, 'j');
+  twinkle(fx, 2, 8, f + 2, 'W');
+});
+ITEMS.stapler = item([], (body, fx, f) => {
+  const pressed = f % 2;
+  body.stamp(0, 4 + pressed, [
+    '..uRRRRRRRRu....',
+    '.uRaaRRRRRRRu...',
+    '.RRRRRRRRRRRRu..',
+    '.uuRRRRRRRRRRR..',
+  ]);
+  if (!pressed) body.stamp(0, 8, '...zzzzzzzzzzd..');
+  body.stamp(0, 9, [
+    '..hDDDDDDDDDDh..',
+    '.hDddDDDDDDDDDh.',
+    '.hhhhhhhhhhhhhh.',
+  ]);
+  const shots = [[[14, 7], [15, 7]], [[13, 8], [14, 8], [15, 5]], [[15, 9], [14, 6], [15, 6]], [[13, 8], [14, 8], [15, 10]]];
+  shots[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'z'));
+  if (pressed) fx.set(13, 7, 'Y').set(14, 9, 'O');
+  twinkle(fx, 1, 2, f, 'Y');
+});
+ITEMS.ball = item([], (body, fx, f) => {
+  // 바닥에 닿을 때 납작해졌다가 튀어 오른다.
+  const [cy, rx, ry] = [[10, 6, 4], [7, 5, 5], [5, 5, 5], [7, 5, 5]][f];
+  body.ellipse(7, cy, rx, ry, 'A').ellipse(6, cy - 1, rx - 1, ry - 1, 'a', 'A').ellipse(7, cy, rx - 1, ry - 1, 'A', 'a');
+  body.ellipse(5, cy - 2, 2, 1, 'a', 'A');
+  for (let x = 7 - rx; x <= 7 + rx; x += 1) if (body.get(x, cy) === 'A') body.set(x, cy, 'Y');
+  for (let y = cy - ry; y <= cy + ry; y += 1) if (body.get(7 + (f % 2), y) === 'A') body.set(7 + (f % 2), y, 'W');
+  body.set(5, cy - 2, 'W');
+  const shadow = [5, 3, 2, 3][f];
+  for (let x = 7 - shadow; x <= 7 + shadow; x += 1) fx.set(x, 15, 'p');
+  if (f === 0) fx.set(0, 13, 'W').set(14, 13, 'W').set(1, 11, 'a').set(13, 11, 'a');
+  if (f === 2) twinkle(fx, 13, 2, 2, 'Y');
+  if (f === 1 || f === 3) fx.set(2, cy + 5, 'a').set(12, cy + 5, 'a');
+});
+ITEMS.robot = item([], (body, fx, f) => {
+  body.ellipse(7, 8, 6, 6, 'D').ellipse(7, 7, 6, 5, 'z').ellipse(7, 7, 5, 4, 'W').ellipse(7, 7, 2, 2, 'z');
+  body.set(7, 7, f % 2 === 0 ? 'j' : 'G').rect(5, 2, 5, 1, 'h').set(4, 3, 'h').set(10, 3, 'h');
+  body.set(4, 5, 'P').set(3, 7, 'P').set(10 + (f % 2), 9, 'P');
+  [[2, 13], [12, 13]].forEach(([x, y], side) => {
+    for (let hair = 0; hair < 3; hair += 1) {
+      const spin = ((f + hair * 1.33) / ITEM_FRAMES) * Math.PI * 2 * (side === 0 ? 1 : -1);
+      fx.set(x + Math.cos(spin) * 1.6, y + Math.sin(spin) * 1.6, 'Y');
+    }
+    fx.set(x, y, 'O');
+  });
+  [[0, 3], [15, 5], [14, 0], [1, 9]].forEach(([x, y], index) => {
+    const pull = (f + index) % ITEM_FRAMES;
+    if (pull < 3) fx.set(x + (x < 8 ? pull : -pull), y + pull * 0.6, pull === 0 ? 'n' : 'P');
+  });
+});
+ITEMS.magnifier = item([
+  '................',
+  '....hDDDDh......',
+  '...DLiiiiLD.....',
+  '..DiWWiiiiiD....',
+  '..DiWiiiiiiD....',
+  '..DiiiiiiiiD....',
+  '..DiiiiiiilD....',
+  '..DLiiiillLD....',
+  '...DLiillLD.....',
+  '....hDDDDDn.....',
+  '.........nNn....',
+  '..........nNn...',
+  '...........nNn..',
+  '............nNc.',
+  '.............cc.',
+  '................',
+], (body, fx, f) => {
+  // 렌즈 안에서 작은 점이 점점 커진다.
+  const grow = [0, 1, 2, 1][f];
+  body.ellipse(6, 5, grow, grow, 'e', 'i');
+  body.set(6, 5, grow === 2 ? 'Y' : 'e');
+  body.set(4 + (f % 2), 3, 'W');
+  twinkle(fx, 12, 2, f, 'Y');
+  twinkle(fx, 1, 10, f + 2, 'W');
+  twinkle(fx, 13, 8, f + 3, 'i');
+});
+ITEMS.ramen = ITEMS.heal;
 
 // 보스는 크기가 커서 글자 격자 대신 작은 그리기 함수로 찍는다. frame은 0 또는 1이다.
 function canvasGrid(width, height) {
   const cells = Array.from({ length: height }, () => Array(width).fill('.'));
   const api = {
     set(x, y, ch) {
-      if (x >= 0 && x < width && y >= 0 && y < height) cells[Math.round(y)][Math.round(x)] = ch;
+      const column = Math.round(x);
+      const row = Math.round(y);
+      if (column >= 0 && column < width && row >= 0 && row < height) cells[row][column] = ch;
+      return api;
+    },
+    // 글자 격자를 (x, y)에 찍는다. '.'은 건너뛴다.
+    stamp(x, y, rows) {
+      [rows].flat().forEach((line, row) => [...line].forEach((ch, column) => {
+        if (ch !== '.') api.set(x + column, y + row, ch);
+      }));
       return api;
     },
     get: (x, y) => cells[y]?.[x] ?? '.',
@@ -360,7 +1210,7 @@ function makeCanvas(width, height) {
 }
 
 // 글자 격자를 캔버스로 바꾸고, 바깥에 1픽셀 외곽선을 두른다.
-function build(rows, { outline = true, scale = 1 } = {}) {
+function build(rows, { outline = true, scale = 1, overlay = null } = {}) {
   const height = rows.length;
   const width = Math.max(...rows.map((row) => row.length));
   const pad = outline ? 1 : 0;
@@ -386,6 +1236,12 @@ function build(rows, { outline = true, scale = 1 } = {}) {
       }
     }
   }
+  // 반짝임 같은 덧그림은 외곽선 없이 맨 위에 찍는다.
+  (overlay ?? []).forEach((line, y) => [...line].forEach((ch, x) => {
+    if (!PALETTE[ch]) return;
+    ctx.fillStyle = PALETTE[ch];
+    ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
+  }));
   return canvas;
 }
 
@@ -422,19 +1278,40 @@ export function sprite(name, { flip = false, tint = null, scale = 1 } = {}) {
   return cache.get(key);
 }
 
-export function icon(id) {
-  const key = `icon|${id}`;
-  if (!cache.has(key)) cache.set(key, build(ICON_ART[id] ?? ICON_ART.box));
+function buildItem(id, frame, scale = 1) {
+  const [body, overlay] = (ITEMS[id] ?? ITEMS.box)(frame % ITEM_FRAMES);
+  return build(body, { scale, overlay });
+}
+
+// 바닥에 떨어진 아이템을 그릴 때 쓴다. frame은 0부터 ITEM_FRAMES - 1까지다.
+export function icon(id, frame = 0) {
+  const key = `icon|${id}|${frame % ITEM_FRAMES}`;
+  if (!cache.has(key)) cache.set(key, buildItem(id, frame));
   return cache.get(key);
 }
 
 const urlCache = new Map();
 
-// HUD와 선택 카드에 쓰는 확대한 아이콘 이미지 주소
+// HUD에 쓰는 확대한 스프라이트(적 그림 등) 이미지 주소
 export function iconUrl(id) {
   if (!urlCache.has(id)) {
-    const source = ICON_ART[id] ? build(ICON_ART[id], { scale: 4 }) : build(ART[id], { scale: 4 });
+    const source = ITEMS[id] ? buildItem(id, 0, 4) : build(ART[id], { scale: 4 });
     urlCache.set(id, source.toDataURL());
   }
   return urlCache.get(id);
 }
+
+// 선택 카드와 HUD에서 CSS로 넘겨 가며 보여 주는 아이템 프레임 묶음(가로로 ITEM_FRAMES칸)
+export function iconSheetUrl(id) {
+  const key = `sheet|${id}`;
+  if (!urlCache.has(key)) {
+    const frames = Array.from({ length: ITEM_FRAMES }, (_, frame) => buildItem(id, frame));
+    const sheet = makeCanvas(frames[0].width * ITEM_FRAMES, frames[0].height);
+    const ctx = sheet.getContext('2d');
+    frames.forEach((frame, index) => ctx.drawImage(frame, index * frame.width, 0));
+    urlCache.set(key, sheet.toDataURL());
+  }
+  return urlCache.get(key);
+}
+
+export const ITEM_IDS = Object.keys(ITEMS);

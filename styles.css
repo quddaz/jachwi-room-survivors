@@ -113,8 +113,8 @@ img { display: block; max-width: 100%; }
 .choices { display: grid; gap: 8px; }
 .choice {
   display: grid;
-  grid-template-columns: 44px 1fr;
-  gap: 2px 10px;
+  grid-template-columns: 60px 1fr;
+  gap: 2px 12px;
   align-items: center;
   padding: 12px;
   border: 3px solid transparent;
@@ -125,12 +125,12 @@ img { display: block; max-width: 100%; }
   cursor: pointer;
 }
 .choice:active, .choice:focus-visible { border-color: var(--color-beak); outline: none; }
-.choice-icon { grid-row: span 2; font-size: 30px; text-align: center; }
+.choice-icon { grid-row: span 2; }
 .choice-name { font-weight: 800; }
 .choice-name small { margin-left: 6px; color: var(--color-beak-deep); font-weight: 800; }
 .choice-new { color: var(--color-good) !important; }
 .choice-evolve { padding: 1px 7px; border-radius: 999px; background: #ffb21f; color: #5a3a00 !important; }
-.choice.is-evolve { border-color: #ffb21f; background: linear-gradient(135deg, #fff7dc, #ffe9a8); box-shadow: 0 0 0 3px rgb(255 178 31 / 35%), var(--shadow-card); animation: evolve-glow 1.2s ease-in-out infinite alternate; }
+.choice.is-evolve { border-color: #ffb21f; background: linear-gradient(135deg, #fff7dc, #ffe9a8); box-shadow: 0 0 0 3px rgb(255 178 31 / 35%), var(--shadow-card); animation: choice-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards, evolve-glow 1.2s ease-in-out infinite alternate; }
 @keyframes evolve-glow { to { box-shadow: 0 0 0 6px rgb(255 178 31 / 15%), var(--shadow-card); } }
 @media (prefers-reduced-motion: reduce) { .choice.is-evolve { animation: none; } }
 .loadout .is-evolved { background: #ffe08a; color: #5a3a00; }
@@ -166,7 +166,35 @@ img { display: block; max-width: 100%; }
 .points { color: var(--color-beak-deep); font-weight: 900; font-variant-numeric: tabular-nums; }
 .ranking-empty { display: block !important; padding: 24px 0; color: var(--color-muted); text-align: center; background: none !important; box-shadow: none !important; }
 
-.loadout img { width: 18px; height: 18px; }
+/* 아이템 아이콘: 가로로 4칸짜리 프레임 묶음을 한 칸씩 넘긴다. */
+.item {
+  --size: 18px;
+  flex: none;
+  display: inline-block;
+  width: var(--size);
+  height: var(--size);
+  background: var(--sheet) 0 0 / calc(var(--size) * 4) var(--size) no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation: item-frames 0.56s steps(4) infinite;
+}
+@keyframes item-frames { to { background-position-x: calc(var(--size) * -4); } }
+.choice-icon { position: relative; display: grid; place-items: center; width: 60px; height: 60px; border-radius: 14px; background: radial-gradient(circle, #fff6dc 0%, #ffe9c4 60%, #f6d9a6 100%); overflow: hidden; }
+.choice-icon::before { content: ''; position: absolute; inset: -40%; background: repeating-conic-gradient(rgb(255 255 255 / 55%) 0 12deg, transparent 12deg 30deg); animation: item-rays 6s linear infinite; }
+.choice-icon .item { --size: 54px; position: relative; animation: item-frames 0.56s steps(4) infinite, item-float 1.4s ease-in-out infinite; }
+.choice:nth-child(2) .choice-icon .item { animation-delay: 0s, -0.45s; }
+.choice:nth-child(3) .choice-icon .item { animation-delay: 0s, -0.9s; }
+.choice.is-evolve .choice-icon { background: radial-gradient(circle, #fffbe6 0%, #ffd866 65%, #ffb21f 100%); }
+.choice.is-evolve .choice-icon::before { background: repeating-conic-gradient(rgb(255 255 255 / 80%) 0 10deg, transparent 10deg 24deg); animation-duration: 2.5s; }
+@keyframes item-rays { to { transform: rotate(1turn); } }
+@keyframes item-float { 50% { transform: translateY(-3px); } }
+.choice { animation: choice-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
+.choice:nth-child(2) { animation-delay: 0.06s; }
+.choice:nth-child(3) { animation-delay: 0.12s; }
+@keyframes choice-in { from { opacity: 0; transform: translateY(14px) scale(0.94); } }
+.loadout .is-evolved .item { filter: drop-shadow(0 0 3px #ffb21f); }
+@media (prefers-reduced-motion: reduce) {
+  .item, .choice-icon .item, .choice-icon::before, .choice { animation: none; }
+}
 .kills { display: inline-flex; align-items: center; gap: 4px; }
 .kills img { height: 14px; }
-.choice-icon img { width: 40px; height: 40px; margin: 0 auto; }

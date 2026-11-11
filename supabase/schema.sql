@@ -13,6 +13,9 @@ create index if not exists room_survivors_records_crew_idx
 
 alter table public.room_survivors_records enable row level security;
 
+-- 새 프로젝트는 anon 권한이 기본으로 붙지 않을 수 있어 직접 준다.
+grant select, insert on public.room_survivors_records to anon;
+
 -- 누구나 기록을 남기고 볼 수 있지만, 고치거나 지울 수는 없다.
 drop policy if exists "room survivors records are insertable" on public.room_survivors_records;
 create policy "room survivors records are insertable" on public.room_survivors_records for insert to anon with check (true);

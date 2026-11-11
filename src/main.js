@@ -1,7 +1,7 @@
 import { choose, createGame, formatTime, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
-import { iconUrl } from './sprites.js';
+import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
 const STEP = 1 / 60;
@@ -65,13 +65,28 @@ function resize() {
   canvas.style.width = `${viewport.width * PIXEL}px`;
   canvas.style.height = `${viewport.height * PIXEL}px`;
   // 넓은 화면에서는 적이 화면 밖에서 나오도록 보이는 범위를 알려 준다.
-  if (game) game.viewRadius = Math.hypot(viewport.width, viewport.height);
+  if (game) {
+    game.viewRadius = Math.hypot(viewport.width, viewport.height);
+    // 버퍼 1픽셀이 월드 2칸이라, 버퍼 크기가 곧 화면 절반의 월드 길이다. 탱탱볼이 이 가장자리에서 튕긴다.
+    game.view = { halfW: viewport.width, halfH: viewport.height };
+  }
 }
 
+// 한글 입력 상태에서는 event.key가 'ㅈ', 'ㅁ'처럼 들어와서, 글자가 아니라 자판 위치(event.code)로 읽는다.
+const MOVE_KEYS = {
+  KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down',
+  KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
+};
+
 function readKeys() {
-  const x = (keys.has('ArrowRight') || keys.has('d') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('a') ? 1 : 0);
-  const y = (keys.has('ArrowDown') || keys.has('s') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('w') ? 1 : 0);
+  const x = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+  const y = (keys.has('down') ? 1 : 0) - (keys.has('up') ? 1 : 0);
   return { x, y };
+}
+
+// 반짝이는 아이템 아이콘. 프레임 묶음을 CSS가 차례로 넘긴다.
+function itemIcon(id) {
+  return `<i class="item" style="--sheet: url(${iconSheetUrl(id)})"></i>`;
 }
 
 function currentInput() {
@@ -114,8 +129,8 @@ function drawLoadout() {
   ];
   document.querySelector('.loadout').innerHTML = items
     .map(([id, level]) => (game.evolved[id]
-      ? `<span class="is-evolved"><img class="px" src="${iconUrl(id)}" alt="" />★</span>`
-      : `<span><img class="px" src="${iconUrl(id)}" alt="" />${level}</span>`)).join('');
+      ? `<span class="is-evolved">${itemIcon(id)}★</span>`
+      : `<span>${itemIcon(id)}${level}</span>`)).join('');
 }
 
 function drawChoices() {
@@ -126,7 +141,7 @@ function drawChoices() {
   touch = null;
   joystick.hidden = true;
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
-    const icon = `<img class="px" src="${iconUrl(choice.kind === 'heal' ? 'heal' : choice.id)}" alt="" />`;
+    const icon = itemIcon(choice.kind === 'heal' ? 'heal' : choice.id);
     const tag = choice.kind === 'heal' ? '' : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
@@ -277,22 +292,24 @@ gameScreen.addEventListener('pointerup', releaseTouch);
 gameScreen.addEventListener('pointercancel', releaseTouch);
 
 window.addEventListener('keydown', (event) => {
-  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(key)) {
-    keys.add(key);
-    if (game && !game.over) event.preventDefault();
+  const playing = game && !game.over && gameScreen.classList.contains('is-active');
+  const move = MOVE_KEYS[event.code];
+  if (move && playing) {
+    keys.add(move);
+    event.preventDefault();
   }
-  if (key === 'Escape' && game && !game.over && document.querySelector('[data-screen="game"].is-active')) {
-    setPaused(!paused);
-  }
-  if (game?.choices && ['1', '2', '3'].includes(key)) {
-    choose(game, Number(key) - 1);
+  if (event.code === 'Escape' && playing) setPaused(!paused);
+  const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[event.code];
+  if (game?.choices && pick !== undefined && pick < game.choices.length) {
+    choose(game, pick);
     drawLoadout();
   }
 });
 window.addEventListener('keyup', (event) => {
-  keys.delete(event.key.length === 1 ? event.key.toLowerCase() : event.key);
+  keys.delete(MOVE_KEYS[event.code]);
 });
+// 창을 벗어나면 keyup을 못 받아 계속 걷게 되므로 눌린 키를 비운다.
+window.addEventListener('blur', () => keys.clear());
 window.addEventListener('resize', () => {
   if (game) resize();
 });

@@ -7,8 +7,8 @@ export const PLAYER = { speed: 150, maxHp: 50, radius: 16, pickupRadius: 90, inv
 export function difficultyAt(time) {
   const minutes = time / 60;
   return {
-    hp: 1 + minutes * 0.3 + minutes * minutes * 0.05,
-    damage: 1 + minutes * 0.15,
+    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09,
+    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02,
     speed: 1 + Math.min(0.45, minutes * 0.04),
     spawnPerSec: Math.min(36, 1.4 + minutes * 1.8 + minutes * minutes * 0.3),
     maxEnemies: Math.min(560, 110 + Math.floor(minutes * 65)),
@@ -41,7 +41,8 @@ export function bossStatsOf(index, time) {
   const base = BOSSES[index % BOSSES.length];
   const round = Math.floor(index / BOSSES.length);
   const hpScale = difficultyAt(time).hp * (1 + round * 0.9);
-  return { ...base, hp: Math.round(base.hp * hpScale), damage: base.damage * (1 + round * 0.5) };
+  // 보스도 나오는 시점의 난이도만큼 더 아프게 때린다.
+  return { ...base, hp: Math.round(base.hp * hpScale), damage: base.damage * difficultyAt(time).damage * (1 + round * 0.5) };
 }
 
 // 무기. 배열은 1~5레벨 값이다.
@@ -53,20 +54,20 @@ export const WEAPONS = {
   },
   broom: {
     label: '빗자루', description: '주변을 크게 쓸어 버린다',
-    cooldown: [1.7, 1.5, 1.35, 1.2, 1.0], damage: [14, 18, 23, 28, 34], radius: [72, 82, 92, 104, 118], knockback: 40,
+    cooldown: [1.4, 1.25, 1.1, 1.0, 0.85], damage: [20, 26, 33, 41, 50], radius: [76, 86, 96, 108, 122], knockback: 40,
   },
   bleach: {
     label: '락스', description: '적이 몰린 곳에 독한 웅덩이를 남긴다',
-    cooldown: [4, 3.6, 3.2, 2.8, 2.4], dps: [14, 18, 23, 28, 35], radius: [50, 56, 62, 70, 80], count: [1, 1, 2, 2, 3],
+    cooldown: [3.2, 2.9, 2.6, 2.3, 2.0], dps: [22, 28, 35, 43, 54], radius: [58, 64, 70, 78, 88], count: [1, 1, 2, 2, 3],
     lifeSec: 3,
   },
   dehumidifier: {
     label: '제습기', description: '곁에 오는 적을 계속 말린다',
-    dps: [7, 10, 13, 17, 22], radius: [64, 72, 82, 92, 104],
+    dps: [12, 16, 21, 27, 34], radius: [70, 80, 90, 102, 116],
   },
   swatter: {
     label: '파리채', description: '가장 센 적을 세게 내려친다',
-    cooldown: [2.4, 2.1, 1.85, 1.6, 1.35], damage: [40, 55, 72, 92, 120], radius: [36, 40, 44, 50, 56],
+    cooldown: [2.0, 1.8, 1.6, 1.4, 1.2], damage: [60, 80, 105, 135, 170], radius: [42, 46, 52, 58, 66],
   },
   slipper: {
     label: '슬리퍼', description: '던지면 돌아오는 슬리퍼',
@@ -74,44 +75,67 @@ export const WEAPONS = {
   },
   coil: {
     label: '모기향', description: '불씨가 주위를 빙빙 돌며 태운다',
-    damage: [8, 10, 13, 16, 20], count: [2, 2, 3, 3, 4], orbit: [62, 66, 70, 76, 82], hitEverySec: 0.45,
+    damage: [12, 15, 19, 24, 30], count: [2, 3, 3, 4, 5], orbit: [62, 66, 70, 76, 82], hitEverySec: 0.35,
   },
   zapper: {
     label: '전기 파리채', description: '전기가 적에서 적으로 튄다',
-    cooldown: [2.2, 2.0, 1.8, 1.6, 1.4], damage: [18, 23, 29, 36, 44], chains: [3, 4, 5, 6, 8], jump: 130,
+    cooldown: [1.8, 1.65, 1.5, 1.35, 1.2], damage: [24, 30, 38, 47, 58], chains: [4, 5, 6, 7, 9], jump: 140,
   },
   detergent: {
     label: '세제 거품', description: '둥둥 떠다니다 닿으면 터지는 거품',
-    cooldown: [2.2, 2.0, 1.8, 1.6, 1.4], damage: [14, 18, 22, 27, 33], count: [3, 4, 5, 6, 7], radius: [34, 38, 42, 46, 52],
-    speed: 95, lifeSec: 3.2,
+    cooldown: [1.9, 1.75, 1.6, 1.45, 1.3], damage: [20, 25, 31, 38, 46], count: [4, 5, 6, 7, 8], radius: [38, 42, 46, 50, 56],
+    speed: 120, lifeSec: 3.2,
   },
   roller: {
     label: '돌돌이', description: '바라보는 쪽으로 굴러가며 적을 모두 훑는다',
-    cooldown: [3.2, 2.9, 2.6, 2.3, 2.0], damage: [22, 28, 35, 43, 52], size: [16, 18, 20, 23, 26], speed: 240, lifeSec: 1.8,
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.7], damage: [30, 38, 47, 57, 70], size: [18, 20, 22, 25, 28], speed: 260, lifeSec: 1.8,
   },
   dryer: {
     label: '드라이기', description: '가까운 적 쪽으로 뜨거운 바람을 계속 쏜다',
-    dps: [16, 21, 27, 34, 42], range: [120, 130, 142, 155, 170], spread: 0.42,
+    dps: [24, 31, 39, 48, 60], range: [135, 145, 157, 170, 185], spread: 0.45,
   },
   fan: {
     label: '선풍기', description: '강풍으로 앞의 적을 멀리 날린다',
-    cooldown: [3, 2.8, 2.6, 2.4, 2.2], damage: [8, 11, 14, 18, 22], range: [150, 165, 180, 200, 220], knockback: 95,
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [160, 175, 190, 210, 230], knockback: 95,
+  },
+  laser: {
+    label: '레이저 포인터', description: '아무 방향으로나 곧게 뻗는 레이저를 쏜다',
+    cooldown: [2.2, 2.0, 1.8, 1.6, 1.4], damage: [28, 35, 43, 52, 64], width: [14, 16, 18, 20, 24], count: [1, 1, 2, 2, 3],
+    length: 900,
+  },
+  stapler: {
+    label: '스테이플러', description: '바라보는 쪽으로 심을 마구 쏜다',
+    cooldown: [0.16, 0.14, 0.12, 0.1, 0.085], damage: [6, 7, 8, 9.5, 11], speed: 520, lifeSec: 0.8, spread: 0.13,
+  },
+  ball: {
+    label: '탱탱볼', description: '화면 안을 튕겨 다니며 부딪힌 적을 때린다',
+    damage: [18, 22, 27, 33, 40], count: [1, 1, 2, 2, 3], speed: [300, 320, 340, 365, 390], radius: 10, hitEverySec: 0.35,
+  },
+  robot: {
+    label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
+    damage: [12, 15, 19, 24, 30], count: [1, 1, 1, 2, 2], speed: [160, 175, 190, 205, 225], radius: 14, hitEverySec: 0.3,
   },
 };
 
-// 패시브. 배열은 1~5레벨 효과다.
+// 패시브. 배열 길이가 곧 최대 레벨이다. 공격력과 이동 속도는 10레벨까지, 나머지는 5레벨까지 올린다.
 export const PASSIVES = {
   gloves: { label: '고무장갑', description: '받는 피해가 줄어든다', armor: [0.08, 0.15, 0.21, 0.26, 0.3] },
-  sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42] },
+  sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
   vitamin: { label: '비타민', description: '최대 체력과 회복력이 오른다', maxHp: [10, 20, 30, 40, 50], regen: [0.4, 0.8, 1.2, 1.6, 2] },
   battery: { label: '보조배터리', description: '무기를 더 자주 쓴다', haste: [0.07, 0.13, 0.19, 0.24, 0.3] },
   candle: { label: '향초', description: '먼지에서 경험치를 더 얻는다', xpGain: [0.1, 0.2, 0.3, 0.4, 0.5] },
   wipes: { label: '물티슈', description: '무기가 닿는 범위가 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
-  protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
+  magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.15, 0.3, 0.45, 0.6, 0.75] },
 };
 
 export const MAX_LEVEL = 5;
+
+// 패시브마다 최대 레벨이 다르다. 효과 배열의 길이로 정한다.
+export function passiveMaxLevel(id) {
+  return Object.values(PASSIVES[id]).find(Array.isArray).length;
+}
 
 // 5레벨을 채운 무기는 완성형으로 한 번 더 바뀐다.
 export const EVOLUTIONS = {
@@ -127,17 +151,21 @@ export const EVOLUTIONS = {
   roller: { label: '대형 돌돌이', description: '앞뒤로 커다란 돌돌이를 굴린다', damage: 1.5, size: 1.5, both: true },
   dryer: { label: '업소용 열풍기', description: '더 멀리, 더 넓게, 더 뜨겁게', dps: 1.6, range: 1.4, wide: 0.75 },
   fan: { label: '태풍 선풍기', description: '사방의 적을 한 번에 날려 버린다', damage: 2, range: 1.3 },
+  laser: { label: '레이저 쇼', description: '여섯 줄기가 사방으로 한꺼번에 뻗는다', damage: 1.3, count: 6 },
+  stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
+  ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
+  robot: { label: '로봇청소기 부대', description: '네 대가 몰려다니며 더 세게 들이받는다', damage: 1.4, count: 4 },
 };
 
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)
 export const DROPS = {
-  ramen: { label: '라면', description: '체력 15 회복', chance: 0.005 },
-  vacuumBag: { label: '청소기 먼지통', description: '바닥의 먼지를 모두 끌어온다', chance: 0.002 },
-  bugBomb: { label: '연막 살충제', description: '화면의 적을 모두 쓰러뜨린다(보스 제외)', chance: 0.001 },
-  coffee: { label: '아이스 아메리카노', description: '10초 동안 빨라지고 무기를 더 자주 쓴다', chance: 0.0015 },
-  chicken: { label: '치킨', description: '체력을 모두 회복한다', chance: 0.0006 },
-  icepack: { label: '얼음팩', description: '4초 동안 적이 얼어붙는다(보스 제외)', chance: 0.0012 },
-  box: { label: '택배 상자', description: '5초 동안 피해를 받지 않는다', chance: 0.0012 },
+  ramen: { label: '라면', description: '체력 15 회복', chance: 0.0025 },
+  vacuumBag: { label: '청소기 먼지통', description: '바닥의 먼지를 모두 끌어온다', chance: 0.001 },
+  bugBomb: { label: '연막 살충제', description: '화면의 적을 모두 쓰러뜨린다(보스 제외)', chance: 0.0005 },
+  coffee: { label: '아이스 아메리카노', description: '10초 동안 빨라지고 무기를 더 자주 쓴다', chance: 0.0007 },
+  chicken: { label: '치킨', description: '체력을 모두 회복한다', chance: 0.0003 },
+  icepack: { label: '얼음팩', description: '4초 동안 적이 얼어붙는다(보스 제외)', chance: 0.0006 },
+  box: { label: '택배 상자', description: '5초 동안 피해를 받지 않는다', chance: 0.0006 },
 };
 
 export function xpToNext(level) {

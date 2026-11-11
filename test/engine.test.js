@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
 import { rankBest } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -140,7 +140,7 @@ describe('성장과 아이템', () => {
   it('모든 무기와 패시브를 최대로 올리고 완성하면 라면으로 회복한다', () => {
     const game = createGame(seeded(2));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
-    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, MAX_LEVEL]));
+    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, passiveMaxLevel(id)]));
     game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
     assert.ok(rollChoices(game).every((choice) => choice.kind === 'heal'));
   });
@@ -344,5 +344,96 @@ describe('추가 무기와 공격력', () => {
     const targets = [60, 120, 180].map((x) => placeEnemy(game, 'trash', x, 0, { hp: 1000 }));
     for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
     assert.ok(targets.every((enemy) => enemy.hp < 1000));
+  });
+});
+
+describe('새 무기', () => {
+  function armed(weapon, level = 1) {
+    const game = createGame(seeded(5));
+    game.spawnCarry = -1000;
+    game.weapons = { [weapon]: level };
+    return game;
+  }
+
+  it('레이저 포인터는 줄기 위에 있는 적을 모두 꿰뚫고, 줄기 밖의 적은 건드리지 않는다', () => {
+    const game = armed('laser');
+    game.random = () => 0; // 0도, 오른쪽으로 쏜다
+    const onLine = [80, 300, 700].map((x) => placeEnemy(game, 'trash', x, 0, { hp: 1000 }));
+    const offLine = [placeEnemy(game, 'trash', 200, 120, { hp: 1000 }), placeEnemy(game, 'trash', -200, 0, { hp: 1000 })];
+    update(game, 1 / 60);
+    assert.ok(onLine.every((enemy) => enemy.hp === 1000 - WEAPONS.laser.damage[0]));
+    assert.ok(offLine.every((enemy) => enemy.hp === 1000));
+  });
+
+  it('스테이플러는 바라보는 쪽으로만 심을 난사한다', () => {
+    const game = armed('stapler');
+    const front = placeEnemy(game, 'trash', -150, 0, { hp: 1000 });
+    const behind = placeEnemy(game, 'trash', 150, 0, { hp: 1000 });
+    game.player.heading = Math.PI;
+    for (let step = 0; step < 90; step += 1) update(game, 1 / 60);
+    assert.ok(front.hp < 1000 - WEAPONS.stapler.damage[0] * 3);
+    assert.equal(behind.hp, 1000);
+  });
+
+  it('탱탱볼은 화면 밖으로 나가지 않고 가장자리에서 튕긴다', () => {
+    const game = armed('ball', MAX_LEVEL);
+    game.view = { halfW: 200, halfH: 150 };
+    let bounced = false;
+    for (let step = 0; step < 600; step += 1) {
+      const before = game.balls.map((ball) => [ball.dx, ball.dy]);
+      update(game, 1 / 60);
+      bounced ||= game.balls.some((ball, index) => before[index] && (before[index][0] !== ball.dx || before[index][1] !== ball.dy));
+      for (const ball of game.balls) {
+        assert.ok(Math.abs(ball.x - game.player.x) <= 200 && Math.abs(ball.y - game.player.y) <= 150);
+      }
+    }
+    assert.equal(game.balls.length, WEAPONS.ball.count[MAX_LEVEL - 1]);
+    assert.ok(bounced);
+  });
+
+  it('로봇청소기는 가까운 적을 찾아가 들이받는다', () => {
+    const game = armed('robot');
+    const enemy = placeEnemy(game, 'trash', 180, 60, { hp: 1000 });
+    for (let step = 0; step < 180; step += 1) update(game, 1 / 60);
+    assert.ok(enemy.hp < 1000);
+  });
+
+  it('새 무기도 모두 완성형이 있다', () => {
+    const game = createGame(seeded(2));
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+    game.spawnCarry = -1000;
+    for (let index = 0; index < 12; index += 1) placeEnemy(game, 'roach', 90 + index * 20, (index % 3) * 40 - 40, { hp: 5000 });
+    for (let step = 0; step < 300; step += 1) update(game, 1 / 60);
+    assert.equal(game.balls.length, 5);
+    assert.equal(game.robots.length, 4);
+  });
+});
+
+describe('패시브 확장', () => {
+  it('단백질 셰이크와 운동화는 10레벨까지, 나머지는 5레벨까지 올린다', () => {
+    assert.equal(passiveMaxLevel('protein'), 10);
+    assert.equal(passiveMaxLevel('sneakers'), 10);
+    assert.equal(passiveMaxLevel('gloves'), 5);
+    const game = createGame(seeded(4));
+    game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
+    game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+    game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, 5]));
+    const offered = rollChoices(game).filter((choice) => choice.kind === 'passive').map((choice) => choice.id).sort();
+    assert.deepEqual(offered, ['protein', 'sneakers']);
+    game.passives.sneakers = 10;
+    assert.equal(statsOf(game).speed, PLAYER.speed * (1 + PASSIVES.sneakers.speed[9]));
+  });
+
+  it('돋보기는 날아가는 것들을 키운다', () => {
+    const plain = createGame(seeded(4));
+    const grown = createGame(seeded(4));
+    grown.passives = { magnifier: 5 };
+    for (const game of [plain, grown]) {
+      game.spawnCarry = -1000;
+      placeEnemy(game, 'trash', 300, 0, { hp: 1000 });
+      update(game, 1 / 60);
+    }
+    assert.equal(grown.shots[0].radius, plain.shots[0].radius * (1 + PASSIVES.magnifier.size[4]));
   });
 });
