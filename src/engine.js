@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -1256,7 +1256,8 @@ function applyDrop(game, drop) {
   if (drop.type === 'box') game.shieldUntil = game.time + 5;
   if (drop.type === 'chest') {
     game.pendingRelics += 1;
-    addEffect(game, { type: 'banner', text: '보물 상자! 보물을 하나 골라요', life: 2 });
+    const full = Object.keys(game.relics).length >= MAX_RELICS;
+    addEffect(game, { type: 'banner', text: full ? '보물 상자! 보물이 가득 차서 두 번 강화해요' : '보물 상자! 보물을 하나 골라요', life: 2 });
   }
   addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
   if (drop.type !== 'chest') addEffect(game, { type: 'banner', text: `${DROPS[drop.type].label}!`, life: 1.1 });
@@ -1334,11 +1335,12 @@ export function rollChoices(game) {
 
 // 아직 없는 보물 가운데 셋
 export function rollRelics(game) {
+  if (Object.keys(game.relics).length >= MAX_RELICS) return [];
   return shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3)
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
 }
 
-// 다음에 보여 줄 선택지. 보물이 레벨업보다 먼저다. 보물을 다 가졌으면 상자는 레벨업 두 번이 된다.
+// 다음에 보여 줄 선택지. 보물이 레벨업보다 먼저다. 보물을 최대로 가졌으면 상자는 레벨업 두 번이 된다.
 function nextChoices(game) {
   if (game.pendingRelics > 0) {
     const relics = rollRelics(game);

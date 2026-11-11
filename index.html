@@ -23,7 +23,7 @@
           <li>먼지를 모아 <b>레벨업</b></li>
           <li>90초마다 <b>보스</b></li>
           <li>무기를 5레벨까지 올리면 <b>완성형</b>으로 진화</li>
-          <li>시작할 때와 보스를 잡을 때 <b>보물</b> 하나</li>
+          <li>시작할 때와 보스를 잡을 때 <b>보물</b> 하나(최대 3개)</li>
           <li>레벨업마다 <b>한 번 다시 뽑기</b></li>
           <li><b>버틴 시간</b>으로 순위</li>
         </ul>
@@ -47,7 +47,7 @@
         <p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요.</p>
         <ol class="recipe-list"></ol>
         <h3 class="recipe-heading">보물</h3>
-        <p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 하나를 골라요. 한 번 얻으면 끝까지 가요.</p>
+        <p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 하나를 골라요. 한 판에 <b>최대 3개</b>까지 가질 수 있고, 다 채우면 상자는 레벨업 두 번이 돼요.</p>
         <ul class="evolve-list relic-list"></ul>
         <h3 class="recipe-heading">완성형</h3>
         <p class="ranking-note">무기를 5레벨까지 올리면 선택지에 나와요.</p>
@@ -68,7 +68,7 @@
             <button class="pause" type="button" data-action="pause" aria-label="일시정지">Ⅱ</button>
           </div>
         </header>
-        <div class="boss-bar" hidden><span class="boss-name"></span><div class="boss-hp"><div class="boss-hp-fill"></div></div></div>
+        <div class="boss-bars"></div>
         <div class="loadout"></div>
         <aside class="stats" aria-label="내 능력치">
           <button class="stats-toggle" type="button" data-action="stats">능력치</button>

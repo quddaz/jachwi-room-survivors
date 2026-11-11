@@ -4,7 +4,7 @@ import {
   choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -912,5 +912,23 @@ describe('시즌', () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe('보물 개수 제한', () => {
+  it('보물은 최대 3개이고, 다 채운 뒤의 상자는 레벨업 두 번이 된다', () => {
+    assert.equal(MAX_RELICS, 3);
+    const game = createGame(seeded(51));
+    game.spawnCarry = -100000;
+    for (let pick = 0; pick < MAX_RELICS; pick += 1) {
+      startWithRelic(game);
+      assert.ok(game.choices.every((choice) => choice.kind === 'relic'));
+      choose(game, 0);
+    }
+    assert.equal(Object.keys(game.relics).length, 3);
+    startWithRelic(game);
+    assert.ok(game.choices.every((choice) => choice.kind !== 'relic'));
+    assert.equal(game.pendingLevels, 2);
+    assert.equal(Object.keys(game.relics).length, 3);
   });
 });

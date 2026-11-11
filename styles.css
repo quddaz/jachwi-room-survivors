@@ -78,7 +78,10 @@ img { display: block; max-width: 100%; }
 .hp-fill { height: 100%; background: var(--color-bad); transform-origin: left; }
 .time-value { padding: 4px 14px; border-radius: 999px; background: rgb(255 255 255 / 90%); font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .pause { width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgb(255 255 255 / 90%); font-weight: 900; cursor: pointer; pointer-events: auto; }
-.boss-bar { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 50%; width: min(100% - 48px, 520px); transform: translateX(-50%); text-align: center; pointer-events: none; }
+.boss-bars { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 50%; display: grid; gap: 6px; width: min(100% - 48px, 520px); transform: translateX(-50%); pointer-events: none; }
+.boss-bar { text-align: center; }
+.boss-bars .boss-bar + .boss-bar .boss-name { margin-bottom: 2px; padding: 1px 8px; font-size: 11px; }
+.boss-bars .boss-bar + .boss-bar .boss-hp { height: 6px; }
 .boss-name { display: inline-block; margin-bottom: 4px; padding: 2px 10px; border-radius: 999px; background: var(--color-ink); color: #fff; font-size: 12px; font-weight: 800; }
 .boss-hp { height: 8px; overflow: hidden; border-radius: 999px; background: rgb(58 47 40 / 25%); }
 .boss-hp-fill { height: 100%; background: var(--color-beak-deep); transform-origin: left; }

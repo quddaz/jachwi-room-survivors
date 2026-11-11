@@ -414,6 +414,44 @@ function drawEffects(ctx, game, toBuffer) {
   }
 }
 
+// 화면 밖에 있는 보스 쪽 가장자리에 화살표를 띄운다. 가까울수록 크게 보인다.
+function drawBossArrows(ctx, game, toBuffer, width, height, time) {
+  const cx = width / 2;
+  const cy = height / 2;
+  const inset = 12;
+  for (const boss of game.enemies) {
+    if (!boss.boss || boss.dead) continue;
+    const [bx, by] = toBuffer(boss);
+    if (bx > -6 && bx < width + 6 && by > -6 && by < height + 6) continue;
+    const dx = bx - cx;
+    const dy = by - cy;
+    // 화면 가장자리(안쪽으로 inset)와 만나는 점
+    const scale = Math.min((cx - inset) / Math.abs(dx || 1e-6), (cy - inset - 6) / Math.abs(dy || 1e-6));
+    const x = Math.round(cx + dx * scale);
+    const y = Math.round(cy + dy * scale + 4);
+    const angle = Math.atan2(dy, dx);
+    const far = Math.hypot(dx, dy);
+    const size = far < Math.max(width, height) ? 7 : 5;
+    const pulse = Math.floor(time * 6) % 2;
+    const tip = [x + Math.cos(angle) * (size + pulse), y + Math.sin(angle) * (size + pulse)];
+    const left = [x + Math.cos(angle + 2.4) * size, y + Math.sin(angle + 2.4) * size];
+    const right = [x + Math.cos(angle - 2.4) * size, y + Math.sin(angle - 2.4) * size];
+    ctx.beginPath();
+    ctx.moveTo(...tip);
+    ctx.lineTo(...left);
+    ctx.lineTo(...right);
+    ctx.closePath();
+    ctx.fillStyle = '#2a1c14';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#2a1c14';
+    ctx.stroke();
+    ctx.fillStyle = pulse ? '#ff5a3c' : '#e0645b';
+    ctx.fill();
+    disc(ctx, Math.round(x - Math.cos(angle) * 6), Math.round(y - Math.sin(angle) * 6), 2, '#ffffff');
+    disc(ctx, Math.round(x - Math.cos(angle) * 6), Math.round(y - Math.sin(angle) * 6), 1, '#e0645b');
+  }
+}
+
 export function render(ctx, game, width, height, time) {
   if (!floor) floor = makeFloor();
   ctx.imageSmoothingEnabled = false;
@@ -734,6 +772,7 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x, y, pulse ? 1 : 0.5, look.core);
   }
   drawEffects(ctx, game, toBuffer);
+  drawBossArrows(ctx, game, toBuffer, width, height, time);
 
   if (game.time < game.freezeUntil) {
     ctx.fillStyle = 'rgba(190, 225, 255, 0.12)';

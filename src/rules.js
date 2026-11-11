@@ -199,6 +199,9 @@ export const FUSIONS = {
     count: 2, orbit: 170, spin: 2.6, radius: 30, damage: 1.2, hitEverySec: 0.22 },
 };
 
+// 한 판에 가질 수 있는 보물 수. 다 채운 뒤의 보물 상자는 레벨업 두 번이 된다.
+export const MAX_RELICS = 3;
+
 // 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
 // stats는 카드에 적는 정확한 효과다.
 export const RELICS = {

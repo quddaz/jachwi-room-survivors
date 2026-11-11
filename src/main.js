@@ -1,7 +1,7 @@
 import { choose, createGame, formatTime, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
-import { EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
+import { EVOLUTIONS, FUSIONS, MAX_RELICS, RELICS, WEAPONS } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
 const NAME_KEY = 'room-survivors:crew-name';
@@ -106,13 +106,19 @@ function drawHud() {
   const { maxHp } = statsOf(game);
   document.querySelector('.hp-fill').style.transform = `scaleX(${Math.max(0, player.hp / maxHp)})`;
 
-  const boss = game.enemies.find((enemy) => enemy.boss);
-  const bossBar = document.querySelector('.boss-bar');
-  bossBar.hidden = !boss;
-  if (boss) {
-    document.querySelector('.boss-name').textContent = boss.label;
-    document.querySelector('.boss-hp-fill').style.transform = `scaleX(${Math.max(0, boss.hp / boss.maxHp)})`;
+  // 보스가 여럿이면 체력 막대도 여럿. 보스가 바뀔 때만 다시 만들고, 체력은 매번 채운다.
+  const bosses = game.enemies.filter((enemy) => enemy.boss && !enemy.dead);
+  const bossKey = bosses.map((boss) => boss.id).join(',');
+  const bossBars = document.querySelector('.boss-bars');
+  if (bossKey !== shownBosses) {
+    shownBosses = bossKey;
+    bossBars.innerHTML = bosses.map((boss) => `
+      <div class="boss-bar"><span class="boss-name">${escapeHtml(boss.label)}</span><div class="boss-hp"><div class="boss-hp-fill"></div></div></div>`)
+      .join('');
   }
+  bossBars.querySelectorAll('.boss-hp-fill').forEach((fill, index) => {
+    fill.style.transform = `scaleX(${Math.max(0, bosses[index].hp / bosses[index].maxHp)})`;
+  });
 
   const latest = [...game.effects].reverse().find((effect) => effect.type === 'banner');
   if (latest && latest !== shownBannerAge) {
@@ -146,7 +152,8 @@ function drawChoices() {
   const treasure = game.choices[0]?.kind === 'relic';
   levelupOverlay.classList.toggle('is-relic', treasure);
   document.querySelector('.levelup .panel-title').textContent = treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
-  document.querySelector('.levelup .panel-sub').textContent = treasure ? '보물을 하나 골라 주세요. 끝까지 함께해요' : '하나를 골라 주세요';
+  document.querySelector('.levelup .panel-sub').textContent = treasure
+    ? `보물을 하나 골라 주세요 (${Object.keys(game.relics).length + 1}/${MAX_RELICS})` : '하나를 골라 주세요';
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.kind === 'heal' ? 'heal' : choice.id);
     const tag = choice.kind === 'heal' ? '' : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
@@ -170,6 +177,7 @@ function rerollChoices() {
 }
 
 let shownStats = '';
+let shownBosses = '';
 
 // 오른쪽 아래 능력치 창. 바뀔 때만 다시 그린다.
 function drawStats() {
@@ -216,6 +224,7 @@ function start() {
   shownChoices = null;
   shownBannerAge = null;
   shownStats = '';
+  shownBosses = '';
   pausedOverlay.hidden = true;
   levelupOverlay.hidden = true;
   joystick.hidden = true;
