@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -33,6 +33,8 @@ export function createGame(random = Math.random) {
     pendingRelics: 0,
     revived: false,
     alarmIn: 0,
+    eliteUnlocked: 0,
+    swapIn: null,
     shake: 0,
     gems: [],
     drops: [],
@@ -266,14 +268,37 @@ function pickKind(game) {
   return available[0][0];
 }
 
+function eliteChance(game) {
+  return Math.min(ELITE.maxChance, ELITE.chance + ((game.time - ELITE.from) / 60) * ELITE.chancePerMin);
+}
+
+function makeElite(enemy) {
+  enemy.elite = true;
+  enemy.hp *= ELITE.hp;
+  enemy.maxHp *= ELITE.hp;
+  enemy.damage *= ELITE.damage;
+  enemy.speed *= ELITE.speed;
+  enemy.radius *= ELITE.radius;
+  enemy.xp *= ELITE.xp;
+  return enemy;
+}
+
 function spawn(game, dt) {
   const difficulty = difficultyAt(game.time);
+  // 정예가 한 종류씩 풀릴 때마다 알려 준다.
+  while (game.eliteUnlocked < ELITE.order.length && game.time >= eliteFrom(ELITE.order[game.eliteUnlocked])) {
+    const kind = ELITE.order[game.eliteUnlocked];
+    if (game.time >= (ENEMIES[kind].from ?? 0)) addEffect(game, { type: 'banner', text: `정예 ${ENEMIES[kind].label} 등장!`, life: 2.2, boss: true });
+    game.eliteUnlocked += 1;
+  }
   game.spawnCarry += difficulty.spawnPerSec * dt;
   while (game.spawnCarry >= 1) {
     game.spawnCarry -= 1;
     if (game.enemies.length >= difficulty.maxEnemies) continue;
     const point = spawnPoint(game);
-    spawnEnemy(game, pickKind(game), point.x, point.y);
+    const kind = pickKind(game);
+    const enemy = spawnEnemy(game, kind, point.x, point.y);
+    if (game.time >= eliteFrom(kind) && game.random() < eliteChance(game)) makeElite(enemy);
   }
   // 1분마다 바퀴벌레 떼가 사방에서 몰려온다.
   if (game.time >= game.nextSwarmAt) {
@@ -326,6 +351,8 @@ function damagePlayer(game, amount, ranged = false) {
   const { player } = game;
   if (player.invulnerable > 0 || game.time < game.shieldUntil) return false;
   if (ranged) amount *= 1 - (relic(game, 'umbrella')?.guard ?? 0);
+  // 아무리 센 공격도 한 번에 최대 체력의 일정 비율까지만 깎는다.
+  amount = Math.min(amount, statsOf(game).maxHp * PLAYER.maxHitShare);
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
   player.invulnerable = PLAYER.invulnerableSec;
@@ -415,7 +442,7 @@ function moveEnemies(game, dt) {
       if (enemy.timer >= base.shootEverySec && gap < base.range + 80) {
         enemy.timer = 0;
         for (let lane = -1; lane <= 1; lane += 1) {
-          fire(game, enemy, Math.atan2(dy, dx) + lane * base.spread, base.shotSpeed, base.shotDamage * difficulty.damage, 'rust');
+          fire(game, enemy, Math.atan2(dy, dx) + lane * base.spread, base.shotSpeed, base.shotDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1), 'rust');
         }
       }
     }
@@ -442,7 +469,7 @@ function moveEnemies(game, dt) {
       if (!enemy.fuseAt && gap < base.fuseRange) {
         enemy.fuseAt = game.time + base.fuseSec;
         game.hazards.push({ x: enemy.x, y: enemy.y, radius: base.blastRadius, delay: base.fuseSec, total: base.fuseSec,
-          damage: base.blastDamage * difficulty.damage, blast: true, owner: enemy });
+          damage: base.blastDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1), blast: true, owner: enemy });
       }
       if (enemy.fuseAt) {
         direction = 0;
@@ -461,7 +488,7 @@ function moveEnemies(game, dt) {
       else if (gap < base.range) direction = 0;
       if (enemy.timer >= base.shootEverySec && gap < base.range + 80) {
         enemy.timer = 0;
-        fire(game, enemy, Math.atan2(dy, dx), base.shotSpeed, base.shotDamage * difficulty.damage, 'rust');
+        fire(game, enemy, Math.atan2(dy, dx), base.shotSpeed, base.shotDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1), 'rust');
       }
     }
     if (enemy.kind === 'kingRoach') {
@@ -646,7 +673,7 @@ function killEnemy(game, enemy) {
     return;
   }
   for (const [type, drop] of Object.entries(DROPS)) {
-    if (game.random() < drop.chance) {
+    if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1)) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;
     }
@@ -1334,10 +1361,27 @@ export function rollChoices(game) {
 }
 
 // 아직 없는 보물 가운데 셋
+// 보물을 바꾸지 않고 대신 레벨업 두 번을 받는 카드
+const KEEP_RELICS = {
+  kind: 'relic-keep', id: 'keep', icon: 'chest', level: 0, label: '지금 보물 그대로', description: '보물을 바꾸지 않고 대신 두 번 강화해요',
+  details: ['레벨업 +2'],
+};
+
+const relicsFull = (game) => Object.keys(game.relics).length >= MAX_RELICS;
+
+// 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
-  if (Object.keys(game.relics).length >= MAX_RELICS) return [];
-  return shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3)
+  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3)
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
+  if (offers.length === 0) return [];
+  return relicsFull(game) ? [...offers, { ...KEEP_RELICS }] : offers;
+}
+
+function gainRelic(game, id) {
+  game.relics[id] = true;
+  if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
+  if (id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
+  addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
 }
 
 // 다음에 보여 줄 선택지. 보물이 레벨업보다 먼저다. 보물을 최대로 가졌으면 상자는 레벨업 두 번이 된다.
@@ -1360,7 +1404,8 @@ export function startWithRelic(game) {
 
 // 선택지마다 정해진 횟수만큼 새로 뽑을 수 있다.
 export function reroll(game) {
-  if (!game.choices || game.rerollLeft <= 0) return false;
+  // 내려놓을 보물을 고르는 중에는 다시 뽑지 않는다.
+  if (!game.choices || game.rerollLeft <= 0 || game.choices[0]?.kind === 'relic-swap') return false;
   game.rerollLeft -= 1;
   game.choices = game.choices[0]?.kind === 'relic' ? rollRelics(game) : rollChoices(game);
   return true;
@@ -1369,6 +1414,17 @@ export function reroll(game) {
 export function choose(game, index) {
   const choice = game.choices?.[index];
   if (!choice) return null;
+  if (choice.kind === 'relic' && relicsFull(game)) {
+    // 보물이 가득 찼으면 무엇을 내려놓을지 한 번 더 고른다.
+    game.swapIn = choice.id;
+    game.choices = [
+      ...Object.keys(game.relics).map((id) => ({
+        kind: 'relic-swap', id, level: 0, label: RELICS[id].label, description: `내려놓고 ${choice.label} 받기`, details: RELICS[id].stats,
+      })),
+      { ...KEEP_RELICS },
+    ];
+    return choice;
+  }
   const before = statsOf(game).maxHp;
   if (choice.kind === 'weapon') game.weapons[choice.id] = choice.level;
   if (choice.kind === 'passive') game.passives[choice.id] = choice.level;
@@ -1385,17 +1441,25 @@ export function choose(game, index) {
     game.shake = 0.3;
   }
   if (choice.kind === 'relic') {
-    game.relics[choice.id] = true;
-    if (choice.id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
-    if (choice.id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
-    addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
+    gainRelic(game, choice.id);
     addEffect(game, { type: 'banner', text: `보물: ${choice.label}`, life: 2.2 });
   }
+  if (choice.kind === 'relic-swap') {
+    delete game.relics[choice.id];
+    gainRelic(game, game.swapIn);
+    addEffect(game, { type: 'banner', text: `보물 교체: ${RELICS[choice.id].label} → ${RELICS[game.swapIn].label}`, life: 2.4 });
+  }
+  if (choice.kind === 'relic-keep') game.pendingLevels += 2;
   const stats = statsOf(game);
   if (choice.kind === 'heal') game.player.hp = Math.min(stats.maxHp, game.player.hp + 20);
   if (stats.maxHp > before) game.player.hp += stats.maxHp - before;
-  if (choice.kind === 'relic') game.pendingRelics -= 1;
-  else game.pendingLevels -= 1;
+  game.player.hp = Math.min(game.player.hp, stats.maxHp); // 물병을 내려놓으면 넘치는 체력은 버린다.
+  if (choice.kind.startsWith('relic')) {
+    game.pendingRelics -= 1;
+    game.swapIn = null;
+  } else {
+    game.pendingLevels -= 1;
+  }
   game.choices = nextChoices(game);
   game.rerollLeft = rerollsPerLevel(game);
   return choice;

@@ -149,18 +149,24 @@ function drawChoices() {
   if (!game.choices) return;
   touch = null;
   joystick.hidden = true;
-  const treasure = game.choices[0]?.kind === 'relic';
+  const treasure = game.choices[0]?.kind.startsWith('relic');
+  const swapping = game.choices[0]?.kind === 'relic-swap';
+  const owned = Object.keys(game.relics).length;
   levelupOverlay.classList.toggle('is-relic', treasure);
-  document.querySelector('.levelup .panel-title').textContent = treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
-  document.querySelector('.levelup .panel-sub').textContent = treasure
-    ? `보물을 하나 골라 주세요 (${Object.keys(game.relics).length + 1}/${MAX_RELICS})` : '하나를 골라 주세요';
+  document.querySelector('.levelup .panel-title').textContent = swapping ? '보물 교체'
+    : treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
+  document.querySelector('.levelup .panel-sub').textContent = swapping
+    ? `${RELICS[game.swapIn].label} 대신 내려놓을 보물을 골라 주세요`
+    : treasure && owned >= MAX_RELICS ? `보물이 가득 찼어요 (${owned}/${MAX_RELICS}). 바꾸거나 그대로 두세요`
+      : treasure ? `보물을 하나 골라 주세요 (${owned + 1}/${MAX_RELICS})` : '하나를 골라 주세요';
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
-    const icon = itemIcon(choice.kind === 'heal' ? 'heal' : choice.id);
-    const tag = choice.kind === 'heal' ? '' : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
+    const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
+    const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' ? '' : choice.kind === 'relic-swap' ? '<small class="choice-swap">내려놓기</small>'
+      : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind === 'relic-swap' ? ' is-swap' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>
@@ -168,7 +174,7 @@ function drawChoices() {
       </button>`;
   }).join('');
   const button = document.querySelector('.reroll');
-  button.disabled = game.rerollLeft <= 0;
+  button.disabled = game.rerollLeft <= 0 || swapping;
   button.querySelector('b').textContent = game.rerollLeft;
 }
 
@@ -375,7 +381,7 @@ window.addEventListener('keydown', (event) => {
   }
   if (event.code === 'Escape' && playing) setPaused(!paused);
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
-  const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[event.code];
+  const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
     choose(game, pick);
     drawLoadout();

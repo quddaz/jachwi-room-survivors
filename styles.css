@@ -267,6 +267,10 @@ img { display: block; max-width: 100%; }
 .levelup.is-relic .panel-sub { color: #fff; opacity: 0.85; }
 .loadout .is-relic { padding: 2px 4px; background: #2f2a5a; }
 .loadout .is-relic .item { filter: drop-shadow(0 0 3px #ffd866); }
+.choice-swap { padding: 1px 7px; border-radius: 999px; background: var(--color-bad); color: #fff !important; }
+.choice.is-swap { border-color: #f3c3bd; background: #fff; }
+.choice.is-swap .choice-icon { background: radial-gradient(circle, #fff 0%, #fde2de 70%); }
+.choice.is-swap .choice-stats span { background: #fdecea; color: #b5463d; }
 @media (prefers-reduced-motion: reduce) {
   .item, .choice-icon .item, .choice-icon::before, .choice, .choice.is-fusion { animation: none; }
 }

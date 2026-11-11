@@ -200,6 +200,15 @@ function drawEnemy(ctx, enemy, x, y, time) {
   ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
   const shadow = Math.round(image.width * 0.35);
   ctx.fillRect(Math.round(x) - shadow, Math.round(y + image.height / 2) - 1, shadow * 2, 2);
+  if (enemy.elite) {
+    // 정예: 금빛 테두리와 작은 왕관, 둘레에 붉은 기운
+    const glow = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint: Math.floor(time * 6 + enemy.id) % 2 ? '#ffcf3f' : '#ff8a3d' });
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawCentered(ctx, glow, x + ox, y + oy);
+    drawCentered(ctx, sprite('crown'), x, Math.round(y - image.height / 2 - 3));
+    const spark = Math.floor(time * 10 + enemy.id);
+    ctx.fillStyle = '#ff5a3c';
+    ctx.fillRect(Math.round(x + Math.cos(spark) * (image.width / 2 + 2)), Math.round(y + Math.sin(spark) * (image.height / 2 + 2)), 1, 1);
+  }
   if (enemy.boss) {
     ring(ctx, Math.round(x), Math.round(y + image.height / 2 - 1), shadow + 3, 'rgba(224, 100, 91, 0.55)', 3, Math.floor(time * 12));
     if (enemy.dashing) {

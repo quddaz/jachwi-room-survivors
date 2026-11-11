@@ -4,7 +4,7 @@ import {
   choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -926,9 +926,70 @@ describe('보물 개수 제한', () => {
       choose(game, 0);
     }
     assert.equal(Object.keys(game.relics).length, 3);
+    // 가득 찬 뒤의 상자: 새 보물 셋과 '그대로 두기'
     startWithRelic(game);
-    assert.ok(game.choices.every((choice) => choice.kind !== 'relic'));
+    assert.equal(game.choices.length, 4);
+    assert.equal(game.choices[3].kind, 'relic-keep');
+    choose(game, 3);
     assert.equal(game.pendingLevels, 2);
     assert.equal(Object.keys(game.relics).length, 3);
+  });
+
+  it('가득 차도 보물을 바꿀 수 있다', () => {
+    const game = createGame(seeded(52));
+    game.spawnCarry = -100000;
+    game.relics = { waterbottle: true, magnet: true, dice: true };
+    game.player.hp = statsOf(game).maxHp;
+    startWithRelic(game);
+    const incoming = game.choices[0].id;
+    choose(game, 0);
+    assert.ok(game.choices.every((choice, index) => (index < 3 ? choice.kind === 'relic-swap' : choice.kind === 'relic-keep')));
+    assert.ok(!reroll(game));
+    const dropped = game.choices.find((choice) => choice.id === 'waterbottle');
+    choose(game, game.choices.indexOf(dropped));
+    assert.ok(game.relics[incoming] && !game.relics.waterbottle);
+    assert.equal(Object.keys(game.relics).length, 3);
+    assert.equal(game.pendingRelics, 0);
+    assert.ok(game.player.hp <= statsOf(game).maxHp);
+  });
+});
+
+describe('정예와 한 방 피해 상한', () => {
+  it('정예는 8분부터 일반 적이 나오는 순서대로 30초마다 한 종류씩 풀린다', () => {
+    assert.equal(eliteFrom('roach'), 480);
+    assert.equal(eliteFrom('trash'), 510);
+    assert.equal(eliteFrom('moth'), 480 + 9 * 30);
+    assert.equal(eliteFrom('scrap'), Infinity);
+  });
+
+  it('풀린 정예는 체력, 공격력, 크기, 경험치가 더 크다', () => {
+    const make = (time) => {
+      const game = createGame(() => 0);
+      game.time = time;
+      game.nextSwarmAt = Infinity;
+      game.nextBossAt = Infinity;
+      game.spawnCarry = 1;
+      update(game, 1 / 60);
+      return game;
+    };
+    const before = make(470).enemies.find((enemy) => enemy.kind === 'roach');
+    assert.ok(before && !before.elite);
+    const game = make(490);
+    const elite = game.enemies.find((enemy) => enemy.kind === 'roach');
+    assert.ok(elite.elite);
+    assert.equal(elite.radius, ENEMIES.roach.radius * ELITE.radius);
+    assert.equal(elite.xp, ENEMIES.roach.xp * ELITE.xp);
+    assert.ok(elite.maxHp > before.maxHp * 3.5);
+    assert.ok(game.effects.some((effect) => effect.type === 'banner' && effect.text === '정예 바퀴벌레 등장!'));
+  });
+
+  it('아무리 센 공격도 한 번에 최대 체력의 25%까지만 깎는다', () => {
+    const game = createGame(seeded(1));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 9999 });
+    update(game, 1 / 60);
+    near(game.player.hp, PLAYER.maxHp * 0.75);
+    assert.equal(game.over, false);
   });
 });

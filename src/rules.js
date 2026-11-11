@@ -3,7 +3,9 @@ export const ARENA = { width: 3000, height: 3000 };
 
 // regen은 아무것도 없어도 1초에 차는 체력이다. 비타민의 회복력은 여기에 더해진다.
 // critDamage는 치명타가 날 때 피해 배율이다. 치명타 확률은 네잎클로버로만 생긴다.
-export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.8 };
+// maxHitShare: 한 번에 받는 피해는 최대 체력의 이 비율을 넘지 않는다. 후반에도 한 방에 쓰러지지 않게 한다.
+export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.8,
+  maxHitShare: 0.25 };
 
 // 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
 export function difficultyAt(time) {
@@ -43,6 +45,20 @@ export const ENEMIES = {
   moth: { label: '나방', hp: 18, speed: 66, radius: 11, damage: 6, xp: 3, from: 260, weight: 0.5, maxAlive: 6,
     range: 260, shootEverySec: 3.6, shotSpeed: 150, shotDamage: 6, spread: 0.3, sway: 0.35 },
 };
+
+// 8분부터 일반 적의 정예가 order 순서대로 step초마다 한 종류씩 나오기 시작한다.
+// 정예는 그 종류가 나올 때 chance 확률로 섞여 나오고, 그 확률은 분마다 조금씩 올라간다.
+export const ELITE = {
+  from: 480, step: 30,
+  order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth'],
+  chance: 0.15, chancePerMin: 0.03, maxChance: 0.4,
+  hp: 4, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
+};
+
+export function eliteFrom(kind) {
+  const index = ELITE.order.indexOf(kind);
+  return index < 0 ? Infinity : ELITE.from + index * ELITE.step;
+}
 
 // 보스는 90초마다 나오고, 나올 때마다 더 세진다.
 export const BOSS_EVERY_SEC = 90;
