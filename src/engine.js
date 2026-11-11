@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, difficultyAt, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -731,6 +731,8 @@ function killEnemy(game, enemy) {
     return;
   }
   for (const [type, drop] of Object.entries(DROPS)) {
+    // 같은 종류가 이미 맵에 가득 떨어져 있으면 그 아이템은 건너뛴다.
+    if (game.drops.filter((item) => item.type === type).length >= DROP_LIMIT) continue;
     if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1)) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;

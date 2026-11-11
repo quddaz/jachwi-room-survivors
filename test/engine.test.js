@@ -4,7 +4,7 @@ import {
   choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, difficultyAt, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSSES, difficultyAt, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -1211,5 +1211,23 @@ describe('합체 개수 제한', () => {
     assert.equal(rollChoices(game)[0].kind, 'fusion');
     game.fusions.sawblade = true;
     for (let roll = 0; roll < 20; roll += 1) assert.ok(!rollChoices(game).some((choice) => choice.kind === 'fusion'));
+  });
+});
+
+describe('아이템 개수 제한', () => {
+  it('같은 종류의 아이템은 맵에 2개까지만 떨어져 있다', () => {
+    assert.equal(DROP_LIMIT, 2);
+    const game = createGame(() => 0);
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    for (let index = 0; index < 6; index += 1) {
+      const enemy = placeEnemy(game, 'roach', 2000, index * 40, { hp: 1 });
+      damageEnemy(game, enemy, 10);
+    }
+    const counts = {};
+    game.drops.forEach((drop) => { counts[drop.type] = (counts[drop.type] ?? 0) + 1; });
+    assert.ok(Object.values(counts).every((count) => count <= 2));
+    assert.equal(counts.ramen, 2);
+    assert.ok(game.drops.length > 2);
   });
 });

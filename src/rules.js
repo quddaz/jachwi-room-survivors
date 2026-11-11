@@ -314,6 +314,9 @@ export const RELICS = {
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +5', '공격 속도 +100%'], step: 0.05, flat: 5, attackSpeed: 1 },
 };
 
+// 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).
+export const DROP_LIMIT = 2;
+
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)
 export const DROPS = {
   ramen: { label: '라면', description: '체력 15 회복', chance: 0.0015 },
