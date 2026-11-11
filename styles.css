@@ -193,8 +193,16 @@ img { display: block; max-width: 100%; }
 .choice:nth-child(3) { animation-delay: 0.12s; }
 @keyframes choice-in { from { opacity: 0; transform: translateY(14px) scale(0.94); } }
 .loadout .is-evolved .item { filter: drop-shadow(0 0 3px #ffb21f); }
+/* 합체 무기는 무지갯빛 테두리가 흐른다. */
+.choice-fusion { padding: 1px 7px; border-radius: 999px; background: linear-gradient(90deg, #ff6a8a, #ffb21f, #5dd6c8, #8f7bff); color: #fff !important; }
+.choice.is-fusion { border-color: transparent; background: linear-gradient(#fffaf0, #fff1d6) padding-box, linear-gradient(120deg, #ff6a8a, #ffb21f, #5dd6c8, #8f7bff, #ff6a8a) border-box; background-size: 100% 100%, 300% 100%; animation: choice-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards, fusion-flow 2.4s linear infinite; box-shadow: 0 0 18px rgb(143 123 255 / 45%), var(--shadow-card); }
+.choice.is-fusion .choice-icon { background: radial-gradient(circle, #ffffff 0%, #d9f6ff 55%, #b8a6ff 100%); }
+.choice.is-fusion .choice-icon::before { animation-duration: 1.4s; }
+@keyframes fusion-flow { to { background-position: 0 0, 300% 0; } }
+.loadout .is-fusion { background: linear-gradient(90deg, #ffd6de, #fff0c2, #d3f6f1, #e0d9ff); color: #4a2f7a; }
+.loadout .is-fusion .item { filter: drop-shadow(0 0 3px #8f7bff); }
 @media (prefers-reduced-motion: reduce) {
-  .item, .choice-icon .item, .choice-icon::before, .choice { animation: none; }
+  .item, .choice-icon .item, .choice-icon::before, .choice, .choice.is-fusion { animation: none; }
 }
 .kills { display: inline-flex; align-items: center; gap: 4px; }
 .kills img { height: 14px; }

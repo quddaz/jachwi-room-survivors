@@ -1,4 +1,4 @@
-import { coilOrbs, statsOf } from './engine.js';
+import { coilOrbs, sawBlades, statsOf } from './engine.js';
 import { ARENA, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, icon, sprite } from './sprites.js';
 
@@ -75,7 +75,7 @@ const PARTICLES = {
   trash: ['#5c6470', '#8f99a6', '#7fb069'], scrap: ['#8f99a6', '#5c6470', '#d9dee5'], garbageGiant: ['#5c6470', '#7fb069', '#d9dee5'],
   rust: ['#b5651d', '#e8a468', '#8c4f22'], rustBoiler: ['#b5651d', '#ffb21f', '#e8e8e8'],
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
-  bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
+  spark: ['#7fe9ff', '#ffffff', '#fff6b0'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
@@ -136,6 +136,32 @@ function drawDrop(ctx, drop, x, y, time) {
   }
 }
 
+const BEAM = {
+  green: ['rgba(62,220,120,0.45)', '#8dffb0', '#ffffff'],
+  show: ['rgba(240,96,138,0.45)', '#ffb3d0', '#ffffff'],
+  spin: ['rgba(127,233,255,0.5)', '#b9f3ff', '#ffffff'],
+};
+
+// 가운데는 하얗고 바깥은 빛깔이 도는 굵은 빛줄기. 비스듬한 줄기에 구멍이 나지 않게 반 칸씩 겹쳐 긋는다.
+function drawBeam(ctx, x, y, angle, reach, halfWidth, [edge, glow, core], seed, progress) {
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  const half = Math.max(1, Math.round(halfWidth));
+  for (let offset = -half - 1; offset <= half + 1; offset += 0.5) {
+    const depth = Math.abs(offset);
+    const color = depth > half ? edge : depth > half * 0.45 ? glow : core;
+    line(ctx, Math.round(x + dx * 8 - dy * offset), Math.round(y + dy * 8 + dx * offset),
+      Math.round(x + dx * reach - dy * offset), Math.round(y + dy * reach + dx * offset), color);
+  }
+  disc(ctx, Math.round(x + dx * 8), Math.round(y + dy * 8), Math.max(2, half - 1), core);
+  for (let spark = 0; spark < 26; spark += 1) {
+    const along = 12 + hash(seed, spark) * Math.min(reach, 420);
+    const side = (hash(seed, spark + 40) - 0.5) * (half * 2 + 10 + progress * 18);
+    sparkle(ctx, Math.round(x + dx * along - dy * side), Math.round(y + dy * along + dx * side),
+      spark % 2 === 0 ? glow : core, spark % 5 === 0 && progress < 0.6);
+  }
+}
+
 function hash(seed, index) {
   const value = Math.sin(seed * 12.9898 + index * 78.233) * 43758.5453;
   return value - Math.floor(value);
@@ -181,6 +207,13 @@ function drawEnemy(ctx, enemy, x, y, time) {
   }
   drawCentered(ctx, image, x, y + bob);
   ctx.globalAlpha = 1;
+  if (enemy.poisoned) {
+    for (let bubble = 0; bubble < 2; bubble += 1) {
+      const rise = (time * 1.6 + hash(enemy.id, bubble)) % 1;
+      ctx.fillStyle = rise < 0.6 ? '#8fe6a8' : '#3e9f6a';
+      ctx.fillRect(Math.round(x - 4 + bubble * 7 + Math.sin(time * 6 + bubble) * 1.5), Math.round(y - image.height / 2 - rise * 7), bubble + 1, bubble + 1);
+    }
+  }
   if (enemy.kind === 'rustBoiler') {
     for (let puff = 0; puff < 3; puff += 1) {
       const rise = (time * 9 + puff * 4) % 12;
@@ -327,25 +360,20 @@ function drawEffects(ctx, game, toBuffer) {
         ctx.fillRect(x1 - 4 + Math.floor(hash(effect.seed + jitter, index) * 8), y1 - 4 + Math.floor(hash(effect.seed + jitter, index + 7) * 8), 1, 1);
       }
     } else if (effect.type === 'laser') {
-      // 가운데는 하얗고 바깥은 초록빛인 굵은 빛줄기가 번쩍였다가 가늘어지며 사라진다.
-      const dx = Math.cos(effect.angle);
-      const dy = Math.sin(effect.angle);
-      const reach = effect.length / WORLD_PER_PIXEL;
-      const half = Math.max(1, Math.round((effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1)));
-      const [edge, glow, core] = effect.mega ? ['rgba(240,96,138,0.45)', '#ffb3d0', '#ffffff'] : ['rgba(62,220,120,0.45)', '#8dffb0', '#ffffff'];
-      // 비스듬한 줄기에 구멍이 나지 않게 반 칸씩 겹쳐 긋는다.
-      for (let offset = -half - 1; offset <= half + 1; offset += 0.5) {
-        const depth = Math.abs(offset);
-        const color = depth > half ? edge : depth > half * 0.45 ? glow : core;
-        line(ctx, Math.round(x + dx * 8 - dy * offset), Math.round(y + dy * 8 + dx * offset),
-          Math.round(x + dx * reach - dy * offset), Math.round(y + dy * reach + dx * offset), color);
-      }
-      disc(ctx, Math.round(x + dx * 8), Math.round(y + dy * 8), Math.max(2, half - 1), core);
-      for (let spark = 0; spark < 26; spark += 1) {
-        const along = 12 + hash(effect.seed, spark) * Math.min(reach, 420);
-        const side = (hash(effect.seed, spark + 40) - 0.5) * (half * 2 + 10 + progress * 18);
-        sparkle(ctx, Math.round(x + dx * along - dy * side), Math.round(y + dy * along + dx * side),
-          spark % 2 === 0 ? glow : core, spark % 5 === 0 && progress < 0.6);
+      const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
+      drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
+    } else if (effect.type === 'nova') {
+      // 화염이 고리 모양으로 퍼져 나간다.
+      const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
+      disc(ctx, x, y, reach, `rgba(255, 138, 61, ${0.28 * (1 - progress)})`);
+      ring(ctx, x, y, reach, '#fff7d6');
+      ring(ctx, x, y, reach - 1, '#ffd23f');
+      ring(ctx, x, y, reach - 3, '#f08a1d', 2, Math.floor(effect.age * 40));
+      for (let flame = 0; flame < 36; flame += 1) {
+        const angle = (flame / 36) * Math.PI * 2 + hash(effect.seed, flame);
+        const at = reach * (0.82 + hash(effect.seed, flame + 60) * 0.22);
+        disc(ctx, Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - progress * 5),
+          (1 - progress) * (2 + hash(effect.seed, flame + 90) * 3), ['#d9452b', '#f08a1d', '#ffd23f'][flame % 3]);
       }
     } else if (effect.type === 'gust') {
       const reach = (effect.range / WORLD_PER_PIXEL) * (0.3 + progress * 0.7);
@@ -532,7 +560,7 @@ export function render(ctx, game, width, height, time) {
       const thick = (shot.scale ?? 1) >= 1.4 ? 1 : 0;
       for (let side = -thick; side <= thick; side += 1) {
         line(ctx, Math.round(x - (shot.vx / pace) * tail - (shot.vy / pace) * side), Math.round(y - (shot.vy / pace) * tail + (shot.vx / pace) * side),
-          Math.round(x - (shot.vy / pace) * side), Math.round(y + (shot.vx / pace) * side), shot.mega ? '#ffb21f' : '#c4c9d1');
+          Math.round(x - (shot.vy / pace) * side), Math.round(y + (shot.vx / pace) * side), shot.poison ? '#5dff9a' : shot.mega ? '#ffb21f' : '#c4c9d1');
       }
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(x, y, 1, 1);
@@ -550,6 +578,40 @@ export function render(ctx, game, width, height, time) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x - 1, y - 1, 1, 1);
   }
+  if (game.fusions.spinlaser && game.spinLaser) {
+    const { count, length, width } = game.spinLaser;
+    const pulse = 1 + Math.sin(time * 22) * 0.15;
+    for (let index = 0; index < count; index += 1) {
+      drawBeam(ctx, duckX, duckY, game.spinAngle + (index / count) * Math.PI * 2, length / WORLD_PER_PIXEL,
+        (width / WORLD_PER_PIXEL / 2) * 0.7 * pulse, BEAM.spin, index * 31 + Math.floor(time * 20), 0.3);
+    }
+  }
+  for (const blade of sawBlades(game)) {
+    const [x, y] = toBuffer(blade);
+    const radius = Math.round(blade.radius / WORLD_PER_PIXEL);
+    const turn = time * 16;
+    ring(ctx, x, y, radius + 4, 'rgba(255,255,255,0.55)', 4, Math.floor(time * 40));
+    // 톱니
+    for (let tooth = 0; tooth < 10; tooth += 1) {
+      const angle = turn + (tooth / 10) * Math.PI * 2;
+      disc(ctx, Math.round(x + Math.cos(angle) * (radius + 1)), Math.round(y + Math.sin(angle) * (radius + 1)), 2, '#2a1c14');
+      disc(ctx, Math.round(x + Math.cos(angle) * (radius + 1)), Math.round(y + Math.sin(angle) * (radius + 1)), 1, '#dcebff');
+    }
+    disc(ctx, x, y, radius + 1, '#2a1c14');
+    disc(ctx, x, y, radius, '#8fb1e9');
+    disc(ctx, x - 1, y - 1, radius - 2, '#dcebff');
+    disc(ctx, x, y, Math.max(2, Math.round(radius * 0.45)), '#5f86cf');
+    for (let spoke = 0; spoke < 4; spoke += 1) {
+      const angle = turn * 0.6 + (spoke / 4) * Math.PI * 2;
+      line(ctx, x, y, Math.round(x + Math.cos(angle) * (radius - 2)), Math.round(y + Math.sin(angle) * (radius - 2)), '#5f86cf');
+    }
+    disc(ctx, x, y, 1, '#ffffff');
+    ctx.fillStyle = '#fff6b0';
+    for (let spark = 0; spark < 4; spark += 1) {
+      const angle = hash(Math.floor(time * 30), spark) * Math.PI * 2;
+      ctx.fillRect(Math.round(x + Math.cos(angle) * (radius + 5)), Math.round(y + Math.sin(angle) * (radius + 5)), 1, 1);
+    }
+  }
   if (game.weapons.stapler && game.time - (game.staplerAt ?? -9) < 0.12) {
     // 총구 불꽃
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
@@ -561,7 +623,8 @@ export function render(ctx, game, width, height, time) {
   for (const ball of game.balls) {
     const [x, y] = toBuffer(ball);
     const radius = Math.max(3, Math.round(ball.radius / WORLD_PER_PIXEL));
-    const [dark, body, light] = ball.mega ? ['#c9692a', '#ffb21f', '#fff4c2'] : ['#c2305a', '#f0608a', '#ffb3bf'];
+    const [dark, body, light] = ball.thunder ? ['#3a5a9c', '#7fe9ff', '#ffffff'] : ball.mega ? ['#c9692a', '#ffb21f', '#fff4c2']
+      : ['#c2305a', '#f0608a', '#ffb3bf'];
     for (let ghost = 3; ghost >= 1; ghost -= 1) {
       ctx.globalAlpha = 0.34 - ghost * 0.08;
       disc(ctx, Math.round(x - ball.dx * ghost * 5), Math.round(y - ball.dy * ghost * 5), radius - (ghost > 1 ? 1 : 0), body);
@@ -581,6 +644,17 @@ export function render(ctx, game, width, height, time) {
     }
     disc(ctx, x - Math.ceil(radius / 2), y - Math.ceil(radius / 2), radius > 5 ? 1 : 0.5, light);
     if (ball.bounce > 0) ring(ctx, x, y, radius + 3, '#ffffff', 2, Math.floor(time * 30));
+    if (ball.thunder) {
+      // 공 둘레에서 전기가 튄다.
+      const jitter = Math.floor(time * 24);
+      for (let arc = 0; arc < 4; arc += 1) {
+        const angle = hash(ball.id + jitter, arc) * Math.PI * 2;
+        const from = radius + 1;
+        const to = radius + 4 + hash(ball.id + jitter, arc + 9) * 5;
+        line(ctx, Math.round(x + Math.cos(angle) * from), Math.round(y + Math.sin(angle) * from),
+          Math.round(x + Math.cos(angle + 0.4) * to), Math.round(y + Math.sin(angle + 0.4) * to), arc % 2 === 0 ? '#fff6b0' : '#ffffff');
+      }
+    }
   }
   for (const robot of game.robots) {
     const [x, y] = toBuffer(robot);

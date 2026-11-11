@@ -1083,6 +1083,99 @@ ITEMS.magnifier = item([
   twinkle(fx, 1, 10, f + 2, 'W');
   twinkle(fx, 13, 8, f + 3, 'i');
 });
+// 합체 무기
+ITEMS.thunderball = item([], (body, fx, f) => {
+  const cy = [8, 7, 8, 9][f];
+  body.ellipse(7, cy, 5, 5, 'q').ellipse(7, cy, 4, 4, 'B').ellipse(6, cy - 1, 3, 3, 'E', 'B').ellipse(5, cy - 2, 1, 1, 'W');
+  body.stamp(5, cy - 3, ['..YY', '.YY.', 'YYYY', '.YY.', 'YY..', 'Y...']);
+  const bolts = [
+    [[13, 2], [14, 3], [13, 4], [0, 10], [1, 11], [0, 12]],
+    [[1, 1], [0, 2], [1, 3], [14, 11], [15, 12], [14, 13]],
+    [[12, 0], [13, 1], [14, 1], [2, 14], [1, 13], [0, 14]],
+    [[0, 5], [1, 6], [0, 7], [15, 7], [14, 8], [15, 9]],
+  ];
+  bolts[f].forEach(([x, y], index) => fx.set(x, y, index % 2 === 0 ? 'E' : 'W'));
+  twinkle(fx, 13, 13, f, 'Y');
+  twinkle(fx, 2, 2, f + 2, 'E');
+});
+ITEMS.spinlaser = item([], (body, fx, f) => {
+  for (let beam = 0; beam < 4; beam += 1) {
+    const angle = (beam / 4) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 2);
+    for (let reach = 2; reach <= 8; reach += 1) {
+      fx.set(7.5 + Math.cos(angle) * reach, 7.5 + Math.sin(angle) * reach, reach % 2 === 0 ? 'E' : 'W');
+      if (reach < 7) fx.set(7.5 + Math.cos(angle + 0.18) * reach, 7.5 + Math.sin(angle + 0.18) * reach, 'j');
+    }
+  }
+  body.ellipse(7, 7, 3, 3, 'h').ellipse(7, 7, 2, 2, 'z').set(7, 7, f % 2 === 0 ? 'R' : 'e').set(6, 6, 'W');
+});
+ITEMS.poisongun = item([], (body, fx, f) => {
+  const pressed = f % 2;
+  body.stamp(0, 4 + pressed, [
+    '..xGGGGGGGGx....',
+    '.xGggGGGGGGGx...',
+    '.GGGGGGGGGGGGx..',
+    '.xxGGGGGGGGGGG..',
+  ]);
+  if (!pressed) body.stamp(0, 8, '...jjjjjjjjjjx..');
+  body.stamp(0, 9, [
+    '..hDDDDDDDDDDh..',
+    '.hDddDDDDDDDDDh.',
+    '.hhhhhhhhhhhhhh.',
+  ]);
+  body.stamp(4, 5 + pressed, ['W.W', '.W.']);
+  const darts = [[[14, 5], [15, 5], [14, 9]], [[13, 7], [14, 7], [15, 10]], [[15, 6], [14, 8], [15, 8]], [[13, 6], [14, 10], [15, 11]]];
+  darts[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'j'));
+  [[3, 13], [8, 14], [12, 13]].forEach(([x, y], index) => fx.set(x, y + ((f + index) % 2), 'j'));
+  twinkle(fx, 2, 1, f, 'j');
+  twinkle(fx, 11, 1, f + 2, 'g');
+});
+ITEMS.bleachbot = item([], (body, fx, f) => {
+  body.ellipse(8, 7, 6, 6, 't').ellipse(8, 6, 6, 5, 'T').ellipse(8, 6, 5, 4, 'W').ellipse(8, 6, 2, 2, 'T');
+  body.set(8, 6, f % 2 === 0 ? 'W' : 'i').rect(6, 1, 5, 1, 'h').set(5, 2, 'h').set(11, 2, 'h').set(5, 4, 'i').set(4, 6, 'i');
+  // 지나간 자리에 남는 락스 방울
+  [[1, 13], [4, 14], [7, 15], [11, 14], [14, 13]].forEach(([x, y], index) => {
+    const phase = (f + index) % ITEM_FRAMES;
+    fx.set(x, y, phase === 0 ? 'W' : 'T');
+    if (phase < 2) fx.set(x + 1, y, 'i');
+    if (phase === 3) fx.set(x, y - 1, 't');
+  });
+  twinkle(fx, 14, 1, f, 'i');
+  twinkle(fx, 0, 8, f + 2, 'T');
+});
+ITEMS.firering = item([], (body, fx, f) => {
+  for (let orb = 0; orb < 8; orb += 1) {
+    const angle = (orb / 8) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 4);
+    const x = 7.5 + Math.cos(angle) * 6;
+    const y = 7.5 + Math.sin(angle) * 6;
+    body.set(x, y, orb % 2 === 0 ? 'e' : 'O');
+    fx.set(x, y, orb % 2 === 0 ? 'O' : 'Y');
+    fx.set(7.5 + Math.cos(angle - 0.35) * 6, 7.5 + Math.sin(angle - 0.35) * 6, 'e');
+  }
+  const flames = [
+    ['..e..', '.eO..', '.OYO.', 'eOYOe', 'OYWYO', '.OYO.'],
+    ['..e..', '..Oe.', '.OYO.', 'eOYOe', 'OYWYO', '.OYO.'],
+    ['.e...', '.eO..', '.OYOe', 'eOYO.', 'OYWYO', '.OYO.'],
+    ['...e.', '..Oe.', 'eOYO.', '.OYOe', 'OYWYO', '.OYO.'],
+  ];
+  body.stamp(5, 5, flames[f]);
+  twinkle(fx, 14, 1, f, 'Y');
+  twinkle(fx, 1, 14, f + 2, 'O');
+});
+ITEMS.sawblade = item([], (body, fx, f) => {
+  for (let tooth = 0; tooth < 8; tooth += 1) {
+    const angle = (tooth / 8) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 4);
+    body.set(7.5 + Math.cos(angle) * 6.6, 7.5 + Math.sin(angle) * 6.6, 'L');
+    body.set(7.5 + Math.cos(angle + 0.2) * 5.8, 7.5 + Math.sin(angle + 0.2) * 5.8, 'L');
+  }
+  body.ellipse(7, 7, 5, 5, 'b').ellipse(7, 7, 4, 4, 'L').ellipse(6, 6, 3, 3, 'W', 'L').ellipse(7, 7, 2, 2, 'B');
+  for (let spoke = 0; spoke < 4; spoke += 1) {
+    const angle = (spoke / 4) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 2);
+    body.set(7.5 + Math.cos(angle) * 3.4, 7.5 + Math.sin(angle) * 3.4, 'q');
+  }
+  body.set(7, 7, 'W');
+  const sparks = [[[14, 13], [15, 14]], [[13, 14], [15, 12], [1, 1]], [[0, 2], [1, 0], [14, 15]], [[15, 15], [0, 0]]];
+  sparks[f].forEach(([x, y], index) => fx.set(x, y, index === 0 ? 'W' : 'Y'));
+});
 ITEMS.ramen = ITEMS.heal;
 
 // 보스는 크기가 커서 글자 격자 대신 작은 그리기 함수로 찍는다. frame은 0 또는 1이다.

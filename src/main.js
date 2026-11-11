@@ -127,7 +127,8 @@ function drawLoadout() {
     ...Object.entries(game.weapons),
     ...Object.entries(game.passives),
   ];
-  document.querySelector('.loadout').innerHTML = items
+  const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
+  document.querySelector('.loadout').innerHTML = fused + items
     .map(([id, level]) => (game.evolved[id]
       ? `<span class="is-evolved">${itemIcon(id)}★</span>`
       : `<span>${itemIcon(id)}${level}</span>`)).join('');
@@ -142,10 +143,11 @@ function drawChoices() {
   joystick.hidden = true;
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.kind === 'heal' ? 'heal' : choice.id);
-    const tag = choice.kind === 'heal' ? '' : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
+    const tag = choice.kind === 'heal' ? '' : choice.kind === 'fusion' ? '<small class="choice-fusion">합체</small>'
+      : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? '<small class="choice-new">NEW</small>' : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { choose, createGame, damageEnemy, formatTime, rollChoices, statsOf, update } from '../src/engine.js';
 import { rankBest } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, difficultyAt, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, difficultyAt, FUSIONS, MAX_LEVEL, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -142,6 +142,7 @@ describe('성장과 아이템', () => {
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
     game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, passiveMaxLevel(id)]));
     game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+    game.fusions = Object.fromEntries(Object.keys(FUSIONS).map((id) => [id, true]));
     assert.ok(rollChoices(game).every((choice) => choice.kind === 'heal'));
   });
 
@@ -418,6 +419,7 @@ describe('패시브 확장', () => {
     const game = createGame(seeded(4));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
     game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+    game.fusions = Object.fromEntries(Object.keys(FUSIONS).map((id) => [id, true]));
     game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, 5]));
     const offered = rollChoices(game).filter((choice) => choice.kind === 'passive').map((choice) => choice.id).sort();
     assert.deepEqual(offered, ['protein', 'sneakers']);
@@ -435,5 +437,43 @@ describe('패시브 확장', () => {
       update(game, 1 / 60);
     }
     assert.equal(grown.shots[0].radius, plain.shots[0].radius * (1 + PASSIVES.magnifier.size[4]));
+  });
+});
+
+describe('합체 무기', () => {
+  it('두 완성형을 모두 갖춰야 합체가 선택지에 나오고, 고르면 다시 나오지 않는다', () => {
+    const game = createGame(seeded(6));
+    game.weapons = { ball: MAX_LEVEL, zapper: MAX_LEVEL };
+    game.evolved = { ball: true };
+    assert.ok(!rollChoices(game).some((choice) => choice.kind === 'fusion'));
+    game.evolved.zapper = true;
+    game.pendingLevels = 1;
+    game.choices = rollChoices(game);
+    assert.equal(game.choices[0].kind, 'fusion');
+    assert.equal(game.choices[0].id, 'thunderball');
+    choose(game, 0);
+    assert.ok(game.fusions.thunderball);
+    assert.ok(!rollChoices(game).some((choice) => choice.kind === 'fusion'));
+  });
+
+  it('합체 무기는 모두 실제 무기 둘로 만들고, 켜 두면 원래보다 훨씬 많이 잡는다', () => {
+    for (const recipe of Object.values(FUSIONS)) assert.ok(recipe.from.length === 2 && recipe.from.every((id) => WEAPONS[id]));
+    const damageWith = (fused) => {
+      const game = createGame(seeded(9));
+      game.spawnCarry = -100000;
+      game.view = { halfW: 300, halfH: 220 };
+      game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
+      game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
+      if (fused) game.fusions = Object.fromEntries(Object.keys(FUSIONS).map((id) => [id, true]));
+      const enemies = [];
+      for (let index = 0; index < 40; index += 1) {
+        const angle = (index / 40) * Math.PI * 2;
+        enemies.push(placeEnemy(game, 'trash', Math.cos(angle) * (120 + (index % 4) * 50), Math.sin(angle) * (120 + (index % 4) * 50),
+          { hp: 1e9, boss: true }));
+      }
+      for (let step = 0; step < 600; step += 1) update(game, 1 / 60);
+      return enemies.reduce((sum, enemy) => sum + (1e9 - enemy.hp), 0);
+    };
+    assert.ok(damageWith(true) > damageWith(false) * 1.4);
   });
 });

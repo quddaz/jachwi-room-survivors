@@ -6,12 +6,14 @@ export const PLAYER = { speed: 150, maxHp: 50, radius: 16, pickupRadius: 90, inv
 // 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
 export function difficultyAt(time) {
   const minutes = time / 60;
+  // 4분부터는 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
+  const late = Math.max(0, minutes - 4);
   return {
-    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09,
-    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02,
-    speed: 1 + Math.min(0.45, minutes * 0.04),
-    spawnPerSec: Math.min(36, 1.4 + minutes * 1.8 + minutes * minutes * 0.3),
-    maxEnemies: Math.min(560, 110 + Math.floor(minutes * 65)),
+    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * late * 0.35 + late * late * late * 0.04,
+    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.25,
+    speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03),
+    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.2),
+    maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
   };
 }
 
@@ -155,6 +157,22 @@ export const EVOLUTIONS = {
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
   robot: { label: '로봇청소기 부대', description: '네 대가 몰려다니며 더 세게 들이받는다', damage: 1.4, count: 4 },
+};
+
+// 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
+export const FUSIONS = {
+  thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', from: ['ball', 'zapper'],
+    damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
+  spinlaser: { label: '회전 레이저', description: '꺼지지 않는 레이저 네 줄기가 빙글빙글 돌며 훑는다', from: ['laser', 'fan'],
+    count: 4, length: 620, turn: 1.5, dps: 1.6 },
+  poisongun: { label: '독침 기관총', description: '세 줄로 쏘는 독침이 적을 모두 뚫고 중독시킨다', from: ['stapler', 'spray'],
+    poison: 0.9, poisonSec: 3 },
+  bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
+    damage: 1.5, speed: 1.25, dropEverySec: 0.3, radius: 36, dps: 0.8, lifeSec: 2.2, slow: 0.5 },
+  firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],
+    damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
+  sawblade: { label: '회전 톱날', description: '커다란 톱날 둘이 화면을 크게 돌며 닿는 적을 갈아 버린다', from: ['slipper', 'roller'],
+    count: 2, orbit: 170, spin: 2.6, radius: 30, damage: 1.2, hitEverySec: 0.22 },
 };
 
 // 바닥에 떨어지는 아이템과 떨어질 확률(적 하나당)
