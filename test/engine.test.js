@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  absorbed, applyBuild, choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update, weaponActive,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1401,5 +1401,41 @@ describe('능력치 투자', () => {
     assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
     choose(game, 0);
     assert.equal(Object.keys(game.relics).length, 2);
+  });
+});
+
+describe('합체 재료 소모', () => {
+  it('합체하면 재료 무기는 따로 공격하지 않고, 남는 무기만 공격한다', () => {
+    const game = createGame(seeded(5));
+    game.weapons = { ball: MAX_LEVEL, zapper: MAX_LEVEL };
+    game.evolved = { ball: true, zapper: true };
+    game.fusions = { thunderball: true };
+    assert.equal(absorbed(game, 'zapper'), true);
+    assert.equal(weaponActive(game, 'zapper'), false);
+    assert.equal(weaponActive(game, 'ball'), true);
+    game.spawnCarry = -1000;
+    placeEnemy(game, 'trash', 80, 0, { hp: 1e6 });
+    game.cooldowns.zapper = 0;
+    update(game, 1 / 60);
+    // 전기 파리채가 스스로 쏘지 않으니 쿨타임도 돌지 않는다.
+    assert.equal(game.cooldowns.zapper, 0);
+    assert.equal(game.balls.length > 0, true);
+  });
+
+  it('재료를 이미 쓴 합체는 선택지에 나오지 않는다', () => {
+    const game = createGame(seeded(5));
+    game.weapons = { ball: MAX_LEVEL, zapper: MAX_LEVEL, shower: MAX_LEVEL };
+    game.evolved = { ball: true, zapper: true, shower: true };
+    game.fusions = { thunderball: true };
+    for (let index = 0; index < 20; index += 1) {
+      assert.ok(rollChoices(game).every((choice) => choice.kind !== 'fusion'));
+    }
+  });
+
+  it('합체 카드에 사라지는 무기를 적는다', () => {
+    const game = createGame(seeded(5));
+    const lines = describeChoice(game, { kind: 'fusion', id: 'sawblade', level: MAX_LEVEL + 2 });
+    assert.ok(lines.some((line) => line.includes('슬리퍼') && line.includes('사라짐')));
+    assert.ok(Object.values(FUSIONS).every((recipe) => recipe.consumes.every((id) => recipe.from.includes(id))));
   });
 });
