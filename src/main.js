@@ -332,10 +332,10 @@ const CODEX_TABS = [
   ['item', '아이템', () => `<p class="ranking-note">적이 가끔 떨어뜨려요. 같은 종류는 맵에 ${DROP_LIMIT}개까지만 떨어져 있어요.</p>
     <ul class="evolve-list">${Object.entries(DROPS).map(([id, drop]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(drop.label)}</b><em>${escapeHtml(drop.description)}</em></span></li>`).join('')}</ul>`],
-  ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 네 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 5·10·20점에 효율이 +25%·+25%·+50% 올라 20점이면 2배가 되고, 마스터 능력도 붙어요.</p>
+  ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 네 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 포인트마다 기본 수치가 조금 오르고, <b>5·10·20점</b>에 그 파트만의 능력이 열려요.</p>
     <ul class="evolve-list">${Object.entries(BUILD).map(([tree, def]) => `
-      <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점: ${escapeHtml(buildEffect(tree, 1))}</em><i>10점: ${escapeHtml(buildEffect(tree, 10))}</i>
-        <i>20점: ${escapeHtml(buildEffect(tree, 20))}</i><i class="is-evolve">마스터: ${escapeHtml(def.master)}</i></span></li>`).join('')}</ul>`],
+      <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점당: ${escapeHtml(buildEffect(tree, 1))}</em>
+        ${Object.entries(def.perks).map(([at, perk]) => `<i class="${Number(at) === BUILD_MAX ? 'is-evolve' : ''}">${at}점 ${escapeHtml(perk.name)}: ${escapeHtml(perk.text)}</i>`).join('')}</span></li>`).join('')}</ul>`],
   ['map', '맵', () => `<p class="ranking-note">바닥과 소품만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
@@ -388,18 +388,19 @@ function drawBuild() {
   document.querySelector('.build-list').innerHTML = Object.entries(BUILD).map(([tree, def]) => {
     const points = selectedBuild[tree];
     const steps = BUILD_STEPS.map(([at, bonus]) => `<span class="build-step${points >= at ? ' is-on' : ''}" style="left: ${(at / BUILD_MAX) * 100}%">${at}</span>`).join('');
-    const milestones = BUILD_STEPS.map(([at, bonus]) => `<span class="${points >= at ? 'is-on' : ''}">${at} 효율 +${Math.round(bonus * 100)}%${at === BUILD_MAX ? ` · ${escapeHtml(def.master)}` : ''}</span>`).join('');
+    const perks = Object.entries(def.perks).map(([at, perk]) => `
+      <li class="${points >= Number(at) ? 'is-on' : ''}"><span class="build-perk-at">${at}점</span><b>${escapeHtml(perk.name)}</b><span>${escapeHtml(perk.text)}</span></li>`).join('');
     return `
       <li class="build-row">
         <div class="build-head">
           ${itemIcon(def.icon)}<b>${def.label}</b><span class="build-points">${points}<small>/${BUILD_MAX}</small></span>
-          <span class="build-eff">효율 ×${buildEfficiency(points)}</span>
+          <span class="build-eff">기본 ×${Math.round(buildEfficiency(points) * 100) / 100}</span>
           <button class="build-button" type="button" data-build="${tree}" data-delta="-1" aria-label="${def.label} 빼기"${points === 0 ? ' disabled' : ''}>−</button>
           <button class="build-button" type="button" data-build="${tree}" data-delta="1" aria-label="${def.label} 더하기"${points >= BUILD_MAX || used >= BUILD_POINTS ? ' disabled' : ''}>+</button>
         </div>
         <div class="build-bar"><div class="build-fill" style="width: ${(points / BUILD_MAX) * 100}%"></div>${steps}</div>
-        <p class="build-effect">${points ? escapeHtml(buildEffect(tree, points)) : '포인트를 넣으면 효과가 생겨요'}</p>
-        <p class="build-milestones">${milestones}</p>
+        <ol class="build-perks">${perks}</ol>
+        <p class="build-effect">기본: ${escapeHtml(buildEffect(tree, Math.max(points, 1)))}${points ? '' : ' (1점당)'}</p>
       </li>`;
   }).join('');
 }

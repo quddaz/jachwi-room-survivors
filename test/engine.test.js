@@ -1276,8 +1276,8 @@ describe('새 보스', () => {
 });
 
 describe('능력치 투자', () => {
-  it('효율은 5·10·20점에 올라 20점이면 2배다', () => {
-    assert.deepEqual([0, 4, 5, 9, 10, 19, 20].map(buildEfficiency), [1, 1, 1.25, 1.25, 1.5, 1.5, 2]);
+  it('기본 수치 효율은 5·10·20점에 조금씩 올라 20점이면 1.4배다', () => {
+    [[0, 1], [4, 1], [5, 1.1], [9, 1.1], [10, 1.2], [19, 1.2], [20, 1.4]].forEach(([points, value]) => near(buildEfficiency(points), value, 1e-9));
   });
 
   it('배분은 파트당 20, 합계 30을 넘지 못한다', () => {
@@ -1285,17 +1285,42 @@ describe('능력치 투자', () => {
     assert.deepEqual(normalizeBuild({ crit: 5.7, item: 3 }), { crit: 5, haste: 0, survival: 0, item: 3 });
   });
 
-  it('투자한 만큼 능력치가 오르고, 체력은 늘어난 최대치로 시작한다', () => {
+  it('기본 수치는 작게 오르고, 체력은 늘어난 최대치로 시작한다', () => {
     const game = createGame(seeded(97));
-    applyBuild(game, { haste: 20, survival: 10 });
+    applyBuild(game, { survival: 4 });
     const stats = statsOf(game);
-    near(stats.cooldownScale, 1 / 1.4, 1e-9);
-    assert.equal(stats.maxHp, PLAYER.maxHp + 10 * 2 * 1.5);
+    assert.equal(stats.maxHp, PLAYER.maxHp + 4);
     assert.equal(game.player.hp, stats.maxHp);
-    near(stats.armor, 10 * 0.005 * 1.5, 1e-9);
+    near(stats.armor, 4 * 0.0025, 1e-9);
+    near(stats.regen, PLAYER.regen, 1e-9);
   });
 
-  it('공속 마스터는 계속 닿는 무기를 30% 더 세게 한다', () => {
+  it('생존 5점은 초당 회복 +1, 10점은 받는 피해 -10%와 무적 시간을 더한다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { survival: 10 });
+    const stats = statsOf(game);
+    near(stats.regen, PLAYER.regen + 1, 1e-9);
+    near(stats.armor, 1 - (1 - 10 * 0.0025 * 1.2) * 0.9, 1e-9);
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 5 });
+    update(game, 1 / 60);
+    assert.ok(game.player.invulnerable > PLAYER.invulnerableSec);
+  });
+
+  it('공속 5점은 레벨업 뒤 잠깐 공격 속도가 오르고, 10점은 크기와 범위를 키운다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { haste: 10 });
+    const before = statsOf(game).cooldownScale;
+    game.xp = game.nextXp;
+    game.gems.push({ x: game.player.x, y: game.player.y, value: 0 });
+    update(game, 1 / 60);
+    near(statsOf(game).cooldownScale, before / 1.4, 1e-6);
+    near(statsOf(game).projectile, 1.2, 1e-9);
+    near(statsOf(game).area, 1.1, 1e-9);
+  });
+
+  it('공속 20점은 계속 닿는 무기를 40% 더 세게 한다', () => {
     const plain = createGame(seeded(97));
     const master = createGame(seeded(97));
     applyBuild(master, { haste: 20 });
@@ -1307,19 +1332,42 @@ describe('능력치 투자', () => {
     const b = placeEnemy(master, 'trash', 30, 0, { hp: 1e6 });
     update(plain, 1 / 60);
     update(master, 1 / 60);
-    near((1e6 - b.hp) / (1e6 - a.hp), 1.3, 1e-6);
+    near((1e6 - b.hp) / (1e6 - a.hp), 1.4, 1e-6);
   });
 
-  it('치명 마스터의 치명타는 적을 잠깐 기절시킨다', () => {
+  it('치명 5점은 정예에게만 치명타 확률을 더한다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { crit: 5 });
+    game.random = () => 0.05;
+    const roach = { id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0 };
+    const elite = { ...roach, id: 2, elite: true };
+    damageEnemy(game, roach, 10);
+    damageEnemy(game, elite, 10);
+    assert.equal(roach.hp, 990);
+    assert.ok(elite.hp < 990);
+  });
+
+  it('치명 10점은 치명타로 쓰러진 적이 터져 옆의 적도 다친다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { crit: 10 });
+    game.random = () => 0;
+    const target = placeEnemy(game, 'roach', 100, 0, { hp: 1 });
+    const near1 = placeEnemy(game, 'trash', 130, 0, { hp: 1e6 });
+    damageEnemy(game, target, 100);
+    assert.ok(near1.hp < 1e6);
+  });
+
+  it('치명 20점의 치명타는 적을 기절시키고 더 아프다', () => {
     const game = createGame(seeded(97));
     applyBuild(game, { crit: 20 });
     game.random = () => 0;
+    near(statsOf(game).critDamage, PLAYER.critDamage + 20 * 0.015 * 1.4 + 0.5, 1e-9);
     const enemy = { id: 1, kind: 'roach', x: 0, y: 0, hp: 1000, radius: 10, kx: 0, ky: 0 };
     damageEnemy(game, enemy, 10);
     assert.ok(enemy.chillUntil > game.time);
   });
 
-  it('생존 마스터는 한 번 부활한다', () => {
+  it('생존 20점은 한 번 부활한다', () => {
     const game = createGame(seeded(97));
     applyBuild(game, { survival: 20 });
     game.spawnCarry = -1000;
@@ -1331,7 +1379,21 @@ describe('능력치 투자', () => {
     assert.ok(game.player.hp > 1);
   });
 
-  it('아이템 마스터는 시작 보물을 두 번 고른다', () => {
+  it('아이템 5점은 라면을 1.5배 회복하고, 10점은 다시 뽑기가 하나 더 있다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { item: 10 });
+    const other = createGame(seeded(97));
+    applyBuild(other, { item: 10 });
+    startWithRelic(other);
+    assert.equal(other.rerollLeft, 2);
+    game.player.hp = 10;
+    game.drops.push({ type: 'ramen', x: game.player.x, y: game.player.y });
+    game.spawnCarry = -1000;
+    update(game, 1 / 60);
+    assert.ok(game.player.hp >= 10 + 22.5);
+  });
+
+  it('아이템 20점은 시작 보물을 두 번 고른다', () => {
     const game = createGame(seeded(97));
     applyBuild(game, { item: 20 });
     startWithRelic(game);

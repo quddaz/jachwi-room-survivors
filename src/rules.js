@@ -2,20 +2,39 @@
 export const ARENA = { width: 3000, height: 3000 };
 
 // 능력치 투자. 게임을 시작할 때 모두 같은 30점을 네 파트에 나눈다(파트당 최대 20).
-// 포인트마다 기본 효과가 오르고, 5·10·20점에 도달하면 그 파트의 효율이 오른다(합하면 2배). 20점이면 마스터 능력도 붙는다.
+// 포인트마다 오르는 기본 수치는 작고, 핵심은 5·10·20점에 열리는 능력이다.
+// 같은 점수에 효율도 조금씩 올라 20점이면 기본 수치가 1.4배가 된다.
 export const BUILD_POINTS = 30;
 export const BUILD_MAX = 20;
-export const BUILD_STEPS = [[5, 0.25], [10, 0.25], [20, 0.5]];
+export const BUILD_STEPS = [[5, 0.1], [10, 0.1], [20, 0.2]];
 export const BUILD = {
-  crit: { label: '치명', icon: 'clover', per: { critChance: 0.0075, critDamage: 0.025 },
-    master: '치명타 맞은 적이 0.6초 기절(보스 제외)', masterStun: 0.6 },
-  haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.01 }, master: '계속 닿는 무기 피해 +30%', masterDps: 0.3 },
-  survival: { label: '생존', icon: 'vitamin', per: { maxHp: 2, armor: 0.005 }, master: '한 번 쓰러져도 체력 30%로 부활', masterRevive: 0.3 },
-  item: { label: '아이템', icon: 'vacuum', per: { xpGain: 0.01, pickup: 0.03, drop: 0.04 }, master: '시작 보물 하나 더, 다시 뽑기 +1',
-    masterRelics: 1, masterRerolls: 1 },
+  crit: { label: '치명', icon: 'clover', per: { critChance: 0.004, critDamage: 0.015 },
+    perks: {
+      5: { name: '약점 포착', text: '보스·정예에게 치명타 확률 +10%', eliteCrit: 0.1 },
+      10: { name: '치명 폭발', text: '치명타로 쓰러뜨린 적이 터져 주변에 그 피해의 40%', blastShare: 0.4, blastRadius: 70 },
+      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타 맞은 적 0.8초 기절(보스 제외)', critDamage: 0.5, stun: 0.8 },
+    } },
+  haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.005 },
+    perks: {
+      5: { name: '레벨업 질주', text: '레벨업하면 5초 동안 공격 속도 +40%', rushSec: 5, rush: 0.4 },
+      10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
+      20: { name: '폭주 모터', text: '계속 닿는 무기 피해 +40%, 공격 속도 +15%', dps: 0.4, attackSpeed: 0.15 },
+    } },
+  survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
+    perks: {
+      5: { name: '잘 먹고 잘 자기', text: '초당 회복 +1', regen: 1 },
+      10: { name: '맷집', text: '맞은 뒤 무적 +0.4초, 받는 피해 -10%', guardSec: 0.4, armor: 0.1 },
+      20: { name: '불사조 오리', text: '한 번 쓰러져도 체력 50%로 부활', revive: 0.5 },
+    } },
+  item: { label: '아이템', icon: 'vacuum', per: { xpGain: 0.005, pickup: 0.015, drop: 0.02 },
+    perks: {
+      5: { name: '알뜰 살림', text: '주운 아이템 효과 1.5배(라면 회복, 커피·얼음팩·택배상자 시간)', boost: 1.5 },
+      10: { name: '한 번 더', text: '다시 뽑기 +1', rerolls: 1 },
+      20: { name: '보물 사냥꾼', text: '시작 보물 하나 더, 보물상자를 열면 레벨업도 하나 더', relics: 1, chestLevels: 1 },
+    } },
 };
 
-// 그 파트에 투자한 점수에 따른 효율 배율(1, 1.25, 1.5, 2)
+// 그 파트에 투자한 점수에 따른 효율 배율(1, 1.1, 1.2, 1.4)
 export function buildEfficiency(points) {
   return 1 + BUILD_STEPS.reduce((sum, [at, bonus]) => sum + (points >= at ? bonus : 0), 0);
 }

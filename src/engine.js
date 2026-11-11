@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, BUILD_MAX, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -73,7 +73,8 @@ function buildValue(game, key) {
   return sum;
 }
 
-const mastered = (game, tree) => (game.build?.[tree] ?? 0) >= BUILD_MAX;
+// 5·10·20점에 열리는 능력. 아직 못 열었으면 null이다.
+const perk = (game, tree, at) => ((game.build?.[tree] ?? 0) >= at ? BUILD[tree].perks[at] : null);
 
 // 게임을 시작할 때 능력치 배분을 넣고, 늘어난 최대 체력만큼 채운다.
 export function applyBuild(game, build) {
@@ -102,7 +103,8 @@ function flatDamageOf(game) {
 }
 
 function critDamageOf(game) {
-  return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0) + buildValue(game, 'critDamage');
+  return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0) + buildValue(game, 'critDamage')
+    + (perk(game, 'crit', 20)?.critDamage ?? 0);
 }
 
 function cornered(game) {
@@ -123,16 +125,20 @@ export function statsOf(game) {
   return {
     speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed') + (relic(game, 'energy')?.speed ?? 0)
       + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
-    armor: 1 - (1 - passiveValue(game, 'gloves', 'armor')) * (1 - guard) * (1 - buildValue(game, 'armor')),
+    armor: 1 - (1 - passiveValue(game, 'gloves', 'armor')) * (1 - guard) * (1 - buildValue(game, 'armor'))
+      * (1 - (perk(game, 'survival', 10)?.armor ?? 0)),
     pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0) + buildValue(game, 'pickup')),
     maxHp: maxHpOf(game),
-    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0),
+    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0)
+      + (perk(game, 'survival', 5)?.regen ?? 0),
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
-      * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed')),
+      * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
+      / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0) + buildValue(game, 'xpGain'),
-    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0),
+    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
-    projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0),
+    projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0)
+      + (perk(game, 'haste', 10)?.projectile ?? 0),
     critChance: critChanceOf(game),
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
@@ -140,7 +146,7 @@ export function statsOf(game) {
 }
 
 function rerollsPerLevel(game) {
-  return 1 + (relic(game, 'neko')?.rerolls ?? 0) + (mastered(game, 'item') ? BUILD.item.masterRerolls : 0);
+  return 1 + (relic(game, 'neko')?.rerolls ?? 0) + (perk(game, 'item', 10)?.rerolls ?? 0);
 }
 
 const percent = (value) => {
@@ -386,7 +392,7 @@ function damagePlayer(game, amount, ranged = false) {
   amount = Math.min(amount, statsOf(game).maxHp * PLAYER.maxHitShare);
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
-  player.invulnerable = PLAYER.invulnerableSec;
+  player.invulnerable = PLAYER.invulnerableSec + (perk(game, 'survival', 10)?.guardSec ?? 0);
   game.shake = 0.25;
   if (player.hp <= 0 && relic(game, 'firstaid') && !game.revived) {
     // 구급상자: 한 번만 일어난다.
@@ -398,14 +404,14 @@ function damagePlayer(game, amount, ranged = false) {
     addEffect(game, { type: 'flash', life: 0.5 });
     addEffect(game, { type: 'banner', text: '구급상자! 다시 일어났어요', life: 2.4 });
   }
-  if (player.hp <= 0 && mastered(game, 'survival') && !game.buildRevived) {
-    // 생존 마스터: 한 번 버틴다.
+  if (player.hp <= 0 && perk(game, 'survival', 20) && !game.buildRevived) {
+    // 생존 20점: 한 번 버틴다.
     game.buildRevived = true;
-    player.hp = statsOf(game).maxHp * BUILD.survival.masterRevive;
+    player.hp = statsOf(game).maxHp * BUILD.survival.perks[20].revive;
     player.invulnerable = 3;
     game.shieldUntil = game.time + 3;
     addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 1.2, gold: true });
-    addEffect(game, { type: 'banner', text: '생존 마스터! 다시 일어났어요', life: 2.4 });
+    addEffect(game, { type: 'banner', text: '불사조 오리! 다시 일어났어요', life: 2.4 });
   }
   if (player.hp <= 0) {
     player.hp = 0;
@@ -741,13 +747,29 @@ function separate(enemies) {
   });
 }
 
+// 치명 10점: 치명타로 쓰러진 적이 터진다. 터진 피해로는 다시 터지지 않는다.
+function critBlast(game, source, amount) {
+  const blast = perk(game, 'crit', 10);
+  if (!blast || game.critBlasting) return;
+  game.critBlasting = true;
+  for (const enemy of game.enemies) {
+    if (enemy !== source && !enemy.dead && distance(enemy, source) < blast.blastRadius + enemy.radius) {
+      damageEnemy(game, enemy, amount * blast.blastShare);
+    }
+  }
+  game.critBlasting = false;
+  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: blast.blastRadius, color: 'crit', life: 0.3 });
+}
+
 export function damageEnemy(game, enemy, amount, knockback = 0, from = game.player) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
-  const chance = critChanceOf(game);
+  // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
+  const weakSpot = (enemy.boss || enemy.elite) && !relic(game, 'mallet') ? perk(game, 'crit', 5)?.eliteCrit ?? 0 : 0;
+  const chance = critChanceOf(game) + weakSpot;
   const crit = chance > 0 && game.random() < chance;
   if (crit) amount *= critDamageOf(game);
-  if (crit && !enemy.boss && mastered(game, 'crit')) enemy.chillUntil = game.time + BUILD.crit.masterStun;
+  if (crit && !enemy.boss && perk(game, 'crit', 20)) enemy.chillUntil = game.time + BUILD.crit.perks[20].stun;
   if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
   enemy.hp -= amount;
   // 얼음틀: 한 대씩 때리는 공격만 얼린다(매 순간 조금씩 닿는 공격은 빼고).
@@ -767,7 +789,10 @@ export function damageEnemy(game, enemy, amount, knockback = 0, from = game.play
     enemy.kx += ((enemy.x - from.x) / gap) * push;
     enemy.ky += ((enemy.y - from.y) / gap) * push;
   }
-  if (enemy.hp <= 0) killEnemy(game, enemy);
+  if (enemy.hp <= 0) {
+    killEnemy(game, enemy);
+    if (crit) critBlast(game, enemy, amount);
+  }
 }
 
 function dropGem(game, x, y, value) {
@@ -849,7 +874,7 @@ function fusion(game, id) {
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
   const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
-  const steady = key === 'dps' && mastered(game, 'haste') ? 1 + BUILD.haste.masterDps : 1;
+  const steady = key === 'dps' ? 1 + (perk(game, 'haste', 20)?.dps ?? 0) : 1;
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? flatDamageOf(game) : 0;
   const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
@@ -1630,9 +1655,11 @@ function contactDamage(game) {
 function applyDrop(game, drop) {
   const { player } = game;
   const stats = statsOf(game);
-  if (drop.type === 'ramen') player.hp = Math.min(stats.maxHp, player.hp + 15);
+  // 아이템 5점: 라면 회복과 커피·얼음팩·택배상자 시간이 늘어난다.
+  const boost = perk(game, 'item', 5)?.boost ?? 1;
+  if (drop.type === 'ramen') player.hp = Math.min(stats.maxHp, player.hp + 15 * boost);
   if (drop.type === 'vacuumBag') game.gems.forEach((gem) => { gem.pulled = true; });
-  if (drop.type === 'coffee') game.coffeeUntil = game.time + 10;
+  if (drop.type === 'coffee') game.coffeeUntil = game.time + 10 * boost;
   if (drop.type === 'bugBomb') {
     for (const enemy of game.enemies) {
       if (!enemy.boss && distance(enemy, player) < 560) killEnemy(game, enemy);
@@ -1640,10 +1667,11 @@ function applyDrop(game, drop) {
     addEffect(game, { type: 'bomb', x: player.x, y: player.y, radius: 560, life: 0.6 });
   }
   if (drop.type === 'chicken') player.hp = stats.maxHp;
-  if (drop.type === 'icepack') game.freezeUntil = game.time + 4;
-  if (drop.type === 'box') game.shieldUntil = game.time + 5;
+  if (drop.type === 'icepack') game.freezeUntil = game.time + 4 * boost;
+  if (drop.type === 'box') game.shieldUntil = game.time + 5 * boost;
   if (drop.type === 'chest') {
     game.pendingRelics += 1;
+    game.pendingLevels += perk(game, 'item', 20)?.chestLevels ?? 0;
     const full = Object.keys(game.relics).length >= MAX_RELICS;
     addEffect(game, { type: 'banner', text: full ? '보물 상자! 보물이 가득 차서 두 번 강화해요' : '보물 상자! 보물을 하나 골라요', life: 2 });
   }
@@ -1683,6 +1711,7 @@ function collect(game, dt) {
     game.level += 1;
     game.nextXp = xpToNext(game.level);
     game.pendingLevels += 1;
+    if (perk(game, 'haste', 5)) game.rushUntil = game.time + BUILD.haste.perks[5].rushSec;
     if (relic(game, 'piggy')) player.hp = Math.min(statsOf(game).maxHp, player.hp + RELICS.piggy.levelHeal);
     addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 0.7 });
   }
@@ -1759,7 +1788,7 @@ function nextChoices(game) {
 
 // 게임을 시작하면 보물을 하나 고른다.
 export function startWithRelic(game) {
-  game.pendingRelics += 1 + (mastered(game, 'item') ? BUILD.item.masterRelics : 0);
+  game.pendingRelics += 1 + (perk(game, 'item', 20)?.relics ?? 0);
   game.choices = nextChoices(game);
   game.rerollLeft = rerollsPerLevel(game);
 }
