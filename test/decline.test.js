@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyBuild, choose, createGame, declineChoice, reroll, startWithRelic, update } from '../src/engine.js';
+import { choose, createGame, declineChoice, reroll, startWithRelic, update } from '../src/engine.js';
 import { MAX_WEAPONS, WEAPONS } from '../src/rules.js';
 
 describe('안 고를래요', () => {
@@ -44,9 +44,8 @@ describe('안 고를래요', () => {
     assert.deepEqual(game.passives, {});
   });
 
-  it('보물 교체 중 거절하면 기존 보물과 상자 특전만 남는다', () => {
+  it('보물 교체 중 거절하면 기존 보물이 그대로 남는다', () => {
     const game = createGame();
-    applyBuild(game, { item: 20 });
     const relics = { waterbottle: true, magnet: true, dice: true };
     game.relics = { ...relics };
     game.drops.push({ type: 'chest', x: game.player.x, y: game.player.y });
@@ -58,9 +57,7 @@ describe('안 고를래요', () => {
     assert.deepEqual(game.relics, relics);
     assert.equal(game.swapIn, null);
     assert.equal(game.pendingRelics, 0);
-    assert.equal(game.pendingLevels, 1);
-    assert.equal(game.rerollLeft, 2);
-    choose(game, 0);
+    assert.equal(game.pendingLevels, 0);
     assert.equal(game.choices, null);
   });
 

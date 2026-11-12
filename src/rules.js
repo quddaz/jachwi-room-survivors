@@ -18,7 +18,7 @@ export const BUILD = {
     perks: {
       5: { name: '레벨업 질주', text: '레벨업하면 5초 동안 공격 속도 +40%', rushSec: 5, rush: 0.4 },
       10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
-      20: { name: '폭주 모터', text: '계속 닿는 무기 피해 +40%, 공격 속도 +15%', dps: 0.4, attackSpeed: 0.15 },
+      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
     } },
   survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
     perks: {
@@ -26,11 +26,12 @@ export const BUILD = {
       10: { name: '맷집', text: '맞은 뒤 무적 +0.4초, 받는 피해 -10%', guardSec: 0.4, armor: 0.1 },
       20: { name: '불사조 오리', text: '한 번 쓰러져도 체력 50%로 부활', revive: 0.5 },
     } },
-  item: { label: '아이템', icon: 'vacuum', per: { xpGain: 0.005, pickup: 0.015, drop: 0.02 },
+  // 보물 피해는 폭죽, 팝콘 기계, 물파스처럼 보물이 직접 주는 피해다.
+  treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.03 },
     perks: {
-      5: { name: '알뜰 살림', text: '주운 아이템 효과 1.5배(라면 회복, 커피·얼음팩·택배상자 시간)', boost: 1.5 },
-      10: { name: '한 번 더', text: '다시 뽑기 +1', rerolls: 1 },
-      20: { name: '보물 사냥꾼', text: '시작 보물 하나 더, 보물상자를 열면 레벨업도 하나 더', relics: 1, chestLevels: 1 },
+      5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
+      10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -20%', relicPower: 0.3, relicHaste: 0.2 },
+      20: { name: '보물 사냥꾼', text: '보물을 4개까지 가지고, 보물 상자에서 넷 중에 골라요', maxRelics: 1, offers: 1 },
     } },
 };
 
@@ -70,10 +71,10 @@ export function difficultyAt(time) {
   // 6분부터는 보물과 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
   const late = Math.max(0, minutes - 6);
   return {
-    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * late * 0.35 + late * late * late * 0.04,
-    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.25,
+    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05,
+    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.4,
     speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03),
-    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.2),
+    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.8),
     maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
   };
 }
@@ -242,7 +243,7 @@ export const WEAPONS = {
   },
   paperplane: {
     label: '종이비행기', description: '적을 쫓아가는 비행기를 날린다',
-    cooldown: [1.6, 1.45, 1.3, 1.15, 1.0], damage: [14, 17, 21, 25, 30], count: [1, 2, 2, 3, 3], speed: 260, turn: 4.5, lifeSec: 3,
+    cooldown: [1.6, 1.45, 1.3, 1.15, 1.0], damage: [14, 17, 21, 25, 30], count: [1, 1, 2, 2, 2], speed: 260, turn: 4.5, lifeSec: 3,
   },
   mousetrap: {
     label: '쥐덫', description: '주변에 덫을 놓는다. 적이 밟으면 탁 닫힌다',
@@ -255,11 +256,11 @@ export const WEAPONS = {
   },
   shower: {
     label: '샤워기', description: '적 머리 위로 물줄기를 떨어뜨린다',
-    cooldown: [1.4, 1.3, 1.2, 1.1, 1.0], damage: [22, 27, 33, 40, 48], count: [2, 3, 3, 4, 5], radius: [34, 36, 38, 41, 44], fallSec: 0.35,
+    cooldown: [1.4, 1.3, 1.2, 1.1, 1.0], damage: [16, 19, 23, 27, 32], count: [2, 3, 3, 4, 5], radius: [34, 36, 38, 41, 44], fallSec: 0.35,
   },
 };
 
-// 패시브. 배열 길이가 곧 최대 레벨이다. 공격력과 이동 속도는 10레벨까지, 나머지는 5레벨까지 올린다.
+// 패시브. 배열 길이가 곧 최대 레벨이다. 공격력, 이동 속도, 치명타 확률은 10레벨까지, 나머지는 5레벨까지 올린다.
 export const PASSIVES = {
   sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
@@ -270,9 +271,11 @@ export const PASSIVES = {
   wipes: { label: '물티슈', description: '무기 범위가 넓어지고, 드라이기·선풍기 바람 폭도 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
   protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
   magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.3, 0.6, 0.9, 1.2, 1.5] },
-  clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25] },
+  clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25, 0.29, 0.33, 0.37, 0.41, 0.45] },
   // 치명타 확률이 없으면 쓸모가 없어서, 네잎클로버를 가진 뒤에만 나온다.
   hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
+  // 보물이 직접 주는 피해(폭죽, 팝콘 기계, 물파스 등)만 세게 한다.
+  polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75] },
 };
 
 export const MAX_LEVEL = 5;
@@ -301,7 +304,7 @@ export const EVOLUTIONS = {
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
   robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.2, count: 3 },
   towel: { label: '비치 타월', description: '양쪽을 한꺼번에, 더 넓고 세게 후려친다', damage: 1.5, size: 1.6 },
-  paperplane: { label: '종이학 편대', description: '여섯 마리가 날아가 적을 꿰뚫는다', damage: 1.3, count: 6, pierce: 2 },
+  paperplane: { label: '종이학 편대', description: '네 마리가 날아가 적을 꿰뚫는다', damage: 1.3, count: 4, pierce: 2 },
   mousetrap: { label: '대형 끈끈이', description: '덫이 커지고 훨씬 아프게 문다', damage: 1.6, radius: 1.5 },
   microwave: { label: '업소용 전자레인지', description: '더 멀리, 더 세게 데운다', damage: 1.5, radius: 1.35 },
   shower: { label: '수압 샤워', description: '물줄기가 두 배로 쏟아진다', damage: 1.3, double: true },
@@ -316,30 +319,36 @@ export const FUSIONS = {
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
   spinlaser: { label: '회전 레이저', description: '꺼지지 않는 레이저 네 줄기가 빙글빙글 돌며 훑는다', from: ['laser', 'fan'],
     count: 4, length: 620, turn: 1.5, dps: 1.6 },
-  poisongun: { label: '독침 기관총', description: '세 줄로 쏘는 독침이 적을 모두 뚫고 중독시킨다', from: ['stapler', 'spray'],
-    poison: 0.9, poisonSec: 3 },
+  // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 다섯 발씩 쏜다.
+  poisongun: { label: '독침 기관총', description: '적을 쫓아가는 독침을 다섯 발씩 쏘아 중독시킨다. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
+    shots: 5, spread: 0.2, damage: 0.75, pierce: 1, homing: 6, poison: 0.6, poisonSec: 3 },
   bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
     damage: 1.3, speed: 1.15, dropEverySec: 0.45, radius: 34, dps: 0.6, lifeSec: 2, slow: 0.4 },
   firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],
     damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
-  sawblade: { label: '회전 톱날', description: '커다란 톱날 둘이 화면을 크게 돌며 닿는 적을 갈아 버린다', from: ['slipper', 'roller'],
-    count: 2, orbit: 170, spin: 2.6, radius: 30, damage: 1.2, hitEverySec: 0.22 },
+  // 톱날이 적에서 적으로 튕겨 다니다 돌아온다. 베인 적은 한동안 계속 피해를 입는다.
+  sawblade: { label: '도탄 톱날', description: '톱날 셋이 적에서 적으로 튕겨 다니며 베고, 베인 적은 계속 피해를 입는다', from: ['slipper', 'roller'],
+    count: 3, speed: 560, bounces: 6, hop: 260, seek: 420, radius: 24, damage: 1.5, bleed: 0.6, bleedSec: 2.5, idleOrbit: 60 },
   mopstorm: { label: '물걸레 회오리', description: '물걸레가 주위를 한 바퀴 휘감아 적을 끌어당기며 때린다', from: ['towel', 'broom'],
     everySec: 1.6, damage: 1.2, pull: 60 },
-  bomber: { label: '파리채 폭격기', description: '종이비행기가 맞힌 자리에 파리채가 함께 내려친다', from: ['paperplane', 'swatter'],
+  // 파리채는 혼자 내려치지 않고 종이비행기를 따라서만 내려친다.
+  bomber: { label: '파리채 폭격기', description: '종이비행기가 맞힌 자리에 파리채가 함께 내려친다. 파리채는 따로 치지 않는다', from: ['paperplane', 'swatter'],
     damage: 0.6, radius: 55 },
   foammine: { label: '거품 지뢰', description: '쥐덫이 닫힐 때 거품 여섯 개가 사방으로 터져 나간다', from: ['mousetrap', 'detergent'], bubbles: 6 },
   dryoven: { label: '건조 오븐', description: '파동이 두 번 퍼지고, 맞은 적을 느리게 하며 바싹 태운다', from: ['microwave', 'dehumidifier'],
     burnSec: 2, burn: 1, slow: 0.5 },
   shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', from: ['shower', 'zapper'],
-    targets: 3, range: 170, damage: 0.8 },
+    targets: 3, range: 170, damage: 0.5 },
 };
 
 // 한 판에 가질 수 있는 무기 수. 다 채우면 새 무기는 선택지에 나오지 않고 가진 무기만 강화한다.
 export const MAX_WEAPONS = 8;
 
-// 한 판에 가질 수 있는 보물 수. 다 채운 뒤의 보물 상자는 레벨업 두 번이 된다.
+// 한 판에 가질 수 있는 보물 수(보물 파트 20점이면 하나 더). 다 채운 뒤의 보물 상자는 바꾸거나 레벨업 두 번이 된다.
 export const MAX_RELICS = 3;
+
+// 보물이 직접 주는 피해는 레벨마다 이만큼 세진다(공격력과 보물 피해도 곱한다). 후반에도 쓸모 있게.
+export const RELIC_LEVEL_SCALE = 0.04;
 
 // 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
 // stats는 카드에 적는 정확한 효과다.
@@ -360,18 +369,26 @@ export const RELICS = {
   bigpot: { label: '큰 냄비', description: '무엇이든 크게 만든다', stats: ['무기 범위 +25%', '투사체 크기 +25%'], area: 0.25, projectile: 0.25 },
   stopwatch: { label: '스톱워치', description: '손이 빨라진다', stats: ['모든 쿨타임 -15%'], haste: 0.15 },
   dice: { label: '주사위', description: '한 방을 노린다', stats: ['치명타 확률 +5%', '치명타 피해 +75%'], critChance: 0.05, critDamage: 0.75 },
-  popcorn: { label: '팝콘 기계', description: '쓰러진 적이 펑 터진다', stats: ['적이 쓰러지면 25% 확률로 폭발', '폭발 피해 25(공격력 비례)'],
+  popcorn: { label: '팝콘 기계', description: '쓰러진 적이 펑 터진다', stats: ['적이 쓰러지면 25% 확률로 폭발', '폭발 피해 25(레벨·보물 피해 비례)'],
     chance: 0.25, radius: 70, damage: 25 },
   icetray: { label: '얼음틀', description: '때릴 때마다 차갑다', stats: ['맞은 적 8% 확률로 1.5초 얼림(보스 제외)'], chance: 0.08, freezeSec: 1.5 },
   umbrella: { label: '우산', description: '날아오는 것을 막아 준다', stats: ['탄막·떨어지는 쓰레기 피해 -60%'], guard: 0.6 },
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
-  firecracker: { label: '폭죽', description: '때마다 크게 터진다', stats: ['25초마다 주변 큰 폭발', '폭발 피해 120(공격력 비례)'],
+  firecracker: { label: '폭죽', description: '때마다 크게 터진다', stats: ['25초마다 주변 큰 폭발', '폭발 피해 120(레벨·보물 피해 비례)'],
     everySec: 25, radius: 320, damage: 120 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
-    stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +5', '공격 속도 +100%'], step: 0.05, flat: 5, attackSpeed: 1 },
+    stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
+  // 보물이 직접 피해를 준다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
+  pas: { label: '물파스', description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 40(레벨·보물 피해 비례)'],
+    everySec: 8, radius: 170, damage: 40 },
+  heatpad: { label: '전기장판', description: '곁에 오는 적을 계속 지진다', stats: ['주변 적에게 초당 피해 12(레벨·보물 피해 비례)'], radius: 120, dps: 12 },
+  freshener: { label: '방향제', description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 30(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 640, damage: 30 },
+  clothespin: { label: '빨래집게', description: '쓰러진 적 자리에 집게를 남긴다',
+    stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 45(레벨·보물 피해 비례)'], chance: 0.2, damage: 45, radius: 46, lifeSec: 7, max: 12 },
 };
 
 // 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).

@@ -188,6 +188,15 @@ function ring(ctx, cx, cy, radius, color, dash = 0, phase = 0) {
   }
 }
 
+// 빛 번짐: 겹칠수록 밝아지는 부드러운 빛무리. [r, g, b]
+function glow(ctx, cx, cy, radius, [red, green, blue], strength = 0.35) {
+  const previous = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  disc(ctx, cx, cy, radius, `rgba(${red}, ${green}, ${blue}, ${strength * 0.35})`);
+  disc(ctx, cx, cy, radius * 0.6, `rgba(${red}, ${green}, ${blue}, ${strength * 0.55})`);
+  ctx.globalCompositeOperation = previous;
+}
+
 function line(ctx, x0, y0, x1, y1, color) {
   ctx.fillStyle = color;
   const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
@@ -223,6 +232,11 @@ const PARTICLES = {
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
+// 내 투사체 빛무리 색
+const SHOT_GLOW = {
+  spray: [150, 210, 255], megaSpray: [120, 255, 170], staple: [255, 230, 160], plane: [255, 255, 255], roller: [255, 240, 200],
+  bubble: [200, 170, 255], laser: [120, 255, 140],
+};
 const ENEMY_SHOT = { core: '#ffffff', body: '#ff3b2f', edge: '#c0150d', outline: '#2a0a08', glow: 'rgba(255, 59, 47, 0.32)', trail: 'rgba(255,59,47,0.55)' };
 
 // 바닥 아이템마다 다른 빛깔. [밝은 빛, 짙은 빛]
@@ -477,14 +491,43 @@ function drawEffects(ctx, game, toBuffer) {
           ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), 2, 2);
         }
       }
+      // 쓸고 지나가는 맨 앞 가장자리가 하얗게 빛난다.
+      for (let step = 0; step < 10; step += 1) {
+        const angle = start + Math.PI * 1.3 - step * 0.06;
+        ctx.fillStyle = `rgba(255,255,255,${0.9 - step * 0.08})`;
+        ctx.fillRect(Math.round(x + Math.cos(angle) * (radius + 1)), Math.round(y + Math.sin(angle) * (radius + 1)), 2, 2);
+      }
       ctx.fillStyle = '#ffffff';
       for (let dust = 0; dust < 8; dust += 1) {
         const angle = hash(effect.seed, dust) * Math.PI * 2;
         const reach = radius * (0.7 + progress * 0.5);
         ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach - progress * 3), 1, 1);
       }
+    } else if (effect.type === 'slash') {
+      // 톱날이 벤 자리: 빛나는 사선 두 줄과 불똥
+      const reach = 10 * (0.6 + progress * 0.6);
+      const fade = 1 - progress;
+      for (const [offset, color] of [[-1, `rgba(255,255,255,${fade})`], [1, `rgba(143,208,255,${fade})`]]) {
+        const across = effect.angle + Math.PI / 2;
+        line(ctx, Math.round(x - Math.cos(effect.angle + 0.6) * reach + Math.cos(across) * offset),
+          Math.round(y - Math.sin(effect.angle + 0.6) * reach + Math.sin(across) * offset),
+          Math.round(x + Math.cos(effect.angle + 0.6) * reach + Math.cos(across) * offset),
+          Math.round(y + Math.sin(effect.angle + 0.6) * reach + Math.sin(across) * offset), color);
+      }
+      glow(ctx, x, y, 8 * fade + 2, [143, 208, 255], 0.6 * fade);
+      for (let spark = 0; spark < 5; spark += 1) {
+        const angle = effect.angle + Math.PI + (hash(effect.seed, spark) - 0.5) * 1.6;
+        const travel = 4 + progress * 12 * hash(effect.seed, spark + 9);
+        ctx.fillStyle = spark % 2 ? '#fff6b0' : '#ffffff';
+        ctx.fillRect(Math.round(x + Math.cos(angle) * travel), Math.round(y + Math.sin(angle) * travel), 1, 1);
+      }
     } else if (effect.type === 'swat') {
       const half = Math.round(effect.radius / WORLD_PER_PIXEL);
+      // 내려친 충격파가 바닥을 타고 퍼진다.
+      if (progress > 0.15) {
+        ring(ctx, x, y, half * (1 + (progress - 0.15) * 1.6), `rgba(255, 240, 200, ${0.7 * (1 - progress)})`);
+        glow(ctx, x, y, half * 0.9, effect.mega ? [255, 207, 63] : [255, 140, 120], 0.5 * (1 - progress));
+      }
       const squash = progress < 0.25 ? progress * 4 : 1;
       const color = effect.mega ? (progress < 0.5 ? '#ffcf3f' : 'rgba(255,207,63,0.5)') : progress < 0.5 ? '#e0645b' : 'rgba(224,100,91,0.5)';
       const size = Math.round(half * squash);
@@ -502,6 +545,7 @@ function drawEffects(ctx, game, toBuffer) {
       }
     } else if (effect.type === 'burst') {
       const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
+      if (effect.color === 'crit' && progress < 0.5) glow(ctx, x, y, 9 * (1 - progress * 2) + 2, [255, 120, 60], 0.8);
       const reach = effect.big ? 46 : 14;
       for (let index = 0; index < effect.count; index += 1) {
         const angle = hash(effect.seed, index) * Math.PI * 2;
@@ -575,6 +619,7 @@ function drawEffects(ctx, game, toBuffer) {
           [x0, y0] = [nextX, nextY];
         }
         disc(ctx, x1, y1, progress < 0.5 ? 3 : 2, color);
+        glow(ctx, x1, y1, 7 * (1 - progress) + 2, effect.mega ? [143, 208, 255] : [255, 240, 150], 0.7);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(x1 - 4 + Math.floor(hash(effect.seed + jitter, index) * 8), y1 - 4 + Math.floor(hash(effect.seed + jitter, index + 7) * 8), 1, 1);
       }
@@ -612,17 +657,52 @@ function drawEffects(ctx, game, toBuffer) {
         sparkle(ctx, Math.round(x + effect.dir * along), Math.round(y + rise), drop % 3 ? '#a9cdf5' : '#ffffff', drop % 4 === 0 && progress < 0.6);
       }
     } else if (effect.type === 'nova') {
-      // 화염이 고리 모양으로 퍼져 나간다.
+      // 화염이 고리 모양으로 퍼져 나간다(물파스는 시원한 민트빛).
+      const cool = effect.color === 'mint';
+      const flames = cool ? ['#3f9d94', '#7ad3c8', '#d3f3ff'] : ['#d9452b', '#f08a1d', '#ffd23f'];
       const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
-      disc(ctx, x, y, reach, `rgba(255, 138, 61, ${0.28 * (1 - progress)})`);
-      ring(ctx, x, y, reach, '#fff7d6');
-      ring(ctx, x, y, reach - 1, '#ffd23f');
-      ring(ctx, x, y, reach - 3, '#f08a1d', 2, Math.floor(effect.age * 40));
+      disc(ctx, x, y, reach, cool ? `rgba(122, 211, 200, ${0.26 * (1 - progress)})` : `rgba(255, 138, 61, ${0.28 * (1 - progress)})`);
+      ring(ctx, x, y, reach, cool ? '#ffffff' : '#fff7d6');
+      ring(ctx, x, y, reach - 1, flames[2]);
+      ring(ctx, x, y, reach - 3, flames[1], 2, Math.floor(effect.age * 40));
       for (let flame = 0; flame < 36; flame += 1) {
         const angle = (flame / 36) * Math.PI * 2 + hash(effect.seed, flame);
         const at = reach * (0.82 + hash(effect.seed, flame + 60) * 0.22);
         disc(ctx, Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - progress * 5),
-          (1 - progress) * (2 + hash(effect.seed, flame + 90) * 3), ['#d9452b', '#f08a1d', '#ffd23f'][flame % 3]);
+          (1 - progress) * (2 + hash(effect.seed, flame + 90) * 3), flames[flame % 3]);
+      }
+    } else if (effect.type === 'mist') {
+      // 방향제: 보랏빛 안개가 화면 가득 퍼지고 꽃잎이 흩날린다.
+      const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 3);
+      ctx.fillStyle = `rgba(176, 139, 224, ${0.16 * (1 - progress)})`;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ring(ctx, x, y, reach, `rgba(255, 255, 255, ${0.9 * (1 - progress)})`);
+      ring(ctx, x, y, reach - 3, `rgba(176, 139, 224, ${0.8 * (1 - progress)})`, 3, Math.floor(effect.age * 30));
+      for (let petal = 0; petal < 40; petal += 1) {
+        const angle = hash(effect.seed, petal) * Math.PI * 2;
+        const at = reach * (0.2 + hash(effect.seed, petal + 40) * 0.8);
+        const px = Math.round(x + Math.cos(angle) * at + Math.sin(progress * 6 + petal) * 3);
+        const py = Math.round(y + Math.sin(angle) * at - progress * 10);
+        sparkle(ctx, px, py, ['#ffb3bf', '#ffffff', '#b08be0'][petal % 3], petal % 5 === 0 && progress < 0.6);
+      }
+    } else if (effect.type === 'snap') {
+      // 빨래집게: 양쪽 집게가 콱 닫히며 나무 조각이 튄다.
+      const half = effect.radius / WORLD_PER_PIXEL;
+      const close = Math.min(1, progress * 3);
+      const gap = Math.round(half * (1 - close));
+      ctx.fillStyle = '#8a4a1e';
+      ctx.fillRect(x - gap - 3, y - 6, 3, 12);
+      ctx.fillRect(x + gap, y - 6, 3, 12);
+      ctx.fillStyle = '#e6c97a';
+      ctx.fillRect(x - gap - 2, y - 5, 1, 10);
+      ctx.fillRect(x + gap + 1, y - 5, 1, 10);
+      if (close >= 1) {
+        ring(ctx, x, y, 3 + progress * half, `rgba(255, 224, 138, ${1 - progress})`);
+        for (let chip = 0; chip < 6; chip += 1) {
+          const angle = (chip / 6) * Math.PI * 2 + effect.seed;
+          ctx.fillStyle = chip % 2 ? '#c9965c' : '#ffffff';
+          ctx.fillRect(Math.round(x + Math.cos(angle) * progress * half), Math.round(y + Math.sin(angle) * progress * half), 1, 1);
+        }
       }
     } else if (effect.type === 'gust') {
       const reach = (effect.range / WORLD_PER_PIXEL) * (0.3 + progress * 0.7);
@@ -745,6 +825,21 @@ export function render(ctx, game, width, height, time) {
     ctx.fillStyle = '#e8871a';
     ctx.fillRect(x + w - 3, y, 1, 1);
   }
+  for (const pin of game.pins ?? []) {
+    // 빨래집게 함정: 바닥에 벌어진 집게가 놓여 있다.
+    const [x, y] = toBuffer(pin);
+    const blink = pin.life < 1.5 && Math.floor(time * 8) % 2 === 0;
+    ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
+    ctx.fillRect(x - 4, y + 4, 9, 1);
+    ctx.fillStyle = blink ? '#ffffff' : '#8a4a1e';
+    ctx.fillRect(x - 4, y - 4, 2, 8);
+    ctx.fillRect(x + 3, y - 4, 2, 8);
+    ctx.fillStyle = '#e6c97a';
+    ctx.fillRect(x - 3, y - 3, 1, 6);
+    ctx.fillRect(x + 3, y - 3, 1, 6);
+    ctx.fillStyle = '#c4c9d1';
+    ctx.fillRect(x - 2, y, 5, 1);
+  }
   for (const wave of game.waves) {
     // 전자레인지 파동: 노란빛 고리가 두 겹으로 퍼진다(건조 오븐의 두 번째 파동은 출발 전까지 안 보인다).
     if (wave.r <= 0) continue;
@@ -785,6 +880,21 @@ export function render(ctx, game, width, height, time) {
     const [x, y] = toBuffer(player);
     disc(ctx, x, y, radius, 'rgba(143, 177, 233, 0.14)');
     ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.8)', 3, Math.floor(time * 14));
+  }
+
+  if (game.relics?.heatpad) {
+    // 전기장판: 발밑에 뜨끈한 주황빛 장판과 일렁이는 아지랑이
+    const radius = RELICS.heatpad.radius / WORLD_PER_PIXEL;
+    const [x, y] = toBuffer(player);
+    disc(ctx, x, y, radius, `rgba(255, 138, 61, ${0.1 + Math.sin(time * 4) * 0.03})`);
+    ring(ctx, x, y, radius, 'rgba(255, 106, 42, 0.75)', 4, Math.floor(time * 10));
+    ring(ctx, x, y, radius * 0.66, 'rgba(255, 207, 63, 0.45)', 2, Math.floor(-time * 8));
+    ctx.fillStyle = 'rgba(255, 220, 160, 0.8)';
+    for (let wisp = 0; wisp < 8; wisp += 1) {
+      const angle = (wisp / 8) * Math.PI * 2 + time * 0.6;
+      const at = radius * (0.35 + ((time * 0.7 + wisp * 0.37) % 1) * 0.6);
+      ctx.fillRect(Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - ((time * 6 + wisp) % 4)), 1, 2);
+    }
   }
 
   for (const hazard of game.hazards) {
@@ -877,6 +987,7 @@ export function render(ctx, game, width, height, time) {
   for (const orb of coilOrbs(game)) {
     const [x, y] = toBuffer(orb);
     const grow = statsOf(game).projectile;
+    glow(ctx, x, y, 6 * grow, [255, 138, 40], 0.55);
     disc(ctx, x, y, 3 * grow, '#e8871a');
     disc(ctx, x, y, grow, '#ffe08a');
     ctx.fillStyle = 'rgba(200,200,200,0.7)';
@@ -884,6 +995,10 @@ export function render(ctx, game, width, height, time) {
   }
   for (const shot of game.shots) {
     const [x, y] = toBuffer(shot);
+    // 날아가는 것마다 제 빛깔로 은은하게 빛난다.
+    const halo = SHOT_GLOW[shot.kind ?? (shot.mega ? 'megaSpray' : 'spray')] ?? null;
+    const haloSize = shot.kind === 'roller' ? shot.radius / WORLD_PER_PIXEL + 3 : shot.kind === 'staple' ? 3 : 5;
+    if (halo && visible([x, y])) glow(ctx, x, y, haloSize * (shot.scale ?? 1), shot.poison ? [93, 255, 154] : halo, shot.mega ? 0.5 : 0.35);
     if (shot.kind === 'bubble') {
       const wobble = Math.round(Math.sin(time * 6 + shot.seed) * 1.5);
       const size = Math.round((shot.mega ? 5 : 4) * (shot.scale ?? 1));
@@ -920,8 +1035,15 @@ export function render(ctx, game, width, height, time) {
       const nose = [x + Math.cos(angle) * size, y + Math.sin(angle) * size];
       const left = [x + Math.cos(angle + 2.5) * size, y + Math.sin(angle + 2.5) * size];
       const right = [x + Math.cos(angle - 2.5) * size, y + Math.sin(angle - 2.5) * size];
-      ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      for (let step = 1; step <= 3; step += 1) ctx.fillRect(Math.round(x - Math.cos(angle) * step * 3), Math.round(y - Math.sin(angle) * step * 3), 1, 1);
+      // 두 갈래 바람 꼬리가 길게 남는다.
+      for (let step = 1; step <= 6; step += 1) {
+        ctx.fillStyle = `rgba(255,255,255,${0.6 - step * 0.09})`;
+        const wobble = Math.sin(time * 18 + step) * 0.8;
+        for (const wing of [-1, 1]) {
+          ctx.fillRect(Math.round(x - Math.cos(angle) * step * 3 + Math.cos(angle + Math.PI / 2) * wing * (2 + wobble)),
+            Math.round(y - Math.sin(angle) * step * 3 + Math.sin(angle + Math.PI / 2) * wing * (2 + wobble)), 1, 1);
+        }
+      }
       ctx.beginPath();
       ctx.moveTo(...nose);
       ctx.lineTo(...left);
@@ -971,6 +1093,16 @@ export function render(ctx, game, width, height, time) {
   for (const blade of sawBlades(game)) {
     const [x, y] = toBuffer(blade);
     const radius = Math.round(blade.radius / WORLD_PER_PIXEL);
+    // 날아가는 뒤로 푸른 잔상이 길게 남는다.
+    const pace = Math.hypot(blade.vx, blade.vy);
+    if (pace > 1) {
+      for (let ghost = 3; ghost >= 1; ghost -= 1) {
+        const gx = Math.round(x - (blade.vx / pace) * ghost * radius * 0.9);
+        const gy = Math.round(y - (blade.vy / pace) * ghost * radius * 0.9);
+        disc(ctx, gx, gy, radius * (1 - ghost * 0.18), `rgba(143, 177, 233, ${0.32 - ghost * 0.08})`);
+      }
+    }
+    glow(ctx, x, y, radius + 6, [143, 208, 255], 0.45);
     const turn = time * 16;
     ring(ctx, x, y, radius + 4, 'rgba(255,255,255,0.55)', 4, Math.floor(time * 40));
     // 톱니
@@ -1005,6 +1137,7 @@ export function render(ctx, game, width, height, time) {
   for (const ball of game.balls) {
     const [x, y] = toBuffer(ball);
     const radius = Math.max(3, Math.round(ball.radius / WORLD_PER_PIXEL));
+    glow(ctx, x, y, radius + 4, ball.thunder ? [127, 233, 255] : ball.mega ? [255, 178, 31] : [255, 155, 176], 0.4);
     const [dark, body, light] = ball.thunder ? ['#3a5a9c', '#7fe9ff', '#ffffff'] : ball.mega ? ['#c9692a', '#ffb21f', '#fff4c2']
       : ['#c2305a', '#f0608a', '#ffb3bf'];
     for (let ghost = 3; ghost >= 1; ghost -= 1) {

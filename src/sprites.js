@@ -1976,6 +1976,125 @@ ITEMS.shockshower = item([
   bolts.forEach(([x, y], index) => fx.set(x, y, index % 2 ? 'W' : 'Y'));
 });
 ITEMS.ramen = ITEMS.heal;
+// 피해를 주는 보물과 광택제
+ITEMS.pas = item([
+  '................',
+  '......gggg......',
+  '.....gGGGGg.....',
+  '......zzzz......',
+  '.....WWWWWW.....',
+  '....WwwwwwwW....',
+  '....WGGGGGGW....',
+  '....WGWWWWGW....',
+  '....WGWGGWGW....',
+  '....WGWWWWGW....',
+  '....WGGGGGGW....',
+  '....WwwwwwwW....',
+  '....WWWWWWWW....',
+  '.....wwwwww.....',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 시원하게 화끈: 스펀지 위로 김이 오른다.
+    steam(fx, 6, 0, f, 2);
+    steam(fx, 9, 0, f + 2, 2);
+    twinkle(fx, 13, 6, f, 'E');
+  });
+ITEMS.heatpad = item([
+  '................',
+  '................',
+  '................',
+  '.RRRRRRRRRRRRRR.',
+  '.RaaaaaaaaaaaaR.',
+  '.RaOOOOOOOOOOaR.',
+  '.RaaaaaaaaaaOaR.',
+  '.RaOOOOOOOOOOaR.',
+  '.RaOaaaaaaaaaaR.',
+  '.RaOOOOOOOOOOaR.',
+  '.RaaaaaaaaaaaaR.',
+  '.RRRRRRRRRRRRRR.',
+  '...........DD...',
+  '............DDD.',
+  '..............D.',
+  '................',
+], (body, fx, f) => {
+    // 열선이 차례로 달아오르고, 위로 아지랑이가 피어오른다.
+    for (let y = 5; y <= 9; y += 1) {
+      for (let x = 3; x <= 12; x += 1) if (body.get(x, y) === 'O' && (x + y + f) % 4 === 0) body.set(x, y, 'e');
+    }
+    steam(fx, 4, 2, f, 3);
+    steam(fx, 8, 2, f + 1, 3);
+    steam(fx, 12, 2, f + 2, 3);
+  });
+ITEMS.freshener = item([
+  '................',
+  '.......DD.......',
+  '......DddD......',
+  '......DDDD......',
+  '.....VVVVVV.....',
+  '.....VvVVVV.....',
+  '.....VWWWWV.....',
+  '.....VWaaWV.....',
+  '.....VWAaWV.....',
+  '.....VWWWWV.....',
+  '.....VvVVVV.....',
+  '.....VvVVVV.....',
+  '.....VVVVVV.....',
+  '......vvvv......',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 노즐에서 향기가 퍼져 나간다.
+    [[10, 2], [12, 1], [13, 3], [11, 0], [14, 2]].forEach(([x, y], index) => {
+      if ((index + f) % 3 !== 0) fx.set(x, y, index % 2 ? 'a' : 'V');
+    });
+    twinkle(fx, 3, 7, f, 'a');
+  });
+ITEMS.clothespin = item([
+  '................',
+  '.....nN..Nn.....',
+  '.....nN..Nn.....',
+  '.....nN..Nn.....',
+  '.....nN..Nn.....',
+  '.....nNddNn.....',
+  '.....nzzzzn.....',
+  '.....nNddNn.....',
+  '.....nN..Nn.....',
+  '....nN....Nn....',
+  '....nN....Nn....',
+  '...nN......Nn...',
+  '...nN......Nn...',
+  '...NN......NN...',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 콱 무는 순간 반짝인다.
+    twinkle(fx, 8, 12, f, 'Y');
+    if (f === 2) fx.set(6, 13, 'W').set(9, 13, 'W');
+  });
+ITEMS.polish = item([
+  '................',
+  '.......DD.......',
+  '......DddD......',
+  '.......zz.......',
+  '.....YYYYYY.....',
+  '....YyyyyyyY....',
+  '....YyOOOOyY....',
+  '....YyOWWOyY....',
+  '....YyOOOOyY....',
+  '....YyyyyyyY....',
+  '....YyyyyyyY....',
+  '....YYYYYYYY....',
+  '..bbbbbb........',
+  '.bllllllb.......',
+  '..bbbbbb........',
+  '................',
+], (body, fx, f) => {
+    twinkle(fx, 13, 3, f);
+    twinkle(fx, 2, 6, f + 2);
+    twinkle(fx, 12, 12, f + 1, 'W');
+  });
+
 
 // 보스는 크기가 커서 글자 격자 대신 작은 그리기 함수로 찍는다. frame은 0 또는 1이다.
 function canvasGrid(width, height) {

@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -22,6 +22,7 @@ export function createGame(random = Math.random) {
     shots: [],
     slippers: [],
     traps: [],
+    pins: [],
     waves: [],
     splashes: [],
     balls: [],
@@ -76,6 +77,32 @@ function buildValue(game, key) {
 // 5·10·20점에 열리는 능력. 아직 못 열었으면 null이다.
 const perk = (game, tree, at) => ((game.build?.[tree] ?? 0) >= at ? BUILD[tree].perks[at] : null);
 
+// 보물이 직접 주는 피해의 배율: 보물 파트, 광택제, 보물 파트 10점
+function relicPowerOf(game) {
+  return 1 + buildValue(game, 'relicPower') + passiveValue(game, 'polish', 'relicPower') + (perk(game, 'treasure', 10)?.relicPower ?? 0);
+}
+
+// 보물이 직접 주는 피해. 공격력, 레벨, 보물 피해에 비례해서 후반에도 쓸모 있다.
+function relicDamage(game, base) {
+  return base * mightOf(game) * relicPowerOf(game) * (1 + RELIC_LEVEL_SCALE * (game.level - 1));
+}
+
+// 때마다 발동하는 보물의 주기(보물 파트 10점이면 짧아진다)
+function relicEvery(game, sec) {
+  return sec * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0));
+}
+
+// 가질 수 있는 보물 수
+export function maxRelicsOf(game) {
+  return MAX_RELICS + (perk(game, 'treasure', 20)?.maxRelics ?? 0);
+}
+
+// 공속 20점 과충전: 8초마다 3초 동안 공격 속도가 2배다.
+function overcharged(game) {
+  const charge = perk(game, 'haste', 20);
+  return Boolean(charge) && game.time % charge.everySec >= charge.everySec - charge.burstSec;
+}
+
 // 게임을 시작할 때 능력치 배분을 넣고, 늘어난 최대 체력만큼 채운다.
 export function applyBuild(game, build) {
   game.build = normalizeBuild(build);
@@ -127,14 +154,15 @@ export function statsOf(game) {
       + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
     armor: 1 - (1 - guard) * (1 - buildValue(game, 'armor'))
       * (1 - (perk(game, 'survival', 10)?.armor ?? 0)),
-    pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0) + buildValue(game, 'pickup')),
+    pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0)),
     maxHp: maxHpOf(game),
     regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0)
       + (perk(game, 'survival', 5)?.regen ?? 0),
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
       * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
-      / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1),
-    xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0) + buildValue(game, 'xpGain'),
+      / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1)
+      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1),
+    xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
     area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
     projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0)
@@ -142,11 +170,12 @@ export function statsOf(game) {
     critChance: critChanceOf(game),
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
+    relicPower: relicPowerOf(game),
   };
 }
 
 function rerollsPerLevel(game) {
-  return 1 + (relic(game, 'neko')?.rerolls ?? 0) + (perk(game, 'item', 10)?.rerolls ?? 0);
+  return 1 + (relic(game, 'neko')?.rerolls ?? 0);
 }
 
 const percent = (value) => {
@@ -172,6 +201,7 @@ export function statSheet(game) {
     ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
+    ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
   ];
 }
 
@@ -188,6 +218,7 @@ const PASSIVE_TEXT = {
   size: ['투사체 크기', percent],
   critChance: ['치명타 확률', percent],
   critDamage: ['치명타 피해', percent],
+  relicPower: ['보물 피해', percent],
 };
 
 // 무기 능력치 이름. lower는 줄어들수록 좋은 값이고, plain은 퍼센트 대신 개수로 보여 준다.
@@ -810,13 +841,18 @@ function killEnemy(game, enemy) {
   // 팝콘 기계: 터진 팝콘이 또 터지는 건 두 번까지만 이어진다.
   if (popcorn && (game.popDepth ?? 0) < 2 && game.random() < popcorn.chance) {
     game.popDepth = (game.popDepth ?? 0) + 1;
-    const damage = popcorn.damage * mightOf(game);
+    const damage = relicDamage(game, popcorn.damage);
     addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popcorn.radius, color: 'gold', life: 0.3 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
     for (const other of game.enemies) {
       if (other !== enemy && !other.dead && distance(other, enemy) < popcorn.radius + other.radius) damageEnemy(game, other, damage, 10, enemy);
     }
     game.popDepth -= 1;
+  }
+  const pin = relic(game, 'clothespin');
+  if (pin && !enemy.boss && game.pins.length < pin.max && game.random() < pin.chance) {
+    // 빨래집게: 쓰러진 자리에 집게를 남기고, 적이 밟으면 콱 문다.
+    game.pins.push({ x: enemy.x, y: enemy.y, life: pin.lifeSec });
   }
   dropGem(game, enemy.x, enemy.y, enemy.xp);
   addEffect(game, { type: 'pop', x: enemy.x, y: enemy.y, radius: enemy.radius, life: 0.3 });
@@ -849,7 +885,7 @@ function killEnemy(game, enemy) {
   for (const [type, drop] of Object.entries(DROPS)) {
     // 같은 종류가 이미 맵에 가득 떨어져 있으면 그 아이템은 건너뛴다.
     if (game.drops.filter((item) => item.type === type).length >= DROP_LIMIT) continue;
-    if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1) * (1 + buildValue(game, 'drop'))) {
+    if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1) * 1) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;
     }
@@ -873,7 +909,7 @@ function fusion(game, id) {
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
   const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
-  const steady = key === 'dps' ? 1 + (perk(game, 'haste', 20)?.dps ?? 0) : 1;
+  const steady = 1;
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? flatDamageOf(game) : 0;
   const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
@@ -925,22 +961,90 @@ export function coilOrbs(game) {
 }
 
 // 회전 톱날의 지금 위치. 궤도가 넓어졌다 좁아졌다 하며 화면을 크게 돈다.
+// 도탄 톱날의 지금 위치와 크기(그리기용)
 export function sawBlades(game) {
   const saw = fusion(game, 'sawblade');
   if (!saw) return [];
   const { area, projectile } = statsOf(game);
-  return Array.from({ length: saw.count }, (_, index) => {
-    const angle = game.time * saw.spin + (index / saw.count) * Math.PI * 2;
-    const reach = saw.orbit * area * (0.75 + Math.sin(game.time * 1.3 + index) * 0.35);
-    return { x: game.player.x + Math.cos(angle) * reach, y: game.player.y + Math.sin(angle) * reach,
-      radius: saw.radius * area * projectile };
+  return (game.saws ?? []).map((blade) => ({ ...blade, radius: saw.radius * area * projectile }));
+}
+
+// 도탄 톱날: 가까운 적에게 날아가 베고, 근처의 다른 적에게 튕긴다. 튕길 곳이 없거나 다 튕기면 오리에게 돌아온다.
+function updateSaws(game, dt) {
+  const saw = fusion(game, 'sawblade');
+  if (!saw) {
+    game.saws = [];
+    return;
+  }
+  const { player } = game;
+  const { area, projectile } = statsOf(game);
+  const radius = saw.radius * area * projectile;
+  const damage = weaponValue(game, 'roller', 'damage') * saw.damage;
+  game.saws ??= [];
+  while (game.saws.length < saw.count) {
+    game.saws.push({ id: game.nextId++, x: player.x, y: player.y, vx: 0, vy: 0, bounces: saw.bounces, target: null, returning: false, last: null });
+  }
+  game.saws.forEach((blade, index) => {
+    // 같은 적을 여러 톱날이 쫓지 않게 하고, 방금 벤 적에게는 다시 튕기지 않는다.
+    const taken = new Set(game.saws.filter((other) => other !== blade).map((other) => other.target?.id));
+    const pick = (from, reach) => {
+      let best = null;
+      let bestGap = reach;
+      for (const enemy of game.enemies) {
+        if (enemy.dead || enemy.id === blade.last || taken.has(enemy.id)) continue;
+        const gap = distance(enemy, from);
+        if (gap < bestGap) {
+          bestGap = gap;
+          best = enemy;
+        }
+      }
+      return best;
+    };
+    if (blade.target?.dead) blade.target = null;
+    if (!blade.returning && !blade.target) blade.target = pick(player, saw.seek * area);
+    let goal;
+    if (blade.returning) goal = player;
+    else if (blade.target) goal = blade.target;
+    else {
+      // 쫓을 적이 없으면 오리 곁을 돈다.
+      const angle = game.time * 3 + (index / saw.count) * Math.PI * 2;
+      goal = { x: player.x + Math.cos(angle) * saw.idleOrbit, y: player.y + Math.sin(angle) * saw.idleOrbit };
+    }
+    const gap = distance(blade, goal) || 1;
+    const step = Math.min(gap, saw.speed * dt);
+    blade.vx = ((goal.x - blade.x) / gap) * saw.speed;
+    blade.vy = ((goal.y - blade.y) / gap) * saw.speed;
+    blade.x += ((goal.x - blade.x) / gap) * step;
+    blade.y += ((goal.y - blade.y) / gap) * step;
+    if (blade.returning && distance(blade, player) < 20) {
+      blade.returning = false;
+      blade.bounces = saw.bounces;
+      blade.last = null;
+      return;
+    }
+    if (!blade.target || distance(blade, blade.target) > radius + blade.target.radius) return;
+    // 베고, 피를 흘리게 하고, 다음 적에게 튕긴다.
+    const victim = blade.target;
+    damageEnemy(game, victim, damage, 8, blade);
+    victim.bleedUntil = game.time + saw.bleedSec;
+    victim.bleedDps = Math.max(victim.bleedDps ?? 0, damage * saw.bleed);
+    addEffect(game, { type: 'slash', x: blade.x, y: blade.y, angle: Math.atan2(blade.vy, blade.vx), life: 0.22 });
+    blade.last = victim.id;
+    blade.bounces -= 1;
+    blade.target = blade.bounces > 0 ? pick(blade, saw.hop * area) : null;
+    if (!blade.target) blade.returning = true;
   });
+  for (const enemy of game.enemies) {
+    if (enemy.dead || (enemy.bleedUntil ?? 0) <= game.time) continue;
+    damageEnemy(game, enemy, enemy.bleedDps * dt);
+  }
 }
 
 function fireWeapons(game, dt) {
   const { player } = game;
   const { area, projectile } = statsOf(game);
-  if (game.weapons.spray && ready(game, 'spray', dt)) {
+  // 독침 기관총으로 합체하면 살충제는 따로 뿌리지 않는다.
+  if (game.weapons.spray && !game.fusions.poisongun && ready(game, 'spray', dt)) {
     const count = weaponValue(game, 'spray', 'count');
     const targets = nearestEnemies(game, count);
     for (let index = 0; index < count; index += 1) {
@@ -997,7 +1101,8 @@ function fireWeapons(game, dt) {
       slow(game, enemy, evolution(game, 'dehumidifier')?.slow);
     }
   }
-  if (game.weapons.swatter && ready(game, 'swatter', dt)) {
+  // 파리채 폭격기로 합체하면 파리채는 종이비행기를 따라서만 내려친다.
+  if (game.weapons.swatter && !game.fusions.bomber && ready(game, 'swatter', dt)) {
     const targets = game.enemies
       .filter((enemy) => !enemy.dead && distance(enemy, player) < 420)
       .sort((a, b) => b.hp - a.hp)
@@ -1188,13 +1293,15 @@ function fireWeapons(game, dt) {
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
     const { speed, lifeSec, spread } = WEAPONS.stapler;
     const venom = fusion(game, 'poisongun');
-    for (const side of venom ? [-1, 0, 1] : nailer ? [-1, 1] : [0]) {
-      const angle = forward + (game.random() - 0.5) * 2 * spread;
+    const sides = venom ? Array.from({ length: venom.shots }, (_, index) => index - (venom.shots - 1) / 2) : nailer ? [-1, 1] : [0];
+    for (const side of sides) {
+      const angle = forward + (venom ? side * venom.spread : 0) + (game.random() - 0.5) * 2 * spread;
       game.shots.push({
         x: player.x + Math.cos(forward) * 12 - Math.sin(forward) * side * 7,
         y: player.y + Math.sin(forward) * 12 + Math.cos(forward) * side * 7,
-        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: weaponValue(game, 'stapler', 'damage'),
-        pierce: venom ? 99 : nailer ? nailer.pierce : 0, life: lifeSec, radius: 5 * projectile, scale: projectile,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: weaponValue(game, 'stapler', 'damage') * (venom?.damage ?? 1),
+        pierce: venom ? venom.pierce : nailer ? nailer.pierce : 0, life: lifeSec, radius: 5 * projectile, scale: projectile,
+        homing: venom?.homing, speed,
         poison: venom ? weaponValue(game, 'spray', 'damage') * venom.poison : 0,
         hit: new Set(), kind: 'staple', knockback: 3,
         mega: Boolean(nailer),
@@ -1486,18 +1593,7 @@ function fireWeapons(game, dt) {
       addEffect(game, { type: 'ring', x: player.x, y: player.y, radius, color: 'water', life: 0.35 });
     }
   }
-  const saw = fusion(game, 'sawblade');
-  if (saw) {
-    const damage = weaponValue(game, 'roller', 'damage') * saw.damage;
-    for (const blade of sawBlades(game)) {
-      for (const enemy of game.enemies) {
-        if (enemy.dead || distance(enemy, blade) > blade.radius + enemy.radius) continue;
-        if (game.time - (enemy.sawHitAt ?? -9) < saw.hitEverySec) continue;
-        enemy.sawHitAt = game.time;
-        damageEnemy(game, enemy, damage, 10, blade);
-      }
-    }
-  }
+  updateSaws(game, dt);
 }
 
 function updateProjectiles(game, dt) {
@@ -1643,7 +1739,7 @@ function contactDamage(game) {
       // 철수세미: 받은 피해를 주변 적에게 몇 배로 돌려준다.
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, game.player) < scrubber.radius + enemy.radius) {
-          damageEnemy(game, enemy, strongest * scrubber.reflect, 30);
+          damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), 30);
         }
       }
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubber.radius, color: 'spark', life: 0.3 });
@@ -1654,8 +1750,7 @@ function contactDamage(game) {
 function applyDrop(game, drop) {
   const { player } = game;
   const stats = statsOf(game);
-  // 아이템 5점: 라면 회복과 커피·얼음팩·택배상자 시간이 늘어난다.
-  const boost = perk(game, 'item', 5)?.boost ?? 1;
+  const boost = 1;
   if (drop.type === 'ramen') player.hp = Math.min(stats.maxHp, player.hp + 15 * boost);
   if (drop.type === 'vacuumBag') game.gems.forEach((gem) => { gem.pulled = true; });
   if (drop.type === 'coffee') game.coffeeUntil = game.time + 10 * boost;
@@ -1670,7 +1765,6 @@ function applyDrop(game, drop) {
   if (drop.type === 'box') game.shieldUntil = game.time + 5 * boost;
   if (drop.type === 'chest') {
     game.pendingRelics += 1;
-    game.pendingLevels += perk(game, 'item', 20)?.chestLevels ?? 0;
     addEffect(game, { type: 'banner', text: '보물 상자 발견!', life: 2 });
   }
   addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
@@ -1756,7 +1850,7 @@ const KEEP_RELICS = {
   details: ['레벨업 +2'],
 };
 
-const relicsFull = (game) => Object.keys(game.relics).length >= MAX_RELICS;
+const relicsFull = (game) => Object.keys(game.relics).length >= maxRelicsOf(game);
 const weaponsFull = (game) => Object.keys(game.weapons).length >= MAX_WEAPONS;
 const inFusion = (game, id) => Object.keys(game.fusions).some((fusionId) => FUSIONS[fusionId].from.includes(id));
 
@@ -1774,7 +1868,7 @@ function dropWeapon(game, id) {
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
-  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3)
+  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
   if (offers.length === 0) return [];
   return relicsFull(game) ? [...offers, { ...KEEP_RELICS }] : offers;
@@ -1784,6 +1878,8 @@ function gainRelic(game, id) {
   game.relics[id] = true;
   if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
   if (id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
+  if (id === 'pas') game.pasIn = RELICS.pas.everySec;
+  if (id === 'freshener') game.freshIn = RELICS.freshener.everySec;
   addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
 }
 
@@ -1800,7 +1896,7 @@ function nextChoices(game) {
 
 // 게임을 시작하면 보물을 하나 고른다.
 export function startWithRelic(game) {
-  game.pendingRelics += 1 + (perk(game, 'item', 20)?.relics ?? 0);
+  game.pendingRelics += 1 + (perk(game, 'treasure', 5)?.relics ?? 0);
   game.choices = nextChoices(game);
   game.rerollLeft = rerollsPerLevel(game);
 }
@@ -1920,8 +2016,8 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   if (firecracker && !game.over) {
     game.fireIn = (game.fireIn ?? firecracker.everySec) - dt;
     if (game.fireIn <= 0) {
-      game.fireIn = firecracker.everySec;
-      const damage = firecracker.damage * mightOf(game);
+      game.fireIn = relicEvery(game, firecracker.everySec);
+      const damage = relicDamage(game, firecracker.damage);
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, game.player) < firecracker.radius + enemy.radius) damageEnemy(game, enemy, damage, 40);
       }
@@ -1935,17 +2031,74 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   if (alarm && !game.over) {
     game.alarmIn -= dt;
     if (game.alarmIn <= 0) {
-      game.alarmIn = alarm.everySec;
+      game.alarmIn = relicEvery(game, alarm.everySec);
       game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec);
       addEffect(game, { type: 'banner', text: '따르릉! 적이 얼었어요', life: 1.4 });
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: 300, color: 'spark', life: 0.5 });
     }
   }
+  if (!game.over) updateDamageRelics(game, dt);
   if ((game.pendingLevels > 0 || game.pendingRelics > 0) && !game.over) {
     game.choices = nextChoices(game);
     game.rerollLeft = rerollsPerLevel(game);
   }
   return game;
+}
+
+// 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게
+function updateDamageRelics(game, dt) {
+  const { player } = game;
+  const pas = relic(game, 'pas');
+  if (pas) {
+    game.pasIn = (game.pasIn ?? pas.everySec) - dt;
+    if (game.pasIn <= 0) {
+      game.pasIn = relicEvery(game, pas.everySec);
+      const damage = relicDamage(game, pas.damage);
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, player) < pas.radius + enemy.radius) damageEnemy(game, enemy, damage, 20);
+      }
+      addEffect(game, { type: 'nova', x: player.x, y: player.y, radius: pas.radius, life: 0.45, color: 'mint' });
+      addEffect(game, { type: 'burst', x: player.x, y: player.y, color: 'teal', count: 16, life: 0.5 });
+    }
+  }
+  const heat = relic(game, 'heatpad');
+  if (heat) {
+    const damage = relicDamage(game, heat.dps) * dt;
+    for (const enemy of game.enemies) {
+      if (!enemy.dead && distance(enemy, player) < heat.radius + enemy.radius) damageEnemy(game, enemy, damage);
+    }
+  }
+  const fresh = relic(game, 'freshener');
+  if (fresh) {
+    game.freshIn = (game.freshIn ?? fresh.everySec) - dt;
+    if (game.freshIn <= 0) {
+      game.freshIn = relicEvery(game, fresh.everySec);
+      const damage = relicDamage(game, fresh.damage);
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, player) < fresh.radius) damageEnemy(game, enemy, damage);
+      }
+      addEffect(game, { type: 'mist', x: player.x, y: player.y, radius: fresh.radius, life: 0.9 });
+    }
+  }
+  const pin = relic(game, 'clothespin');
+  if (pin && game.pins.length > 0) {
+    for (const spot of game.pins) {
+      spot.life -= dt;
+      const victim = game.enemies.find((enemy) => !enemy.dead && distance(enemy, spot) < pin.radius * 0.5 + enemy.radius);
+      if (!victim) continue;
+      spot.life = 0;
+      const damage = relicDamage(game, pin.damage);
+      for (const enemy of game.enemies) {
+        if (!enemy.dead && distance(enemy, spot) < pin.radius + enemy.radius) damageEnemy(game, enemy, damage, 6, spot);
+      }
+      addEffect(game, { type: 'snap', x: spot.x, y: spot.y, radius: pin.radius, life: 0.3 });
+    }
+    game.pins = game.pins.filter((spot) => spot.life > 0);
+  }
+  // 과충전이 시작될 때 알려 준다.
+  const charging = overcharged(game);
+  if (charging && !game.charging) addEffect(game, { type: 'ring', x: player.x, y: player.y, radius: 90, color: 'spark', life: 0.4 });
+  game.charging = charging;
 }
 
 export function formatTime(seconds) {

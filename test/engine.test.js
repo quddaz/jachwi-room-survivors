@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, choose, createGame, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, sawBlades, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -422,9 +422,11 @@ describe('새 무기', () => {
 });
 
 describe('패시브 확장', () => {
-  it('단백질 셰이크와 운동화는 10레벨까지, 나머지는 5레벨까지 올린다', () => {
+  it('단백질 셰이크, 운동화, 네잎클로버는 10레벨까지, 나머지는 5레벨까지 올린다', () => {
     assert.equal(passiveMaxLevel('protein'), 10);
     assert.equal(passiveMaxLevel('sneakers'), 10);
+    assert.equal(passiveMaxLevel('clover'), 10);
+    assert.equal(passiveMaxLevel('hotsauce'), 5);
     assert.equal(passiveMaxLevel('battery'), 5);
     const game = createGame(seeded(4));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
@@ -432,7 +434,7 @@ describe('패시브 확장', () => {
     game.fusions = Object.fromEntries(Object.keys(FUSIONS).map((id) => [id, true]));
     game.passives = Object.fromEntries(Object.keys(PASSIVES).map((id) => [id, 5]));
     const offered = rollChoices(game).filter((choice) => choice.kind === 'passive').map((choice) => choice.id).sort();
-    assert.deepEqual(offered, ['protein', 'sneakers']);
+    assert.deepEqual(offered, ['clover', 'protein', 'sneakers']);
     game.passives.sneakers = 10;
     assert.equal(statsOf(game).speed, PLAYER.speed * (1 + PASSIVES.sneakers.speed[9]));
   });
@@ -864,20 +866,20 @@ describe('보물 2', () => {
     assert.equal(roach.hp, 1000 - RELICS.firecracker.damage);
   });
 
-  it('고무망치는 치명타를 없애고, 치명타 확률 5%마다 피해 +5와 공격 속도 2배를 준다', () => {
+  it('고무망치는 치명타를 없애고, 치명타 확률 5%마다 피해 +20과 공격 속도 2배를 준다', () => {
     const game = quiet();
     game.relics = { mallet: true, dice: true };
     game.passives = { clover: 2 };
     const stats = statsOf(game);
     assert.equal(stats.critChance, 0);
-    assert.equal(stats.flatDamage, 15);
+    assert.equal(stats.flatDamage, 60);
     near(stats.cooldownScale, 0.5, 1e-9);
     game.random = () => 0;
     const enemy = dummy();
     damageEnemy(game, enemy, 10);
     assert.equal(enemy.hp, 990);
-    assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes(`피해 ${WEAPONS.broom.damage[0] + 15}`));
-    assert.equal(Object.fromEntries(statSheet(game))['고정 피해'], '+15');
+    assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes(`피해 ${WEAPONS.broom.damage[0] + 60}`));
+    assert.equal(Object.fromEntries(statSheet(game))['고정 피해'], '+60');
   });
 });
 
@@ -1270,8 +1272,8 @@ describe('능력치 투자', () => {
   });
 
   it('배분은 파트당 20, 합계 30을 넘지 못한다', () => {
-    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, item: 'x' }), { crit: 20, haste: 10, survival: 0, item: 0 });
-    assert.deepEqual(normalizeBuild({ crit: 5.7, item: 3 }), { crit: 5, haste: 0, survival: 0, item: 3 });
+    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, treasure: 'x' }), { crit: 20, haste: 10, survival: 0, treasure: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 5.7, treasure: 3 }), { crit: 5, haste: 0, survival: 0, treasure: 3 });
   });
 
   it('기본 수치는 작게 오르고, 체력은 늘어난 최대치로 시작한다', () => {
@@ -1309,19 +1311,14 @@ describe('능력치 투자', () => {
     near(statsOf(game).area, 1.1, 1e-9);
   });
 
-  it('공속 20점은 계속 닿는 무기를 40% 더 세게 한다', () => {
-    const plain = createGame(seeded(97));
-    const master = createGame(seeded(97));
-    applyBuild(master, { haste: 20 });
-    for (const game of [plain, master]) {
-      game.spawnCarry = -1000;
-      game.weapons = { dehumidifier: 1 };
-    }
-    const a = placeEnemy(plain, 'trash', 30, 0, { hp: 1e6 });
-    const b = placeEnemy(master, 'trash', 30, 0, { hp: 1e6 });
-    update(plain, 1 / 60);
-    update(master, 1 / 60);
-    near((1e6 - b.hp) / (1e6 - a.hp), 1.4, 1e-6);
+  it('공속 20점은 8초마다 3초 동안 공격 속도가 2배가 된다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { haste: 20 });
+    game.time = 1;
+    const calm = statsOf(game).cooldownScale;
+    game.time = 6;
+    near(statsOf(game).cooldownScale, calm / 2, 1e-9);
+    near(calm, 1 / (1 + 20 * 0.005 * 1.4) / 1.2, 1e-9);
   });
 
   it('치명 5점은 정예에게만 치명타 확률을 더한다', () => {
@@ -1368,28 +1365,39 @@ describe('능력치 투자', () => {
     assert.ok(game.player.hp > 1);
   });
 
-  it('아이템 5점은 라면을 1.5배 회복하고, 10점은 다시 뽑기가 하나 더 있다', () => {
+  it('보물 파트는 보물 피해를 올리고, 5점이면 시작 보물을 두 번 고른다', () => {
+    const plain = createGame(seeded(97));
     const game = createGame(seeded(97));
-    applyBuild(game, { item: 10 });
-    const other = createGame(seeded(97));
-    applyBuild(other, { item: 10 });
-    startWithRelic(other);
-    assert.equal(other.rerollLeft, 2);
-    game.player.hp = 10;
-    game.drops.push({ type: 'ramen', x: game.player.x, y: game.player.y });
-    game.spawnCarry = -1000;
-    update(game, 1 / 60);
-    assert.ok(game.player.hp >= 10 + 22.5);
-  });
-
-  it('아이템 20점은 시작 보물을 두 번 고른다', () => {
-    const game = createGame(seeded(97));
-    applyBuild(game, { item: 20 });
+    applyBuild(game, { treasure: 10 });
+    near(statsOf(game).relicPower, 1 + 10 * 0.03 * 1.2 + 0.3, 1e-9);
     startWithRelic(game);
     choose(game, 0);
     assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
-    choose(game, 0);
-    assert.equal(Object.keys(game.relics).length, 2);
+    for (const target of [plain, game]) {
+      target.relics = { firecracker: true };
+      target.choices = null;
+      target.pendingRelics = 0;
+      target.spawnCarry = -1000;
+      target.fireIn = 0.001;
+    }
+    const a = placeEnemy(plain, 'trash', 40, 0, { hp: 1e6 });
+    const b = placeEnemy(game, 'trash', 40, 0, { hp: 1e6 });
+    plain.random = () => 0.99;
+    game.random = () => 0.99;
+    update(plain, 1 / 60);
+    update(game, 1 / 60);
+    near((1e6 - b.hp) / (1e6 - a.hp), 1 + 10 * 0.03 * 1.2 + 0.3, 1e-6);
+    assert.ok(game.fireIn < plain.fireIn);
+  });
+
+  it('보물 파트 20점이면 보물을 4개까지 가지고 상자에서 넷 중에 고른다', () => {
+    const game = createGame(seeded(97));
+    applyBuild(game, { treasure: 20 });
+    game.relics = { waterbottle: true, magnet: true, dice: true };
+    assert.equal(rollRelics(game).length, 4);
+    assert.ok(rollRelics(game).every((choice) => choice.kind === 'relic'));
+    game.relics.lamp = true;
+    assert.equal(rollRelics(game).at(-1).kind, 'relic-keep');
   });
 });
 
@@ -1443,5 +1451,108 @@ describe('무기 개수 제한과 교체', () => {
     choose(game, 0);
     const offered = game.choices.map((choice) => choice.id);
     assert.ok(!offered.includes('ball') && !offered.includes('zapper'));
+  });
+});
+
+describe('조합 밸런스와 피해 보물', () => {
+  const calm = () => {
+    const game = createGame(seeded(21));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.random = () => 0.99;
+    return game;
+  };
+
+  it('파리채 폭격기를 만들면 파리채는 혼자 내려치지 않는다', () => {
+    const game = calm();
+    game.weapons = { swatter: MAX_LEVEL };
+    game.fusions = { bomber: true };
+    const enemy = placeEnemy(game, 'trash', 100, 0, { hp: 1e6 });
+    update(game, 1 / 60);
+    assert.equal(enemy.hp, 1e6);
+    delete game.fusions.bomber;
+    update(game, 1 / 60);
+    assert.ok(enemy.hp < 1e6);
+  });
+
+  it('독침 기관총을 만들면 살충제는 쉬고, 스테이플러가 적을 쫓는 독침 다섯 발을 쏜다', () => {
+    const game = calm();
+    game.weapons = { spray: MAX_LEVEL, stapler: MAX_LEVEL };
+    game.fusions = { poisongun: true };
+    placeEnemy(game, 'trash', 200, 0, { hp: 1e6 });
+    update(game, 1 / 60);
+    const shots = game.shots;
+    assert.equal(shots.length, FUSIONS.poisongun.shots);
+    assert.ok(shots.every((shot) => shot.kind === 'staple' && shot.homing && shot.poison > 0));
+  });
+
+  it('6분이 지나면 적이 더 가파르게 세진다', () => {
+    const early = difficultyAt(6 * 60);
+    const later = difficultyAt(8 * 60);
+    assert.ok(later.hp / early.hp > 1.9);
+    assert.ok(later.damage - early.damage > 1.2);
+  });
+
+  it('물파스는 때마다 주변을 터뜨리고, 레벨이 높을수록 세다', () => {
+    const low = calm();
+    const high = calm();
+    high.level = 26;
+    for (const game of [low, high]) {
+      game.relics = { pas: true };
+      game.pasIn = 0.001;
+    }
+    const a = placeEnemy(low, 'trash', 60, 0, { hp: 1e6 });
+    const b = placeEnemy(high, 'trash', 60, 0, { hp: 1e6 });
+    update(low, 1 / 60);
+    update(high, 1 / 60);
+    near(1e6 - a.hp, RELICS.pas.damage, 1e-6);
+    near((1e6 - b.hp) / (1e6 - a.hp), 2, 1e-6);
+  });
+
+  it('전기장판은 곁의 적을 계속 지지고, 방향제는 화면의 적을 모두 때린다', () => {
+    const game = calm();
+    game.relics = { heatpad: true, freshener: true };
+    game.freshIn = 0.001;
+    const nearby = placeEnemy(game, 'trash', 60, 0, { hp: 1e6 });
+    const far = placeEnemy(game, 'trash', 500, 0, { hp: 1e6 });
+    update(game, 1 / 60);
+    assert.ok(nearby.hp < far.hp);
+    near(1e6 - far.hp, RELICS.freshener.damage, 1e-6);
+  });
+
+  it('빨래집게는 쓰러진 자리에 집게를 남기고, 적이 밟으면 문다', () => {
+    const game = calm();
+    game.relics = { clothespin: true };
+    game.random = () => 0;
+    const victim = placeEnemy(game, 'roach', 300, 0, { hp: 1 });
+    damageEnemy(game, victim, 5);
+    assert.equal(game.pins.length, 1);
+    const walker = placeEnemy(game, 'trash', 300, 0, { hp: 1e6 });
+    update(game, 1 / 60);
+    assert.equal(game.pins.length, 0);
+    assert.ok(walker.hp < 1e6);
+  });
+
+  it('광택제는 보물 피해를 올린다', () => {
+    const game = calm();
+    game.passives = { polish: 5 };
+    near(statsOf(game).relicPower, 1 + PASSIVES.polish.relicPower[4], 1e-9);
+  });
+});
+
+describe('도탄 톱날', () => {
+  it('톱날이 적에서 적으로 튕기며 베고, 베인 적은 계속 피해를 입는다', () => {
+    const game = createGame(seeded(33));
+    game.spawnCarry = -1000;
+    game.weapons = { slipper: MAX_LEVEL, roller: MAX_LEVEL };
+    game.cooldowns = { slipper: 99, roller: 99 };
+    game.fusions = { sawblade: true };
+    game.random = () => 0.99;
+    const first = placeEnemy(game, 'trash', 120, 0, { hp: 1e6 });
+    const second = placeEnemy(game, 'trash', 240, 60, { hp: 1e6 });
+    for (let frame = 0; frame < 60; frame += 1) update(game, 1 / 60);
+    assert.ok(first.hp < 1e6 && second.hp < 1e6);
+    assert.ok(first.bleedUntil > game.time - 3);
+    assert.equal(sawBlades(game).length, FUSIONS.sawblade.count);
   });
 });

@@ -1,4 +1,4 @@
-import { applyBuild, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { applyBuild, maxRelicsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -164,8 +164,8 @@ function drawChoices() {
   document.querySelector('.levelup .panel-sub').textContent = weaponSwapping
     ? `무기 칸이 가득 찼어요 (${MAX_WEAPONS}/${MAX_WEAPONS}). ${WEAPONS[game.weaponSwap.id].label} 대신 내려놓을 무기를 골라 주세요`
     : swapping ? `${RELICS[game.swapIn].label} 대신 내려놓을 보물을 골라 주세요`
-    : treasure && owned >= MAX_RELICS ? `보물이 가득 찼어요 (${owned}/${MAX_RELICS}). 바꾸거나 그대로 두세요`
-      : treasure ? `보물을 하나 골라 주세요 (${owned + 1}/${MAX_RELICS})` : '하나를 골라 주세요';
+    : treasure && owned >= maxRelicsOf(game) ? `보물이 가득 찼어요 (${owned}/${maxRelicsOf(game)}). 바꾸거나 그대로 두세요`
+      : treasure ? `보물을 하나 골라 주세요 (${owned + 1}/${maxRelicsOf(game)})` : '하나를 골라 주세요';
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
@@ -307,7 +307,7 @@ const CODEX_TABS = [
           <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
         </li>`).join('')}</ol>`;
   }],
-  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요.</p>
+  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + 1}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 보물 파트와 광택제로 더 올릴 수 있어요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
   ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
@@ -377,6 +377,7 @@ const BUILD_TEXT = {
   xpGain: ['경험치', (value) => `+${Math.round(value * 100)}%`],
   pickup: ['줍는 범위', (value) => `+${Math.round(value * 100)}%`],
   drop: ['아이템 드랍', (value) => `+${Math.round(value * 100)}%`],
+  relicPower: ['보물 피해', (value) => `+${Math.round(value * 100)}%`],
 };
 
 // 그 파트에 points점을 넣었을 때의 효과 글
