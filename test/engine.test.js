@@ -3,7 +3,9 @@ import { describe, it } from 'node:test';
 import {
   applyBuild, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
-import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
+import {
+  claimEventRun, EVENT, fetchEventRanking, fetchRanking, finishEventRun, isEventOpen, rankBest, SEASON, SEASONS, submitRecord,
+} from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
@@ -915,6 +917,37 @@ describe('시즌', () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+describe('이벤트', () => {
+  it('참가권을 쓰고, 끝난 판을 한 번 채우고, 이벤트 순위만 따로 불러온다', async () => {
+    const calls = [];
+    const original = globalThis.fetch;
+    let status = 201;
+    globalThis.fetch = async (url, options = {}) => {
+      calls.push({ url: String(url), body: options.body ? JSON.parse(options.body) : null });
+      return { ok: status < 300, status, json: async () => (String(url).includes('/rpc/') ? true : []) };
+    };
+    try {
+      assert.equal(await claimEventRun('쿠다'), true);
+      assert.ok(calls[0].url.endsWith('/room_survivors_event_records'));
+      assert.deepEqual(calls[0].body, { event: EVENT.id, crew_name: '쿠다' });
+      await finishEventRun({ crewName: '쿠다', survivedMs: 90_000, kills: 120, level: 9 });
+      assert.ok(calls[1].url.endsWith('/rpc/finish_room_survivors_event'));
+      assert.equal(calls[1].body.p_survived_ms, 90_000);
+      await fetchEventRanking();
+      assert.ok(calls[2].url.includes(`event=eq.${EVENT.id}`));
+      status = 409;
+      assert.equal(await claimEventRun('쿠다'), false);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('이벤트는 정한 시각까지만 열린다', () => {
+    assert.equal(isEventOpen(Date.parse(EVENT.endsAt) - 1), true);
+    assert.equal(isEventOpen(Date.parse(EVENT.endsAt)), false);
   });
 });
 
