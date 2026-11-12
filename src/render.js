@@ -96,24 +96,95 @@ function floorOf(map) {
   return floors.get(map);
 }
 
-function disc(ctx, cx, cy, radius, color) {
-  ctx.fillStyle = color;
-  const r = Math.max(1, Math.round(radius));
-  for (let y = -r; y <= r; y += 1) {
-    const half = Math.floor(Math.sqrt(r * r - y * y));
-    ctx.fillRect(cx - half, cy + y, half * 2 + 1, 1);
+// 원은 반지름과 색마다 한 번만 그려 두고 찍는다. 투명도는 그릴 때 globalAlpha로 준다(색 종류가 끝없이 늘지 않게).
+const discCache = new Map();
+
+function discImage(r, rgb) {
+  const key = `${r}|${rgb}`;
+  let image = discCache.get(key);
+  if (!image) {
+    if (discCache.size > 600) discCache.clear();
+    image = document.createElement('canvas');
+    image.width = r * 2 + 1;
+    image.height = r * 2 + 1;
+    const g = image.getContext('2d');
+    g.fillStyle = rgb;
+    for (let y = -r; y <= r; y += 1) {
+      const half = Math.floor(Math.sqrt(r * r - y * y));
+      g.fillRect(r - half, r + y, half * 2 + 1, 1);
+    }
+    discCache.set(key, image);
   }
+  return image;
+}
+
+function splitAlpha(color) {
+  const match = /^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)$/.exec(color);
+  return match ? [`rgb(${match[1]}, ${match[2]}, ${match[3]})`, Number(match[4])] : [color, 1];
+}
+
+function disc(ctx, cx, cy, radius, color) {
+  const r = Math.max(1, Math.round(radius));
+  if (r <= 3) {
+    // 작은 원은 바로 그리는 편이 빠르다.
+    ctx.fillStyle = color;
+    for (let y = -r; y <= r; y += 1) {
+      const half = Math.floor(Math.sqrt(r * r - y * y));
+      ctx.fillRect(cx - half, cy + y, half * 2 + 1, 1);
+    }
+    return;
+  }
+  const [rgb, alpha] = splitAlpha(color);
+  if (alpha <= 0) return;
+  const previous = ctx.globalAlpha;
+  ctx.globalAlpha = previous * alpha;
+  ctx.drawImage(discImage(r, rgb), Math.round(cx) - r, Math.round(cy) - r);
+  ctx.globalAlpha = previous;
+}
+
+// 고리도 반지름·색·점선 무늬마다 한 번 그려 두고 찍는다. 점선이 도는 무늬는 2×dash가지뿐이라 개수가 늘지 않는다.
+const ringCache = new Map();
+
+function ringImage(r, rgb, dash, phase) {
+  const key = `${r}|${rgb}|${dash}|${phase}`;
+  let image = ringCache.get(key);
+  if (!image) {
+    if (ringCache.size > 800) ringCache.clear();
+    image = document.createElement('canvas');
+    image.width = r * 2 + 3;
+    image.height = r * 2 + 3;
+    const g = image.getContext('2d');
+    g.fillStyle = rgb;
+    const steps = Math.max(12, Math.round(r * 6.3));
+    for (let step = 0; step < steps; step += 1) {
+      if (dash && Math.floor((step + phase) / dash) % 2 === 1) continue;
+      const angle = (step / steps) * Math.PI * 2;
+      g.fillRect(Math.round(r + 1 + Math.cos(angle) * r), Math.round(r + 1 + Math.sin(angle) * r), 1, 1);
+    }
+    ringCache.set(key, image);
+  }
+  return image;
 }
 
 function ring(ctx, cx, cy, radius, color, dash = 0, phase = 0) {
-  ctx.fillStyle = color;
   const r = Math.max(1, Math.round(radius));
-  const steps = Math.max(12, Math.round(r * 6.3));
-  for (let step = 0; step < steps; step += 1) {
-    if (dash && Math.floor((step + phase) / dash) % 2 === 1) continue;
-    const angle = (step / steps) * Math.PI * 2;
-    ctx.fillRect(Math.round(cx + Math.cos(angle) * r), Math.round(cy + Math.sin(angle) * r), 1, 1);
+  if (r < 6 || r > 400) {
+    ctx.fillStyle = color;
+    const steps = Math.max(12, Math.round(r * 6.3));
+    for (let step = 0; step < steps; step += 1) {
+      if (dash && Math.floor((step + phase) / dash) % 2 === 1) continue;
+      const angle = (step / steps) * Math.PI * 2;
+      ctx.fillRect(Math.round(cx + Math.cos(angle) * r), Math.round(cy + Math.sin(angle) * r), 1, 1);
+    }
+    return;
   }
+  const [rgb, alpha] = splitAlpha(color);
+  if (alpha <= 0) return;
+  const cycle = dash ? ((Math.floor(phase) % (dash * 2)) + dash * 2) % (dash * 2) : 0;
+  const previous = ctx.globalAlpha;
+  ctx.globalAlpha = previous * alpha;
+  ctx.drawImage(ringImage(r, rgb, dash, cycle), Math.round(cx) - r - 1, Math.round(cy) - r - 1);
+  ctx.globalAlpha = previous;
 }
 
 // 빛 번짐: 겹칠수록 밝아지는 부드러운 빛무리. [r, g, b]
@@ -260,20 +331,36 @@ function hash(seed, index) {
   return value - Math.floor(value);
 }
 
+// 피해 숫자 글자는 색마다 한 번 그려 두고 찍는다(숫자가 화면에 수십 개씩 떠도 가볍게).
+const digitCache = new Map();
+
+function digitImage(digit, color) {
+  const key = `${digit}|${color}`;
+  let image = digitCache.get(key);
+  if (!image) {
+    image = document.createElement('canvas');
+    image.width = 5;
+    image.height = 7;
+    const g = image.getContext('2d');
+    const cells = DIGITS[digit].flatMap((row, rowIndex) => [...row].map((cell, column) => (cell === '1' ? [column, rowIndex] : null)))
+      .filter(Boolean);
+    g.fillStyle = '#3a2a1a';
+    for (const [column, rowIndex] of cells) {
+      g.fillRect(column, rowIndex + 1, 3, 1);
+      g.fillRect(column + 1, rowIndex, 1, 3);
+    }
+    g.fillStyle = color;
+    for (const [column, rowIndex] of cells) g.fillRect(column + 1, rowIndex + 1, 1, 1);
+    digitCache.set(key, image);
+  }
+  return image;
+}
+
 function drawNumber(ctx, value, x, y, color) {
   const text = String(value);
   let left = Math.round(x - text.length * 2.5);
   for (const digit of text) {
-    const rows = DIGITS[digit];
-    const cells = rows.flatMap((row, rowIndex) => [...row].map((cell, column) => (cell === '1' ? [column, rowIndex] : null)))
-      .filter(Boolean);
-    ctx.fillStyle = '#3a2a1a';
-    for (const [column, rowIndex] of cells) {
-      ctx.fillRect(left + column - 1, y + rowIndex, 3, 1);
-      ctx.fillRect(left + column, y + rowIndex - 1, 1, 3);
-    }
-    ctx.fillStyle = color;
-    for (const [column, rowIndex] of cells) ctx.fillRect(left + column, y + rowIndex, 1, 1);
+    if (DIGITS[digit]) ctx.drawImage(digitImage(digit, color), left - 1, y - 1);
     left += 5;
   }
 }
@@ -285,9 +372,7 @@ function drawEnemy(ctx, enemy, x, y, time) {
   const tint = enemy.hitFlash > 0 ? FLASH : enemy.frozen ? FROZEN : null;
   const image = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint });
   const bob = enemy.boss && !enemy.dashing ? Math.round(Math.sin(time * 4 + enemy.id)) : 0;
-  ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
   const shadow = Math.round(image.width * 0.35);
-  ctx.fillRect(Math.round(x) - shadow, Math.round(y + image.height / 2) - 1, shadow * 2, 2);
   if (enemy.elite) {
     // 정예: 금빛 테두리와 작은 왕관, 둘레에 붉은 기운
     const glow = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint: Math.floor(time * 6 + enemy.id) % 2 ? '#ffcf3f' : '#ff8a3d' });
@@ -877,6 +962,13 @@ export function render(ctx, game, width, height, time) {
     .map((enemy) => ({ enemy, point: toBuffer(enemy) }))
     .filter(({ point, enemy }) => visible(point, enemy.boss ? 60 : 16))
     .sort((a, b) => a.enemy.y - b.enemy.y);
+  // 그림자는 한 색으로 먼저 한꺼번에 깔고(색을 매번 바꾸면 느리다), 그 위에 적을 그린다.
+  ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';
+  for (const { enemy, point } of enemies) {
+    const size = enemy.radius / WORLD_PER_PIXEL;
+    const shadow = Math.round(size * 0.85);
+    ctx.fillRect(Math.round(point[0]) - shadow, Math.round(point[1] + size) - 1, shadow * 2, 2);
+  }
   for (const { enemy, point } of enemies) drawEnemy(ctx, enemy, point[0], point[1], time);
   const [duckX, duckY] = toBuffer(player);
 

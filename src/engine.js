@@ -66,11 +66,19 @@ const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
 // 체력 30% 이하인지(마지막 컵라면)
 // 시작할 때 나눈 능력치에서 나오는 값. 파트마다 점수 × 포인트당 효과 × 효율 배율을 더한다.
 function buildValue(game, key) {
+  // 배분은 게임 중에 바뀌지 않아서 한 번 계산한 값을 기억해 둔다(치명타 계산마다 불린다).
+  const cache = game.buildCache ??= {};
+  if (cache.build === game.build && key in cache) return cache[key];
+  if (cache.build !== game.build) {
+    game.buildCache = { build: game.build };
+    return buildValue(game, key);
+  }
   let sum = 0;
   for (const [tree, def] of Object.entries(BUILD)) {
     const points = game.build?.[tree] ?? 0;
     if (points && def.per[key]) sum += points * def.per[key] * buildEfficiency(points);
   }
+  cache[key] = sum;
   return sum;
 }
 
@@ -270,7 +278,52 @@ export function describeChoice(game, choice) {
 }
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// Math.hypot은 느려서, 프레임마다 수만 번 부르는 거리 계산은 sqrt로 한다.
+const distance = (a, b) => {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
+// 적 찾기 격자. 프레임마다 한 번 적을 칸에 나눠 담아, 무기가 근처 칸의 적만 살피게 한다(적이 수백 마리여도 가볍게).
+const CELL = 64;
+const COLS = Math.ceil(ARENA.width / CELL) + 1;
+const ROWS = Math.ceil(ARENA.height / CELL) + 1;
+// 칸을 고를 때 더하는 여유: 가장 큰 적의 반지름과 이번 프레임에 밀려난 거리
+const CELL_MARGIN = 72;
+
+function buildGrid(game) {
+  game.cells ??= Array.from({ length: COLS * ROWS }, () => []);
+  for (const index of game.usedCells ?? []) game.cells[index].length = 0;
+  const used = [];
+  for (const enemy of game.enemies) {
+    if (enemy.dead) continue;
+    const index = clamp(Math.floor(enemy.x / CELL), 0, COLS - 1) + clamp(Math.floor(enemy.y / CELL), 0, ROWS - 1) * COLS;
+    if (game.cells[index].length === 0) used.push(index);
+    game.cells[index].push(enemy);
+  }
+  game.usedCells = used;
+  game.gridFresh = true;
+}
+
+// (x, y)에서 reach 안쪽에 있을 수 있는 적들. 격자가 없거나 범위가 아주 넓으면 모든 적을 돌려준다.
+function near(game, x, y, reach) {
+  if (!game.gridFresh) return game.enemies;
+  const span = reach + CELL_MARGIN;
+  const left = clamp(Math.floor((x - span) / CELL), 0, COLS - 1);
+  const right = clamp(Math.floor((x + span) / CELL), 0, COLS - 1);
+  const top = clamp(Math.floor((y - span) / CELL), 0, ROWS - 1);
+  const bottom = clamp(Math.floor((y + span) / CELL), 0, ROWS - 1);
+  if ((right - left + 1) * (bottom - top + 1) > 160) return game.enemies;
+  const found = [];
+  for (let row = top; row <= bottom; row += 1) {
+    for (let column = left; column <= right; column += 1) {
+      const cell = game.cells[column + row * COLS];
+      for (let index = 0; index < cell.length; index += 1) found.push(cell[index]);
+    }
+  }
+  return found;
+}
 
 function addEffect(game, effect) {
   if (game.effects.length > 240) {
@@ -742,39 +795,54 @@ function moveEnemies(game, dt) {
 }
 
 // 적끼리 겹치지 않게 살짝 밀어낸다. 격자로 가까운 적만 비교한다.
+// 칸 배열은 프레임마다 새로 만들지 않고 비워서 다시 쓴다.
+const SEP_CELL = 48;
+const SEP_COLS = Math.ceil(ARENA.width / SEP_CELL) + 2;
+const SEP_ROWS = Math.ceil(ARENA.height / SEP_CELL) + 2;
+const sepCells = Array.from({ length: SEP_COLS * SEP_ROWS }, () => []);
+let sepUsed = [];
+
 function separate(enemies) {
-  const cell = 48;
-  const grid = new Map();
-  enemies.forEach((enemy, index) => {
-    const key = `${Math.floor(enemy.x / cell)},${Math.floor(enemy.y / cell)}`;
-    if (!grid.has(key)) grid.set(key, []);
-    grid.get(key).push(index);
-  });
-  enemies.forEach((enemy, index) => {
-    const cx = Math.floor(enemy.x / cell);
-    const cy = Math.floor(enemy.y / cell);
-    for (let ox = -1; ox <= 1; ox += 1) {
-      for (let oy = -1; oy <= 1; oy += 1) {
-        for (const otherIndex of grid.get(`${cx + ox},${cy + oy}`) ?? []) {
+  for (const index of sepUsed) sepCells[index].length = 0;
+  sepUsed = [];
+  const cellOf = (x, y) => (clamp(Math.floor(x / SEP_CELL), 0, SEP_COLS - 1) + clamp(Math.floor(y / SEP_CELL), 0, SEP_ROWS - 1) * SEP_COLS);
+  for (let index = 0; index < enemies.length; index += 1) {
+    const cell = cellOf(enemies[index].x, enemies[index].y);
+    if (sepCells[cell].length === 0) sepUsed.push(cell);
+    sepCells[cell].push(index);
+  }
+  for (let index = 0; index < enemies.length; index += 1) {
+    const enemy = enemies[index];
+    const cx = clamp(Math.floor(enemy.x / SEP_CELL), 0, SEP_COLS - 1);
+    const cy = clamp(Math.floor(enemy.y / SEP_CELL), 0, SEP_ROWS - 1);
+    for (let oy = -1; oy <= 1; oy += 1) {
+      const row = cy + oy;
+      if (row < 0 || row >= SEP_ROWS) continue;
+      for (let ox = -1; ox <= 1; ox += 1) {
+        const column = cx + ox;
+        if (column < 0 || column >= SEP_COLS) continue;
+        const bucket = sepCells[column + row * SEP_COLS];
+        for (let slot = 0; slot < bucket.length; slot += 1) {
+          const otherIndex = bucket[slot];
           if (otherIndex <= index) continue;
           const other = enemies[otherIndex];
           const dx = other.x - enemy.x;
           const dy = other.y - enemy.y;
           const minGap = (enemy.radius + other.radius) * 0.85;
-          const gap = Math.hypot(dx, dy);
-          if (gap > 0 && gap < minGap) {
-            const push = (minGap - gap) / 2;
-            const enemyShare = other.boss ? 1.6 : enemy.boss ? 0.2 : 1;
-            const otherShare = enemy.boss ? 1.6 : other.boss ? 0.2 : 1;
-            enemy.x -= (dx / gap) * push * enemyShare;
-            enemy.y -= (dy / gap) * push * enemyShare;
-            other.x += (dx / gap) * push * otherShare;
-            other.y += (dy / gap) * push * otherShare;
-          }
+          const squared = dx * dx + dy * dy;
+          if (squared >= minGap * minGap || squared === 0) continue;
+          const gap = Math.sqrt(squared);
+          const push = (minGap - gap) / 2;
+          const enemyShare = other.boss ? 1.6 : enemy.boss ? 0.2 : 1;
+          const otherShare = enemy.boss ? 1.6 : other.boss ? 0.2 : 1;
+          enemy.x -= (dx / gap) * push * enemyShare;
+          enemy.y -= (dy / gap) * push * enemyShare;
+          other.x += (dx / gap) * push * otherShare;
+          other.y += (dy / gap) * push * otherShare;
         }
       }
     }
-  });
+  }
 }
 
 // 치명 10점: 치명타로 쓰러진 적이 터진다. 터진 피해로는 다시 터지지 않는다.
@@ -782,7 +850,7 @@ function critBlast(game, source, amount) {
   const blast = perk(game, 'crit', 10);
   if (!blast || game.critBlasting) return;
   game.critBlasting = true;
-  for (const enemy of game.enemies) {
+  for (const enemy of near(game, source.x, source.y, blast.blastRadius)) {
     if (enemy !== source && !enemy.dead && distance(enemy, source) < blast.blastRadius + enemy.radius) {
       damageEnemy(game, enemy, amount * blast.blastShare);
     }
@@ -844,7 +912,7 @@ function killEnemy(game, enemy) {
     const damage = relicDamage(game, popcorn.damage);
     addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popcorn.radius, color: 'gold', life: 0.3 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
-    for (const other of game.enemies) {
+    for (const other of near(game, enemy.x, enemy.y, popcorn.radius)) {
       if (other !== enemy && !other.dead && distance(other, enemy) < popcorn.radius + other.radius) damageEnemy(game, other, damage, 10, enemy);
     }
     game.popDepth -= 1;
@@ -990,7 +1058,7 @@ function updateSaws(game, dt) {
     const pick = (from, reach) => {
       let best = null;
       let bestGap = reach;
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, from.x, from.y, reach)) {
         if (enemy.dead || enemy.id === blade.last || taken.has(enemy.id)) continue;
         const gap = distance(enemy, from);
         if (gap < bestGap) {
@@ -1041,6 +1109,7 @@ function updateSaws(game, dt) {
 }
 
 function fireWeapons(game, dt) {
+  buildGrid(game);
   const { player } = game;
   const { area, projectile } = statsOf(game);
   // 독침 기관총으로 합체하면 살충제는 따로 뿌리지 않는다.
@@ -1068,7 +1137,7 @@ function fireWeapons(game, dt) {
   if (game.weapons.broom && ready(game, 'broom', dt)) {
     const radius = weaponValue(game, 'broom', 'radius') * area;
     const damage = weaponValue(game, 'broom', 'damage');
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, player.x, player.y, radius)) {
       if (distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, damage, WEAPONS.broom.knockback);
     }
     addEffect(game, { type: 'sweep', x: player.x, y: player.y, radius, life: 0.28, facing: player.facing,
@@ -1095,7 +1164,7 @@ function fireWeapons(game, dt) {
   if (game.weapons.dehumidifier) {
     const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, player.x, player.y, radius)) {
       if (distance(enemy, player) > radius + enemy.radius) continue;
       damageEnemy(game, enemy, damage);
       slow(game, enemy, evolution(game, 'dehumidifier')?.slow);
@@ -1111,7 +1180,7 @@ function fireWeapons(game, dt) {
     const damage = weaponValue(game, 'swatter', 'damage');
     for (const target of targets) {
       const center = { x: target.x, y: target.y };
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, center.x, center.y, radius)) {
         if (distance(enemy, center) < radius + enemy.radius) damageEnemy(game, enemy, damage, 20, center);
       }
       addEffect(game, { type: 'swat', x: center.x, y: center.y, radius, life: 0.35, mega: Boolean(evolution(game, 'swatter')) });
@@ -1149,7 +1218,7 @@ function fireWeapons(game, dt) {
       }
     }
     for (const orb of coilOrbs(game)) {
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, orb.x, orb.y, 11 * projectile)) {
         if (enemy.dead || distance(enemy, orb) > 11 * projectile + enemy.radius) continue;
         if (game.time - (enemy.coilHitAt ?? -9) < WEAPONS.coil.hitEverySec) continue;
         enemy.coilHitAt = game.time;
@@ -1167,7 +1236,7 @@ function fireWeapons(game, dt) {
     for (let jump = 0; jump < chains; jump += 1) {
       let next = null;
       let best = reach;
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, from.x, from.y, reach)) {
         if (enemy.dead || hit.has(enemy.id)) continue;
         const gap = distance(enemy, from);
         if (gap < best) {
@@ -1370,7 +1439,7 @@ function fireWeapons(game, dt) {
           if (blast) addEffect(game, { type: 'ring', x: ball.x, y: ball.y, radius: reach, color: 'spark', life: 0.3 });
         }
       }
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, ball.x, ball.y, radius)) {
         if (enemy.dead || distance(enemy, ball) > radius + enemy.radius) continue;
         enemy.ballHitAt ??= {};
         if (game.time - (enemy.ballHitAt[ball.id] ?? -9) < WEAPONS.ball.hitEverySec) continue;
@@ -1394,7 +1463,7 @@ function fireWeapons(game, dt) {
       // 오리 근처의 적 가운데 자기와 가장 가까운 적을 쫓고, 없으면 오리 곁을 맴돈다.
       let target = null;
       let best = Infinity;
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, player.x, player.y, 300)) {
         if (enemy.dead || distance(enemy, player) > 300) continue;
         // 여러 대가 한 마리에 몰리지 않게 대마다 선호가 조금씩 다르다.
         const gap = distance(enemy, robot) + ((enemy.id + index) % count) * 60;
@@ -1425,7 +1494,7 @@ function fireWeapons(game, dt) {
             slow: sanitizer.slow });
         }
       }
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, robot.x, robot.y, reach)) {
         if (enemy.dead || distance(enemy, robot) > reach + enemy.radius) continue;
         if (game.time - (enemy.robotHitAt ?? -9) < WEAPONS.robot.hitEverySec) continue;
         enemy.robotHitAt = game.time;
@@ -1484,9 +1553,9 @@ function fireWeapons(game, dt) {
       trap.armIn -= dt;
       trap.life -= dt;
       if (trap.armIn > 0) continue;
-      if (!game.enemies.some((enemy) => !enemy.dead && distance(enemy, trap) < trap.radius + enemy.radius * 0.6)) continue;
+      if (!near(game, trap.x, trap.y, trap.radius).some((enemy) => !enemy.dead && distance(enemy, trap) < trap.radius + enemy.radius * 0.6)) continue;
       // 탁! 덫 둘레의 적을 모두 문다.
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, trap.x, trap.y, trap.radius * 1.5)) {
         if (!enemy.dead && distance(enemy, trap) < trap.radius * 1.5 + enemy.radius) damageEnemy(game, enemy, trap.damage, 4, trap);
       }
       addEffect(game, { type: 'slam', x: trap.x, y: trap.y, radius: trap.radius * 1.5, life: 0.3 });
@@ -1552,7 +1621,7 @@ function fireWeapons(game, dt) {
     for (const splash of game.splashes) {
       splash.delay -= dt;
       if (splash.delay > 0) continue;
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, splash.x, splash.y, splash.radius)) {
         if (!enemy.dead && distance(enemy, splash) < splash.radius + enemy.radius) damageEnemy(game, enemy, splash.damage, 4, splash);
       }
       addEffect(game, { type: 'ring', x: splash.x, y: splash.y, radius: splash.radius, color: 'water', life: 0.3 });
@@ -1602,7 +1671,7 @@ function updateProjectiles(game, dt) {
       // 종이비행기: 가장 가까운 적 쪽으로 조금씩 방향을 튼다.
       let target = null;
       let best = 420;
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, shot.x, shot.y, 420)) {
         if (enemy.dead || shot.hit.has(enemy.id)) continue;
         const gap = distance(enemy, shot);
         if (gap < best) {
@@ -1621,12 +1690,12 @@ function updateProjectiles(game, dt) {
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, shot.x, shot.y, shot.radius)) {
       if (shot.life <= 0) break;
       if (enemy.dead || shot.hit.has(enemy.id) || distance(shot, enemy) > shot.radius + enemy.radius) continue;
       shot.hit.add(enemy.id);
       if (shot.pop) {
-        for (const other of game.enemies) {
+        for (const other of near(game, shot.x, shot.y, shot.pop)) {
           if (!other.dead && distance(other, shot) < shot.pop + other.radius) damageEnemy(game, other, shot.damage, 4, shot);
         }
         addEffect(game, { type: 'ring', x: shot.x, y: shot.y, radius: shot.pop, color: 'bubble', life: 0.3 });
@@ -1637,7 +1706,7 @@ function updateProjectiles(game, dt) {
       damageEnemy(game, enemy, shot.damage, shot.knockback ?? 6, shot);
       if (shot.bomb) {
         // 파리채 폭격기: 비행기가 맞힌 자리를 파리채가 함께 내려친다.
-        for (const other of game.enemies) {
+        for (const other of near(game, enemy.x, enemy.y, shot.bomb.radius)) {
           if (other !== enemy && !other.dead && distance(other, enemy) < shot.bomb.radius + other.radius) damageEnemy(game, other, shot.bomb.damage, 10, enemy);
         }
         damageEnemy(game, enemy, shot.bomb.damage, 10, shot);
@@ -1669,7 +1738,7 @@ function updateProjectiles(game, dt) {
     }
     slipper.x += slipper.vx * dt;
     slipper.y += slipper.vy * dt;
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, slipper.x, slipper.y, slipper.radius)) {
       if (enemy.dead || slipper.hit.has(enemy.id) || distance(slipper, enemy) > slipper.radius + enemy.radius) continue;
       slipper.hit.add(enemy.id);
       damageEnemy(game, enemy, slipper.damage, 10, slipper);
@@ -1679,7 +1748,7 @@ function updateProjectiles(game, dt) {
 
   for (const puddle of game.puddles) {
     puddle.life -= dt;
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, puddle.x, puddle.y, puddle.radius)) {
       if (distance(enemy, puddle) > puddle.radius + enemy.radius * 0.5) continue;
       damageEnemy(game, enemy, puddle.dps * dt);
       slow(game, enemy, puddle.slow);
@@ -1728,7 +1797,7 @@ function updateProjectiles(game, dt) {
 
 function contactDamage(game) {
   let strongest = 0;
-  for (const enemy of game.enemies) {
+  for (const enemy of near(game, game.player.x, game.player.y, PLAYER.radius)) {
     if (!enemy.dead && !enemy.frozen && distance(enemy, game.player) < enemy.radius + PLAYER.radius) {
       strongest = Math.max(strongest, enemy.damage);
     }
@@ -1737,7 +1806,7 @@ function contactDamage(game) {
     const scrubber = relic(game, 'scrubber');
     if (scrubber) {
       // 철수세미: 받은 피해를 주변 적에게 몇 배로 돌려준다.
-      for (const enemy of game.enemies) {
+      for (const enemy of near(game, game.player.x, game.player.y, scrubber.radius)) {
         if (!enemy.dead && distance(enemy, game.player) < scrubber.radius + enemy.radius) {
           damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), 30);
         }
@@ -2038,6 +2107,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
     }
   }
   if (!game.over) updateDamageRelics(game, dt);
+  game.gridFresh = false;
   if ((game.pendingLevels > 0 || game.pendingRelics > 0) && !game.over) {
     game.choices = nextChoices(game);
     game.rerollLeft = rerollsPerLevel(game);
@@ -2064,7 +2134,7 @@ function updateDamageRelics(game, dt) {
   const heat = relic(game, 'heatpad');
   if (heat) {
     const damage = relicDamage(game, heat.dps) * dt;
-    for (const enemy of game.enemies) {
+    for (const enemy of near(game, player.x, player.y, heat.radius)) {
       if (!enemy.dead && distance(enemy, player) < heat.radius + enemy.radius) damageEnemy(game, enemy, damage);
     }
   }
@@ -2084,7 +2154,7 @@ function updateDamageRelics(game, dt) {
   if (pin && game.pins.length > 0) {
     for (const spot of game.pins) {
       spot.life -= dt;
-      const victim = game.enemies.find((enemy) => !enemy.dead && distance(enemy, spot) < pin.radius * 0.5 + enemy.radius);
+      const victim = near(game, spot.x, spot.y, pin.radius).find((enemy) => !enemy.dead && distance(enemy, spot) < pin.radius * 0.5 + enemy.radius);
       if (!victim) continue;
       spot.life = 0;
       const damage = relicDamage(game, pin.damage);

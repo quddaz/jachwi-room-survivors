@@ -101,14 +101,24 @@ function currentInput() {
   return length > 0 ? { x: keyboard.x / length, y: keyboard.y / length } : { x: 0, y: 0 };
 }
 
+// 화면 글자와 막대는 값이 바뀔 때만 건드린다. 같은 값을 매 프레임 다시 넣어도 브라우저는 다시 배치를 계산한다.
+const hudShown = new Map();
+function setHud(selector, kind, value) {
+  if (hudShown.get(selector) === value) return;
+  hudShown.set(selector, value);
+  const element = document.querySelector(selector);
+  if (kind === 'text') element.textContent = value;
+  else element.style.transform = value;
+}
+
 function drawHud() {
   const { player } = game;
-  document.querySelector('.time-value').textContent = formatTime(game.time);
-  document.querySelector('.kills-value').textContent = game.kills.toLocaleString('ko-KR');
-  document.querySelector('.level-value').textContent = game.level;
-  document.querySelector('.xp-fill').style.transform = `scaleX(${Math.min(1, game.xp / game.nextXp)})`;
+  setHud('.time-value', 'text', formatTime(game.time));
+  setHud('.kills-value', 'text', game.kills.toLocaleString('ko-KR'));
+  setHud('.level-value', 'text', String(game.level));
+  setHud('.xp-fill', 'bar', `scaleX(${Math.round(Math.min(1, game.xp / game.nextXp) * 200) / 200})`);
   const { maxHp } = statsOf(game);
-  document.querySelector('.hp-fill').style.transform = `scaleX(${Math.max(0, player.hp / maxHp)})`;
+  setHud('.hp-fill', 'bar', `scaleX(${Math.round(Math.max(0, player.hp / maxHp) * 200) / 200})`);
 
   // 보스가 여럿이면 체력 막대도 여럿. 보스가 바뀔 때만 다시 만들고, 체력은 매번 채운다.
   const bosses = game.enemies.filter((enemy) => enemy.boss && !enemy.dead);
@@ -121,16 +131,17 @@ function drawHud() {
       .join('');
   }
   bossBars.querySelectorAll('.boss-hp-fill').forEach((fill, index) => {
-    fill.style.transform = `scaleX(${Math.max(0, bosses[index].hp / bosses[index].maxHp)})`;
+    const value = `scaleX(${Math.round(Math.max(0, bosses[index].hp / bosses[index].maxHp) * 300) / 300})`;
+    if (fill.style.transform !== value) fill.style.transform = value;
   });
 
-  const latest = [...game.effects].reverse().find((effect) => effect.type === 'banner');
+  const latest = game.effects.findLast((effect) => effect.type === 'banner');
   if (latest && latest !== shownBannerAge) {
     shownBannerAge = latest;
     banner.textContent = latest.text;
     banner.classList.toggle('is-boss', Boolean(latest.boss));
   }
-  banner.classList.toggle('is-visible', Boolean(latest));
+  if (banner.classList.contains('is-visible') !== Boolean(latest)) banner.classList.toggle('is-visible', Boolean(latest));
 }
 
 function drawLoadout() {
@@ -240,6 +251,7 @@ function start() {
   shownBannerAge = null;
   shownStats = '';
   shownBosses = '';
+  hudShown.clear();
   pausedOverlay.hidden = true;
   levelupOverlay.hidden = true;
   joystick.hidden = true;
