@@ -301,19 +301,25 @@ const BEAM = {
   steam: ['rgba(255, 90, 60, 0.35)', '#f4f6fa', '#ffffff'],
 };
 
-// 가운데는 하얗고 바깥은 빛깔이 도는 굵은 빛줄기. 비스듬한 줄기에 구멍이 나지 않게 반 칸씩 겹쳐 긋는다.
+// 가운데는 하얗고 바깥은 빛깔이 도는 굵은 빛줄기.
+// 픽셀을 하나씩 찍으면 줄기 하나에 수만 번을 그려서 느려지므로, 돌린 사각형 몇 겹으로 한 번에 그린다.
 function drawBeam(ctx, x, y, angle, reach, halfWidth, [edge, glow, core], seed, progress) {
+  const half = Math.max(1, Math.round(halfWidth));
+  const length = Math.max(0, reach - 8);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = edge;
+  ctx.fillRect(8, -half - 1.5, length, half * 2 + 3);
+  ctx.fillStyle = glow;
+  ctx.fillRect(8, -half, length, half * 2);
+  ctx.fillStyle = core;
+  ctx.fillRect(8, -Math.max(0.5, half * 0.45), length, Math.max(1, half * 0.9));
+  ctx.restore();
   const dx = Math.cos(angle);
   const dy = Math.sin(angle);
-  const half = Math.max(1, Math.round(halfWidth));
-  for (let offset = -half - 1; offset <= half + 1; offset += 0.5) {
-    const depth = Math.abs(offset);
-    const color = depth > half ? edge : depth > half * 0.45 ? glow : core;
-    line(ctx, Math.round(x + dx * 8 - dy * offset), Math.round(y + dy * 8 + dx * offset),
-      Math.round(x + dx * reach - dy * offset), Math.round(y + dy * reach + dx * offset), color);
-  }
   disc(ctx, Math.round(x + dx * 8), Math.round(y + dy * 8), Math.max(2, half - 1), core);
-  for (let spark = 0; spark < 26; spark += 1) {
+  for (let spark = 0; spark < 14; spark += 1) {
     const along = 12 + hash(seed, spark) * Math.min(reach, 420);
     const side = (hash(seed, spark + 40) - 0.5) * (half * 2 + 10 + progress * 18);
     sparkle(ctx, Math.round(x + dx * along - dy * side), Math.round(y + dy * along + dx * side),
