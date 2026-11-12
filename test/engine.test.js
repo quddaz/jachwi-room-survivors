@@ -986,7 +986,7 @@ describe('정예와 한 방 피해 상한', () => {
     assert.ok(game.effects.some((effect) => effect.type === 'banner' && effect.text === '정예 바퀴벌레 등장!'));
   });
 
-  it('아무리 센 공격도 한 번에 최대 체력의 30%까지만 깎는다(14분부터는 상한이 커진다)', () => {
+  it('아무리 센 공격도 한 번에 최대 체력의 40%까지만 깎는다(14분부터는 상한이 커진다)', () => {
     const game = createGame(seeded(1));
     game.spawnCarry = -1000;
     game.weapons = {};

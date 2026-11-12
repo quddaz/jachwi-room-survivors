@@ -63,7 +63,7 @@ export const MAPS = {
 // critDamage는 치명타가 날 때 피해 배율이다. 치명타 확률은 네잎클로버로만 생긴다.
 // maxHitShare: 한 번에 받는 피해는 최대 체력의 이 비율을 넘지 않는다. 후반에도 한 방에 쓰러지지 않게 한다.
 export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.6,
-  maxHitShare: 0.3 };
+  maxHitShare: 0.4 };
 
 // 시간이 갈수록 끝없이 세진다. 정해진 끝은 없지만, 14분부터는 벽처럼 세져서 20분 안팎이 한계다.
 export function difficultyAt(time) {
