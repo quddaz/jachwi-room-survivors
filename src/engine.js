@@ -102,7 +102,12 @@ function relicEvery(game, sec) {
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  return radius * statsOf(game).area * (1 + passiveValue(game, 'megaphone', 'relicArea'));
+  return radius * statsOf(game).area;
+}
+
+// 공격 보물과 보물 패시브는 보물 파트 20점이어야 나온다.
+function treasureOpen(game, def) {
+  return !def.treasureOnly || Boolean(perk(game, 'treasure', 20));
 }
 
 // 가질 수 있는 보물 수
@@ -216,7 +221,6 @@ export function statSheet(game) {
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
     ...(passiveValue(game, 'windup', 'relicHaste') > 0 ? [['보물 발동 주기', `-${Math.round(passiveValue(game, 'windup', 'relicHaste') * 100)}%`]] : []),
-    ...(passiveValue(game, 'megaphone', 'relicArea') > 0 ? [['보물 범위', percent(passiveValue(game, 'megaphone', 'relicArea'))]] : []),
   ];
 }
 
@@ -235,7 +239,6 @@ const PASSIVE_TEXT = {
   critDamage: ['치명타 피해', percent],
   relicPower: ['보물 피해', percent],
   relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
-  relicArea: ['보물 범위', percent],
 };
 
 // 무기 능력치 이름. lower는 줄어들수록 좋은 값이고, plain은 퍼센트 대신 개수로 보여 준다.
@@ -1919,7 +1922,7 @@ export function rollChoices(game) {
     ...Object.keys(WEAPONS).filter((id) => (game.weapons[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'weapon', id, level: (game.weapons[id] ?? 0) + 1, ...WEAPONS[id] })),
     ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < passiveMaxLevel(id)
-      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]))
+      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && treasureOpen(game, PASSIVES[id]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
@@ -1963,7 +1966,7 @@ function dropWeapon(game, id) {
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
-  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id]), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
+  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && treasureOpen(game, RELICS[id])), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
   if (offers.length === 0) return [];
   return relicsFull(game) ? [...offers, { ...KEEP_RELICS }] : offers;

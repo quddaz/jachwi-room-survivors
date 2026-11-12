@@ -2111,31 +2111,6 @@ ITEMS.windup = item([
     [[12, 2], [13, 4], [12, 6], [11, 4]].forEach(([x, y], index) => { if (index === f) fx.set(x, y, 'W'); });
     twinkle(fx, 2, 9, f, 'Y');
   });
-ITEMS.megaphone = item([
-  '................',
-  '..........RR....',
-  '........RRWR....',
-  '......RRWWWR....',
-  '....RRWWWWWR....',
-  '..DDRWWWWWWR....',
-  '..DdRWWWWWWR....',
-  '..DdRWWWWWWR....',
-  '..DDRWWWWWWR....',
-  '....RRWWWWWR....',
-  '...D..RRWWWR....',
-  '...D....RRWR....',
-  '...DD.....RR....',
-  '................',
-  '................',
-  '................',
-], (body, fx, f) => {
-    // 소리가 멀리 퍼진다.
-    for (let wave = 0; wave < 3; wave += 1) {
-      if ((wave + f) % 3 === 0) continue;
-      const x = 13 + wave;
-      if (x < 16) [4, 6, 8, 10].forEach((y) => fx.set(x, y + (wave % 2), 'Y'));
-    }
-  });
 // 피해를 주는 보물과 광택제
 ITEMS.pas = item([
   '................',

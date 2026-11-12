@@ -1404,15 +1404,26 @@ describe('능력치 투자', () => {
     assert.ok(game.fireIn < plain.fireIn);
   });
 
-  it('보물 파트 20점이면 보물을 4개까지 가지고 상자에서 넷 중에 고른다', () => {
+  it('보물 파트 20점이면 보물을 6개까지 가지고, 공격 보물과 보물 패시브가 나온다', () => {
+    const plain = createGame(seeded(97));
     const game = createGame(seeded(97));
     applyBuild(game, { treasure: 20 });
-    game.relics = { waterbottle: true, magnet: true, dice: true };
+    const attack = Object.keys(RELICS).filter((id) => RELICS[id].treasureOnly);
+    assert.ok(attack.length >= 9);
+    for (let index = 0; index < 40; index += 1) {
+      assert.ok(rollRelics(plain).every((choice) => !RELICS[choice.id].treasureOnly));
+      assert.ok(rollChoices(plain).every((choice) => choice.kind !== 'passive' || !PASSIVES[choice.id].treasureOnly));
+    }
+    const offered = new Set();
+    for (let index = 0; index < 60; index += 1) rollRelics(game).forEach((choice) => offered.add(choice.id));
+    assert.ok(attack.some((id) => offered.has(id)));
+    game.relics = { waterbottle: true, magnet: true, dice: true, lamp: true, pas: true };
     assert.equal(rollRelics(game).length, 4);
     assert.ok(rollRelics(game).every((choice) => choice.kind === 'relic'));
-    game.relics.lamp = true;
+    game.relics.top = true;
     assert.equal(rollRelics(game).at(-1).kind, 'relic-keep');
   });
+
 });
 
 describe('무기 개수 제한과 교체', () => {
@@ -1665,26 +1676,20 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
     assert.equal(game.shots.filter((shot) => shot.kind === 'ice').length, RELICS.purifier.shards);
   });
 
-  it('태엽 열쇠는 보물을 더 자주, 확성기는 더 멀리 닿게 한다', () => {
+  it('태엽 열쇠는 보물을 더 자주 발동하게 한다', () => {
     const plain = calm();
     const tuned = calm();
-    tuned.passives = { windup: 5, megaphone: 5 };
+    tuned.passives = { windup: 5 };
     for (const game of [plain, tuned]) {
       game.relics = { pas: true };
       game.pasIn = 0.001;
     }
-    const reach = RELICS.pas.radius * (1 + PASSIVES.megaphone.relicArea[4]) - 5;
-    const a = placeEnemy(plain, 'trash', reach, 0, { hp: 1e6, speed: 0 });
-    const b = placeEnemy(tuned, 'trash', reach, 0, { hp: 1e6, speed: 0 });
     update(plain, 1 / 60);
     update(tuned, 1 / 60);
-    assert.equal(a.hp, 1e6);
-    assert.ok(b.hp < 1e6);
     near(tuned.pasIn / plain.pasIn, 1 - PASSIVES.windup.relicHaste[4], 1e-3);
-    const sheet = Object.fromEntries(statSheet(tuned));
-    assert.equal(sheet['보물 발동 주기'], '-30%');
-    assert.equal(sheet['보물 범위'], '+50%');
+    assert.equal(Object.fromEntries(statSheet(tuned))['보물 발동 주기'], '-30%');
   });
+
 });
 
 function distance2(a, b) {

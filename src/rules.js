@@ -31,7 +31,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -20%', relicPower: 0.3, relicHaste: 0.2 },
-      20: { name: '보물 사냥꾼', text: '보물을 4개까지 가지고, 보물 상자에서 넷 중에 골라요', maxRelics: 1, offers: 1 },
+      20: { name: '보물 사냥꾼', text: '보물을 6개까지 가지고, 공격 보물과 보물 패시브가 나와요. 상자에서 넷 중에 골라요', maxRelics: 3, offers: 1 },
     } },
 };
 
@@ -282,11 +282,9 @@ export const PASSIVES = {
   clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25, 0.29, 0.33, 0.37, 0.41, 0.45] },
   // 치명타 확률이 없으면 쓸모가 없어서, 네잎클로버를 가진 뒤에만 나온다.
   hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
-  // 보물이 직접 주는 피해(폭죽, 팝콘 기계, 물파스 등)만 세게 한다.
-  polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75] },
-  // 보물 전용: 때마다 발동하는 보물의 주기와 보물이 닿는 범위
-  windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.06, 0.12, 0.18, 0.24, 0.3] },
-  megaphone: { label: '확성기', description: '보물 효과가 더 멀리 퍼진다', relicArea: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  // 보물 패시브: 보물 파트 20점이어야 나온다. 보물이 직접 주는 피해와 발동 주기만 바꾼다.
+  polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75], treasureOnly: true },
+  windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.06, 0.12, 0.18, 0.24, 0.3], treasureOnly: true },
 };
 
 export const MAX_LEVEL = 5;
@@ -355,7 +353,7 @@ export const FUSIONS = {
 // 한 판에 가질 수 있는 무기 수. 다 채우면 새 무기는 선택지에 나오지 않고 가진 무기만 강화한다.
 export const MAX_WEAPONS = 8;
 
-// 한 판에 가질 수 있는 보물 수(보물 파트 20점이면 하나 더). 다 채운 뒤의 보물 상자는 바꾸거나 레벨업 두 번이 된다.
+// 한 판에 가질 수 있는 보물 수(보물 파트 20점이면 6개). 다 채운 뒤의 보물 상자는 바꾸거나 레벨업 두 번이 된다.
 export const MAX_RELICS = 3;
 
 // 보물이 직접 주는 피해는 레벨마다 이만큼 세진다(공격력과 보물 피해도 곱한다). 후반에도 쓸모 있게.
@@ -392,23 +390,23 @@ export const RELICS = {
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
-  // 보물이 직접 피해를 준다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
-  pas: { label: '물파스', description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 40(레벨·보물 피해 비례)'],
+  // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
+  pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 40(레벨·보물 피해 비례)'],
     everySec: 8, radius: 170, damage: 40 },
-  heatpad: { label: '전기장판', description: '곁에 오는 적을 계속 지진다', stats: ['주변 적에게 초당 피해 12(레벨·보물 피해 비례)'], radius: 120, dps: 12 },
-  freshener: { label: '방향제', description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 30(레벨·보물 피해 비례)'],
+  heatpad: { label: '전기장판', treasureOnly: true, description: '곁에 오는 적을 계속 지진다', stats: ['주변 적에게 초당 피해 12(레벨·보물 피해 비례)'], radius: 120, dps: 12 },
+  freshener: { label: '방향제', treasureOnly: true, description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 30(레벨·보물 피해 비례)'],
     everySec: 12, radius: 640, damage: 30 },
-  clothespin: { label: '빨래집게', description: '쓰러진 적 자리에 집게를 남긴다',
+  clothespin: { label: '빨래집게', treasureOnly: true, description: '쓰러진 적 자리에 집게를 남긴다',
     stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 45(레벨·보물 피해 비례)'], chance: 0.2, damage: 45, radius: 46, lifeSec: 7, max: 12 },
-  outlet: { label: '멀티탭', description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 45(레벨·보물 피해 비례)'],
+  outlet: { label: '멀티탭', treasureOnly: true, description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 45(레벨·보물 피해 비례)'],
     everySec: 5, strikes: 4, range: 520, radius: 44, damage: 45 },
-  glove: { label: '고무장갑', description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 60(레벨·보물 피해 비례)'],
+  glove: { label: '고무장갑', treasureOnly: true, description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 60(레벨·보물 피해 비례)'],
     everySec: 4, length: 300, width: 80, damage: 60, knockback: 50 },
-  match: { label: '성냥', description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 16(레벨·보물 피해 비례)'],
+  match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 16(레벨·보물 피해 비례)'],
     chance: 0.12, burnSec: 3, dps: 16 },
-  top: { label: '팽이', description: '멀리서 빙빙 돌며 적을 친다', stats: ['팽이 둘이 오리 둘레를 크게 돎', '닿을 때 피해 24(레벨·보물 피해 비례)'],
+  top: { label: '팽이', treasureOnly: true, description: '멀리서 빙빙 돌며 적을 친다', stats: ['팽이 둘이 오리 둘레를 크게 돎', '닿을 때 피해 24(레벨·보물 피해 비례)'],
     count: 2, orbit: 175, spin: 2.4, radius: 16, damage: 24, hitEverySec: 0.3 },
-  purifier: { label: '정수기', description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 30(레벨·보물 피해 비례), 셋까지 뚫음'],
+  purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 30(레벨·보물 피해 비례), 셋까지 뚫음'],
     everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 30 },
 };
 
