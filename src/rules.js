@@ -50,13 +50,13 @@ export function normalizeBuild(build = {}) {
   }));
 }
 
-// 맵. 바닥과 소품만 다르고 규칙은 같아서 순위는 맵과 상관없이 함께 매긴다.
+// 맵. 바닥 타일만 다르고 규칙은 같아서 순위는 맵과 상관없이 함께 매긴다.
 // swatch는 시작 화면의 맵 고르기 버튼 색이다.
 export const MAPS = {
   room: { label: '자취방', description: '삐걱이는 마룻바닥', swatch: ['#ecd3ad', '#d2b185'] },
-  bathroom: { label: '욕실', description: '물기 어린 타일과 배수구', swatch: ['#f4fbff', '#9fc9e6'] },
-  kitchen: { label: '부엌', description: '체크무늬 장판과 흘린 라면', swatch: ['#fff1d6', '#9ed3b8'] },
-  rooftop: { label: '옥상', description: '초록 방수 페인트와 고무대야', swatch: ['#6fae7a', '#4f8a5c'] },
+  bathroom: { label: '욕실', description: '하얀 타일과 하늘색 줄눈', swatch: ['#f4fbff', '#9fc9e6'] },
+  kitchen: { label: '부엌', description: '크림·민트 체크무늬 장판', swatch: ['#fff1d6', '#9ed3b8'] },
+  rooftop: { label: '옥상', description: '초록 방수 페인트 타일', swatch: ['#6fae7a', '#4f8a5c'] },
 };
 
 // regen은 아무것도 없어도 1초에 차는 체력이다. 비타민의 회복력은 여기에 더해진다.

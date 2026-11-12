@@ -10,7 +10,7 @@ const WORLD_PER_PIXEL = 2;
 const FROZEN = 'rgba(190, 225, 255, 0.75)';
 const FLASH = 'rgba(255, 255, 255, 0.85)';
 
-// 맵마다 바닥 무늬(반복되는 타일)와 소품을 따로 만든다.
+// 맵마다 바닥 무늬(반복되는 타일)만 다르다. 바닥 위 소품은 두지 않는다.
 const floors = new Map();
 
 function tileCanvas(width, height, paint) {
@@ -70,16 +70,16 @@ const FLOOR = {
     t.fillStyle = 'rgba(255,255,255,0.7)';
     [[3, 4], [22, 20], [9, 26]].forEach(([x, y]) => t.fillRect(x, y, 2, 1));
   }),
-  // 옥상: 초록 방수 페인트, 얼룩과 실금
-  rooftop: () => tileCanvas(64, 64, (t) => {
+  // 옥상: 초록 방수 페인트를 칠한 큰 타일
+  rooftop: () => tileCanvas(32, 32, (t) => {
     t.fillStyle = '#6fae7a';
-    t.fillRect(0, 0, 64, 64);
+    t.fillRect(0, 0, 32, 32);
     t.fillStyle = '#78b882';
-    [[6, 8, 14, 6], [36, 30, 18, 8], [12, 44, 10, 10], [48, 4, 10, 6]].forEach(([x, y, w, h]) => t.fillRect(x, y, w, h));
+    t.fillRect(1, 1, 30, 1);
+    t.fillRect(1, 1, 1, 30);
     t.fillStyle = '#5f9a6b';
-    [[20, 18], [52, 50], [4, 58], [40, 12]].forEach(([x, y]) => t.fillRect(x, y, 3, 2));
-    t.fillStyle = '#4f8a5c';
-    [[24, 34], [25, 35], [26, 35], [27, 36], [28, 36], [29, 37]].forEach(([x, y]) => t.fillRect(x, y, 1, 1));
+    t.fillRect(0, 31, 32, 1);
+    t.fillRect(31, 0, 1, 32);
   }),
 };
 
@@ -94,78 +94,6 @@ const SURROUND = {
 function floorOf(map) {
   if (!floors.has(map)) floors.set(map, (FLOOR[map] ?? FLOOR.room)());
   return floors.get(map);
-}
-
-// 소품: 바닥에 그리는 장식이라 부딪히지 않는다. 맵마다 같은 자리에 놓이도록 난수 대신 hash로 흩뿌린다.
-const props = new Map();
-const PROP_KINDS = {
-  room: ['rug', 'sock', 'book', 'cable'],
-  bathroom: ['drain', 'mat', 'soap', 'toy'],
-  kitchen: ['mat', 'noodle', 'onion', 'drain'],
-  rooftop: ['basin', 'pot', 'pot', 'crack'],
-};
-
-function propsOf(map) {
-  if (!props.has(map)) {
-    const kinds = PROP_KINDS[map] ?? PROP_KINDS.room;
-    const list = [];
-    for (let index = 0; index < 280; index += 1) {
-      list.push({ x: 60 + hash(map.length * 7 + 3, index) * (ARENA.width - 120), y: 60 + hash(map.length * 11 + 5, index) * (ARENA.height - 120),
-        kind: kinds[index % kinds.length], seed: index });
-    }
-    props.set(map, list);
-  }
-  return props.get(map);
-}
-
-function drawProp(ctx, prop, x, y) {
-  const f = (color, px, py, w = 1, h = 1) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(Math.round(x + px), Math.round(y + py), w, h);
-  };
-  switch (prop.kind) {
-    case 'rug':
-      f('#c9692a', -12, -7, 24, 14); f('#e8a468', -11, -6, 22, 12); f('#c9692a', -8, -3, 16, 6); f('#fff1d6', -6, -1, 12, 2);
-      for (let fringe = -12; fringe < 12; fringe += 2) { f('#e8a468', fringe, -9, 1, 2); f('#e8a468', fringe, 7, 1, 2); }
-      break;
-    case 'sock': f('#2a1c14', -3, -2, 7, 5); f('#ffffff', -2, -1, 5, 3); f('#e0645b', -2, -1, 1, 3); break;
-    case 'book': f('#2a1c14', -5, -3, 10, 7); f('#5f86cf', -4, -2, 8, 5); f('#ffffff', 2, -2, 1, 5); break;
-    case 'cable': for (let step = 0; step < 18; step += 1) f('#55555d', step - 9, Math.round(Math.sin(step * 0.6 + prop.seed) * 2)); break;
-    case 'drain':
-      f('#8a8f98', -4, -4, 9, 9); f('#c4c9d1', -3, -3, 7, 7);
-      for (let bar = -2; bar <= 2; bar += 2) f('#55555d', bar, -3, 1, 7);
-      break;
-    case 'mat':
-      f('#2a1c14', -10, -6, 20, 12); f(prop.seed % 2 ? '#8fb1e9' : '#9ed3b8', -9, -5, 18, 10);
-      for (let row = -3; row <= 3; row += 3) f('rgba(255,255,255,0.7)', -8, row, 16, 1);
-      break;
-    case 'soap':
-      f('#2a1c14', -4, -2, 8, 5); f('#ffb3bf', -3, -1, 6, 3); f('#ffffff', -2, -1, 2, 1);
-      [[5, -4], [7, -1], [6, -6]].forEach(([bx, by]) => f('rgba(255,255,255,0.8)', bx, by));
-      break;
-    case 'toy':
-      f('#2a1c14', -4, -4, 9, 8); f('#ffe08a', -3, -3, 7, 6); f('#ffe08a', 1, -5, 3, 2); f('#ffb21f', 4, -4, 2, 1); f('#2a1c14', 2, -4); break;
-    case 'noodle':
-      for (let strand = 0; strand < 5; strand += 1) {
-        for (let step = 0; step < 8; step += 1) f('#ffe08a', step - 4, strand - 2 + Math.round(Math.sin(step + strand) * 1));
-      }
-      f('#e0645b', 3, 1, 2, 1);
-      break;
-    case 'onion': f('#2a1c14', -3, -3, 7, 7); f('#ffffff', -2, -2, 5, 5); f('#d7a6ff', -2, -2, 5, 1); f('#3e9f6a', 0, -5, 1, 2); break;
-    case 'basin':
-      // 빨간 고무대야
-      disc(ctx, Math.round(x), Math.round(y), 9, '#2a1c14'); disc(ctx, Math.round(x), Math.round(y), 8, '#e0645b');
-      disc(ctx, Math.round(x), Math.round(y), 6, '#a83a33'); disc(ctx, Math.round(x), Math.round(y), 4, '#7fb7e0');
-      f('rgba(255,255,255,0.8)', -2, -2, 2, 1);
-      break;
-    case 'pot':
-      f('#2a1c14', -4, 0, 9, 6); f('#c9692a', -3, 1, 7, 4); f('#3e9f6a', -3, -4, 2, 4); f('#3e9f6a', 1, -6, 2, 6); f('#8fd19e', 0, -5, 1, 2);
-      break;
-    case 'crack':
-      for (let step = 0; step < 10; step += 1) f('#4f8a5c', step - 5, Math.round(Math.sin(step * 1.7 + prop.seed) * 2));
-      break;
-    default:
-  }
 }
 
 function disc(ctx, cx, cy, radius, color) {
@@ -789,10 +717,6 @@ export function render(ctx, game, width, height, time) {
   const th = floor.height;
   for (let y = top - ((top + cameraY) % th + th) % th; y < bottom; y += th) {
     for (let x = left - ((left + cameraX) % tw + tw) % tw; x < right; x += tw) ctx.drawImage(floor, x, y);
-  }
-  for (const prop of propsOf(map)) {
-    const point = toBuffer(prop);
-    if (visible(point, 20)) drawProp(ctx, prop, point[0], point[1]);
   }
   ctx.fillStyle = surround.outside;
   ctx.fillRect(0, 0, left, height);

@@ -339,7 +339,7 @@ const CODEX_TABS = [
     <ul class="evolve-list">${Object.entries(BUILD).map(([tree, def]) => `
       <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점당: ${escapeHtml(buildEffect(tree, 1))}</em>
         ${Object.entries(def.perks).map(([at, perk]) => `<i class="${Number(at) === BUILD_MAX ? 'is-evolve' : ''}">${at}점 ${escapeHtml(perk.name)}: ${escapeHtml(perk.text)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['map', '맵', () => `<p class="ranking-note">바닥과 소품만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
+  ['map', '맵', () => `<p class="ranking-note">바닥 타일만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
   ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
@@ -418,7 +418,7 @@ function changeBuild(tree, delta) {
   drawBuild();
 }
 
-// 시작 화면의 맵 고르기. 바닥과 소품만 달라서 순위는 함께 매긴다.
+// 시작 화면의 맵 고르기. 바닥 타일만 달라서 순위는 함께 매긴다.
 let selectedMap = 'room';
 
 function drawMapPicker() {
