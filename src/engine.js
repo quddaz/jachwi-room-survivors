@@ -96,8 +96,13 @@ function relicDamage(game, base) {
 }
 
 // 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
+// 보물은 쿨타임이 핵심이라, 보물 파트(1점당·10점)와 태엽 열쇠의 주기 감소가 무기 쿨타임에 곱해진다. 최소 원래의 20%.
+function relicHasteOf(game) {
+  return 1 - (1 - buildValue(game, 'relicHaste')) * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste'));
+}
+
 function relicEvery(game, sec) {
-  return sec * statsOf(game).cooldownScale * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste'));
+  return sec * Math.max(0.2, statsOf(game).cooldownScale * (1 - relicHasteOf(game)));
 }
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
@@ -220,7 +225,7 @@ export function statSheet(game) {
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
-    ...(passiveValue(game, 'windup', 'relicHaste') > 0 ? [['보물 발동 주기', `-${Math.round(passiveValue(game, 'windup', 'relicHaste') * 100)}%`]] : []),
+    ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
   ];
 }
 
@@ -2147,15 +2152,49 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   return game;
 }
 
-// 팽이 보물의 지금 위치(그리기용). 오리 둘레를 크게 돈다.
+// 팽이 보물의 지금 위치(그리기용)
 export function topSpinners(game) {
+  if (!relic(game, 'top')) return [];
+  return (game.tops ?? []).map((spinner) => ({ ...spinner, radius: relicReach(game, RELICS.top.radius) }));
+}
+
+// 팽이: 쿨타임마다 하나씩 날아가 화면 가장자리에서 튕기며 돌고, 닿는 적을 친다.
+function updateTops(game, dt) {
   const top = relic(game, 'top');
-  if (!top) return [];
-  const orbit = relicReach(game, top.orbit);
-  return Array.from({ length: top.count }, (_, index) => {
-    const angle = game.time * top.spin + (index / top.count) * Math.PI * 2;
-    return { x: game.player.x + Math.cos(angle) * orbit, y: game.player.y + Math.sin(angle) * orbit, radius: relicReach(game, top.radius) };
-  });
+  if (!top) {
+    game.tops = [];
+    return;
+  }
+  const { player } = game;
+  game.tops ??= [];
+  game.topIn = (game.topIn ?? 0.5) - dt;
+  if (game.topIn <= 0) {
+    game.topIn = relicEvery(game, top.everySec);
+    if (game.tops.length >= top.max) game.tops.shift();
+    const angle = game.random() * Math.PI * 2;
+    game.tops.push({ id: game.nextId++, x: player.x, y: player.y, dx: Math.cos(angle), dy: Math.sin(angle), life: top.lifeSec });
+  }
+  const radius = relicReach(game, top.radius);
+  const damage = relicDamage(game, top.damage);
+  const halfW = (game.view?.halfW ?? 420) - radius;
+  const halfH = (game.view?.halfH ?? 320) - radius;
+  for (const spinner of game.tops) {
+    spinner.life -= dt;
+    spinner.x += spinner.dx * top.speed * dt;
+    spinner.y += spinner.dy * top.speed * dt;
+    if (spinner.x < player.x - halfW) { spinner.x = player.x - halfW; spinner.dx = Math.abs(spinner.dx); }
+    if (spinner.x > player.x + halfW) { spinner.x = player.x + halfW; spinner.dx = -Math.abs(spinner.dx); }
+    if (spinner.y < player.y - halfH) { spinner.y = player.y - halfH; spinner.dy = Math.abs(spinner.dy); }
+    if (spinner.y > player.y + halfH) { spinner.y = player.y + halfH; spinner.dy = -Math.abs(spinner.dy); }
+    for (const enemy of near(game, spinner.x, spinner.y, radius)) {
+      if (enemy.dead || distance(enemy, spinner) > radius + enemy.radius) continue;
+      enemy.topHits ??= {};
+      if (game.time - (enemy.topHits[spinner.id] ?? -9) < top.hitEverySec) continue;
+      enemy.topHits[spinner.id] = game.time;
+      damageEnemy(game, enemy, damage, 12, spinner);
+    }
+  }
+  game.tops = game.tops.filter((spinner) => spinner.life > 0);
 }
 
 // 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게, 멀티탭, 고무장갑, 팽이, 정수기
@@ -2176,10 +2215,16 @@ function updateDamageRelics(game, dt) {
   }
   const heat = relic(game, 'heatpad');
   if (heat) {
-    const damage = relicDamage(game, heat.dps) * dt;
-    const heatReach = relicReach(game, heat.radius);
-    for (const enemy of near(game, player.x, player.y, heatReach)) {
-      if (!enemy.dead && distance(enemy, player) < heatReach + enemy.radius) damageEnemy(game, enemy, damage);
+    game.heatIn = (game.heatIn ?? heat.everySec) - dt;
+    if (game.heatIn <= 0) {
+      // 전기장판: 때마다 넓은 장판이 달아오르며 한꺼번에 지진다.
+      game.heatIn = relicEvery(game, heat.everySec);
+      const damage = relicDamage(game, heat.damage);
+      const heatReach = relicReach(game, heat.radius);
+      for (const enemy of near(game, player.x, player.y, heatReach)) {
+        if (!enemy.dead && distance(enemy, player) < heatReach + enemy.radius) damageEnemy(game, enemy, damage);
+      }
+      game.heatPulse = game.time;
     }
   }
   const fresh = relic(game, 'freshener');
@@ -2253,18 +2298,7 @@ function updateDamageRelics(game, dt) {
       addEffect(game, { type: 'punch', x: player.x, y: player.y, angle, length, width: half * 2, life: 0.35 });
     }
   }
-  const top = relic(game, 'top');
-  if (top) {
-    const damage = relicDamage(game, top.damage);
-    for (const spinner of topSpinners(game)) {
-      for (const enemy of near(game, spinner.x, spinner.y, spinner.radius)) {
-        if (enemy.dead || distance(enemy, spinner) > spinner.radius + enemy.radius) continue;
-        if (game.time - (enemy.topHitAt ?? -9) < top.hitEverySec) continue;
-        enemy.topHitAt = game.time;
-        damageEnemy(game, enemy, damage, 12, spinner);
-      }
-    }
-  }
+  updateTops(game, dt);
   const purifier = relic(game, 'purifier');
   if (purifier) {
     game.purifierIn = (game.purifierIn ?? purifier.everySec) - dt;

@@ -964,7 +964,13 @@ export function render(ctx, game, width, height, time) {
     // 전기장판: 발밑에 뜨끈한 주황빛 장판과 일렁이는 아지랑이
     const radius = (RELICS.heatpad.radius * statsOf(game).area) / WORLD_PER_PIXEL;
     const [x, y] = toBuffer(player);
-    disc(ctx, x, y, radius, `rgba(255, 138, 61, ${0.1 + Math.sin(time * 4) * 0.03})`);
+    disc(ctx, x, y, radius, `rgba(255, 138, 61, ${0.08 + Math.sin(time * 4) * 0.02})`);
+    // 지질 때마다 장판 전체가 번쩍 달아오른다.
+    const pulse = game.time - (game.heatPulse ?? -9);
+    if (pulse < 0.3) {
+      disc(ctx, x, y, radius, `rgba(255, 120, 40, ${0.3 * (1 - pulse / 0.3)})`);
+      ring(ctx, x, y, radius * (0.6 + pulse * 1.3), `rgba(255, 236, 160, ${1 - pulse / 0.3})`);
+    }
     ring(ctx, x, y, radius, 'rgba(255, 106, 42, 0.75)', 4, Math.floor(time * 10));
     ring(ctx, x, y, radius * 0.66, 'rgba(255, 207, 63, 0.45)', 2, Math.floor(-time * 8));
     ctx.fillStyle = 'rgba(255, 220, 160, 0.8)';

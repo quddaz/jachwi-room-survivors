@@ -1383,7 +1383,7 @@ describe('능력치 투자', () => {
     const plain = createGame(seeded(97));
     const game = createGame(seeded(97));
     applyBuild(game, { treasure: 10 });
-    near(statsOf(game).relicPower, 1 + 10 * 0.03 * 1.2 + 0.3, 1e-9);
+    near(statsOf(game).relicPower, 1 + 10 * 0.02 * 1.2 + 0.3, 1e-9);
     startWithRelic(game);
     choose(game, 0);
     assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
@@ -1400,8 +1400,9 @@ describe('능력치 투자', () => {
     game.random = () => 0.99;
     update(plain, 1 / 60);
     update(game, 1 / 60);
-    near((1e6 - b.hp) / (1e6 - a.hp), 1 + 10 * 0.03 * 1.2 + 0.3, 1e-6);
-    assert.ok(game.fireIn < plain.fireIn);
+    near((1e6 - b.hp) / (1e6 - a.hp), 1 + 10 * 0.02 * 1.2 + 0.3, 1e-6);
+    // 1점당 주기 -1%, 10점 주기 -30%
+    near(game.fireIn / plain.fireIn, (1 - 10 * 0.01 * 1.2) * 0.7, 1e-3);
   });
 
   it('보물 파트 20점이면 보물을 6개까지 가지고, 공격 보물과 보물 패시브가 나온다', () => {
@@ -1534,11 +1535,12 @@ describe('조합 밸런스와 피해 보물', () => {
     near((1e6 - b.hp) / (1e6 - a.hp), 2, 1e-6);
   });
 
-  it('전기장판은 곁의 적을 계속 지지고, 방향제는 화면의 적을 모두 때린다', () => {
+  it('전기장판은 때마다 넓은 주변을 지지고, 방향제는 화면의 적을 모두 때린다', () => {
     const game = calm();
     game.relics = { heatpad: true, freshener: true };
     game.freshIn = 0.001;
-    const nearby = placeEnemy(game, 'trash', 60, 0, { hp: 1e6 });
+    game.heatIn = 0.001;
+    const nearby = placeEnemy(game, 'trash', 160, 0, { hp: 1e6 });
     const far = placeEnemy(game, 'trash', 500, 0, { hp: 1e6 });
     update(game, 1 / 60);
     assert.ok(nearby.hp < far.hp);
@@ -1658,12 +1660,21 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
     assert.ok(enemy.hp < before);
   });
 
-  it('팽이는 오리 둘레를 크게 돌며 닿는 적을 친다', () => {
+  it('팽이는 쿨타임마다 하나씩 날아가 튕기며 돌고, 쿨타임이 짧을수록 많이 돈다', () => {
+    const slow = calm();
+    const fast = calm();
+    fast.passives = { windup: 5 };
+    for (const game of [slow, fast]) {
+      game.relics = { top: true };
+      for (let frame = 0; frame < 60 * 4; frame += 1) update(game, 1 / 60);
+    }
+    assert.ok(topSpinners(fast).length > topSpinners(slow).length);
     const game = calm();
     game.relics = { top: true };
+    game.topIn = 0.001;
+    update(game, 1 / 60);
     const [spinner] = topSpinners(game);
-    near(distance2(spinner, game.player), RELICS.top.orbit, 1e-6);
-    const enemy = placeEnemy(game, 'trash', spinner.x - game.player.x, spinner.y - game.player.y, { hp: 1e6, speed: 0 });
+    const enemy = placeEnemy(game, 'trash', spinner.x - game.player.x + spinner.dx * 6, spinner.y - game.player.y + spinner.dy * 6, { hp: 1e6, speed: 0 });
     update(game, 1 / 60);
     assert.ok(enemy.hp < 1e6);
   });
@@ -1687,11 +1698,7 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
     update(plain, 1 / 60);
     update(tuned, 1 / 60);
     near(tuned.pasIn / plain.pasIn, 1 - PASSIVES.windup.relicHaste[4], 1e-3);
-    assert.equal(Object.fromEntries(statSheet(tuned))['보물 발동 주기'], '-30%');
+    assert.equal(Object.fromEntries(statSheet(tuned))['보물 발동 주기'], '-40%');
   });
 
 });
-
-function distance2(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}

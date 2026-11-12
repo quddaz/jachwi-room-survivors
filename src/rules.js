@@ -27,10 +27,10 @@ export const BUILD = {
       20: { name: '불사조 오리', text: '한 번 쓰러져도 체력 50%로 부활', revive: 0.5 },
     } },
   // 보물 피해는 폭죽, 팝콘 기계, 물파스처럼 보물이 직접 주는 피해다.
-  treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.03 },
+  treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.02, relicHaste: 0.01 },
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
-      10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -20%', relicPower: 0.3, relicHaste: 0.2 },
+      10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
       20: { name: '보물 사냥꾼', text: '보물을 6개까지 가지고, 공격 보물과 보물 패시브가 나와요. 상자에서 넷 중에 골라요', maxRelics: 3, offers: 1 },
     } },
 };
@@ -284,7 +284,7 @@ export const PASSIVES = {
   hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
   // 보물 패시브: 보물 파트 20점이어야 나온다. 보물이 직접 주는 피해와 발동 주기만 바꾼다.
   polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75], treasureOnly: true },
-  windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.06, 0.12, 0.18, 0.24, 0.3], treasureOnly: true },
+  windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.08, 0.16, 0.24, 0.32, 0.4], treasureOnly: true },
 };
 
 export const MAX_LEVEL = 5;
@@ -393,7 +393,8 @@ export const RELICS = {
   // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
   pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 40(레벨·보물 피해 비례)'],
     everySec: 8, radius: 170, damage: 40 },
-  heatpad: { label: '전기장판', treasureOnly: true, description: '곁에 오는 적을 계속 지진다', stats: ['주변 적에게 초당 피해 12(레벨·보물 피해 비례)'], radius: 120, dps: 12 },
+  heatpad: { label: '전기장판', treasureOnly: true, description: '넓은 장판이 때마다 뜨겁게 달아오른다',
+    stats: ['0.8초마다 넓은 주변을 지짐', '지질 때 피해 12(레벨·보물 피해 비례)'], everySec: 0.8, radius: 175, damage: 12 },
   freshener: { label: '방향제', treasureOnly: true, description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 30(레벨·보물 피해 비례)'],
     everySec: 12, radius: 640, damage: 30 },
   clothespin: { label: '빨래집게', treasureOnly: true, description: '쓰러진 적 자리에 집게를 남긴다',
@@ -404,8 +405,10 @@ export const RELICS = {
     everySec: 4, length: 300, width: 80, damage: 60, knockback: 50 },
   match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 16(레벨·보물 피해 비례)'],
     chance: 0.12, burnSec: 3, dps: 16 },
-  top: { label: '팽이', treasureOnly: true, description: '멀리서 빙빙 돌며 적을 친다', stats: ['팽이 둘이 오리 둘레를 크게 돎', '닿을 때 피해 24(레벨·보물 피해 비례)'],
-    count: 2, orbit: 175, spin: 2.4, radius: 16, damage: 24, hitEverySec: 0.3 },
+  // 쿨타임마다 팽이를 하나 날린다. 팽이는 화면 가장자리에서 튕기며 4초 동안 돈다. 쿨타임이 짧을수록 많이 돈다.
+  top: { label: '팽이', treasureOnly: true, description: '때마다 팽이를 날려 화면을 튕기며 돌게 한다',
+    stats: ['2.5초마다 팽이 하나를 날림(4초 동안 돎)', '닿을 때 피해 30(레벨·보물 피해 비례)'],
+    everySec: 2.5, lifeSec: 4, speed: 330, radius: 18, damage: 30, hitEverySec: 0.25, max: 8 },
   purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 30(레벨·보물 피해 비례), 셋까지 뚫음'],
     everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 30 },
 };

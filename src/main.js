@@ -390,6 +390,7 @@ const BUILD_TEXT = {
   pickup: ['줍는 범위', (value) => `+${Math.round(value * 100)}%`],
   drop: ['아이템 드랍', (value) => `+${Math.round(value * 100)}%`],
   relicPower: ['보물 피해', (value) => `+${Math.round(value * 100)}%`],
+  relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
 };
 
 // 그 파트에 points점을 넣었을 때의 효과 글
