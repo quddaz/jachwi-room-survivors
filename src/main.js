@@ -1,4 +1,4 @@
-import { applyBuild, maxRelicsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -173,7 +173,7 @@ function drawChoices() {
   document.querySelector('.levelup .panel-title').textContent = weaponSwapping ? '무기 교체' : swapping ? '보물 교체'
     : treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
   document.querySelector('.levelup .panel-sub').textContent = weaponSwapping
-    ? `무기 칸이 가득 찼어요 (${MAX_WEAPONS}/${MAX_WEAPONS}). ${WEAPONS[game.weaponSwap.id].label} 대신 내려놓을 무기를 골라 주세요`
+    ? `무기 칸이 가득 찼어요 (${maxWeaponsOf(game)}/${maxWeaponsOf(game)}). ${WEAPONS[game.weaponSwap.id].label} 대신 내려놓을 무기를 골라 주세요`
     : swapping ? `${RELICS[game.swapIn].label} 대신 내려놓을 보물을 골라 주세요`
     : treasure && owned >= maxRelicsOf(game) ? `보물이 가득 찼어요 (${owned}/${maxRelicsOf(game)}). 바꾸거나 그대로 두세요`
       : treasure ? `보물을 하나 골라 주세요 (${owned + 1}/${maxRelicsOf(game)})` : '하나를 골라 주세요';
@@ -182,7 +182,7 @@ function drawChoices() {
     const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
       : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
-      ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= MAX_WEAPONS ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${MAX_WEAPONS}`}</small>` : `<small>Lv ${choice.level}</small>`;
+      ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
       <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
         <span class="choice-icon">${icon}</span>
@@ -322,7 +322,7 @@ const CODEX_TABS = [
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. <b>공격 보물</b>은 보물 파트 20점이어야 나와요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,

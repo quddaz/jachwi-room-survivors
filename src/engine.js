@@ -115,6 +115,11 @@ function treasureOpen(game, def) {
   return !def.treasureOnly || Boolean(perk(game, 'treasure', 20));
 }
 
+// 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 3칸이다.
+export function maxWeaponsOf(game) {
+  return perk(game, 'treasure', 20)?.maxWeapons ?? MAX_WEAPONS;
+}
+
 // 가질 수 있는 보물 수
 export function maxRelicsOf(game) {
   return MAX_RELICS + (perk(game, 'treasure', 20)?.maxRelics ?? 0);
@@ -1954,7 +1959,7 @@ const KEEP_RELICS = {
 };
 
 const relicsFull = (game) => Object.keys(game.relics).length >= maxRelicsOf(game);
-const weaponsFull = (game) => Object.keys(game.weapons).length >= MAX_WEAPONS;
+const weaponsFull = (game) => Object.keys(game.weapons).length >= maxWeaponsOf(game);
 const inFusion = (game, id) => Object.keys(game.fusions).some((fusionId) => FUSIONS[fusionId].from.includes(id));
 
 // 무기를 내려놓는다. 그 무기가 남긴 공, 로봇, 슬리퍼, 쥐덫도 함께 치운다.
