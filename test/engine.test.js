@@ -1704,14 +1704,14 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
 });
 
 describe('보물 20점 무기 칸', () => {
-  it('보물 파트 20점이면 무기는 3칸이라 네 번째 새 무기는 교체를 묻는다', () => {
+  it('보물 파트 20점이면 무기는 5칸이라 여섯 번째 새 무기는 교체를 묻는다', () => {
     const game = createGame(seeded(61));
     applyBuild(game, { treasure: 20 });
-    game.weapons = { spray: 1, broom: 1, bleach: 1 };
+    game.weapons = { spray: 1, broom: 1, bleach: 1, coil: 1, ball: 1 };
     game.pendingLevels = 1;
     game.choices = [{ kind: 'weapon', id: 'swatter', level: 1, label: WEAPONS.swatter.label }];
     choose(game, 0);
     assert.equal(game.choices[0].kind, 'weapon-swap');
-    assert.equal(game.choices.filter((choice) => choice.kind === 'weapon-swap').length, 3);
+    assert.equal(game.choices.filter((choice) => choice.kind === 'weapon-swap').length, 5);
   });
 });

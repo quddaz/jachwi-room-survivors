@@ -31,7 +31,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
-      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 대신 무기는 3칸', maxRelics: 3, offers: 1, maxWeapons: 3 },
+      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 대신 무기는 5칸', maxRelics: 3, offers: 1, maxWeapons: 5 },
     } },
 };
 
@@ -391,26 +391,26 @@ export const RELICS = {
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
   // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
-  pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 40(레벨·보물 피해 비례)'],
-    everySec: 8, radius: 170, damage: 40 },
+  pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 80(레벨·보물 피해 비례)'],
+    everySec: 8, radius: 170, damage: 80 },
   heatpad: { label: '전기장판', treasureOnly: true, description: '넓은 장판이 때마다 뜨겁게 달아오른다',
-    stats: ['0.8초마다 넓은 주변을 지짐', '지질 때 피해 12(레벨·보물 피해 비례)'], everySec: 0.8, radius: 175, damage: 12 },
-  freshener: { label: '방향제', treasureOnly: true, description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 30(레벨·보물 피해 비례)'],
-    everySec: 12, radius: 640, damage: 30 },
+    stats: ['0.8초마다 넓은 주변을 지짐', '지질 때 피해 8(레벨·보물 피해 비례)'], everySec: 0.8, radius: 175, damage: 8 },
+  freshener: { label: '방향제', treasureOnly: true, description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 120(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 640, damage: 120 },
   clothespin: { label: '빨래집게', treasureOnly: true, description: '쓰러진 적 자리에 집게를 남긴다',
-    stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 45(레벨·보물 피해 비례)'], chance: 0.2, damage: 45, radius: 46, lifeSec: 7, max: 12 },
-  outlet: { label: '멀티탭', treasureOnly: true, description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 45(레벨·보물 피해 비례)'],
-    everySec: 5, strikes: 4, range: 520, radius: 44, damage: 45 },
-  glove: { label: '고무장갑', treasureOnly: true, description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 60(레벨·보물 피해 비례)'],
-    everySec: 4, length: 300, width: 80, damage: 60, knockback: 50 },
-  match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 16(레벨·보물 피해 비례)'],
-    chance: 0.12, burnSec: 3, dps: 16 },
+    stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 90(레벨·보물 피해 비례)'], chance: 0.2, damage: 90, radius: 46, lifeSec: 7, max: 12 },
+  outlet: { label: '멀티탭', treasureOnly: true, description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 160(레벨·보물 피해 비례)'],
+    everySec: 5, strikes: 4, range: 520, radius: 44, damage: 160 },
+  glove: { label: '고무장갑', treasureOnly: true, description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 130(레벨·보물 피해 비례)'],
+    everySec: 4, length: 300, width: 80, damage: 130, knockback: 50 },
+  match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 32(레벨·보물 피해 비례)'],
+    chance: 0.12, burnSec: 3, dps: 32 },
   // 쿨타임마다 팽이를 하나 날린다. 팽이는 화면 가장자리에서 튕기며 4초 동안 돈다. 쿨타임이 짧을수록 많이 돈다.
   top: { label: '팽이', treasureOnly: true, description: '때마다 팽이를 날려 화면을 튕기며 돌게 한다',
-    stats: ['2.5초마다 팽이 하나를 날림(4초 동안 돎)', '닿을 때 피해 30(레벨·보물 피해 비례)'],
-    everySec: 2.5, lifeSec: 4, speed: 330, radius: 18, damage: 30, hitEverySec: 0.25, max: 8 },
-  purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 30(레벨·보물 피해 비례), 셋까지 뚫음'],
-    everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 30 },
+    stats: ['2.5초마다 팽이 하나를 날림(4초 동안 돎)', '닿을 때 피해 60(레벨·보물 피해 비례)'],
+    everySec: 2.5, lifeSec: 4, speed: 330, radius: 18, damage: 60, hitEverySec: 0.25, max: 8 },
+  purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 80(레벨·보물 피해 비례), 셋까지 뚫음'],
+    everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 80 },
 };
 
 // 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).
