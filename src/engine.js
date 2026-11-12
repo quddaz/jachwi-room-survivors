@@ -97,12 +97,12 @@ function relicDamage(game, base) {
 
 // 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
 function relicEvery(game, sec) {
-  return sec * statsOf(game).cooldownScale * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0));
+  return sec * statsOf(game).cooldownScale * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste'));
 }
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  return radius * statsOf(game).area;
+  return radius * statsOf(game).area * (1 + passiveValue(game, 'megaphone', 'relicArea'));
 }
 
 // 가질 수 있는 보물 수
@@ -215,6 +215,8 @@ export function statSheet(game) {
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
+    ...(passiveValue(game, 'windup', 'relicHaste') > 0 ? [['보물 발동 주기', `-${Math.round(passiveValue(game, 'windup', 'relicHaste') * 100)}%`]] : []),
+    ...(passiveValue(game, 'megaphone', 'relicArea') > 0 ? [['보물 범위', percent(passiveValue(game, 'megaphone', 'relicArea'))]] : []),
   ];
 }
 
@@ -232,6 +234,8 @@ const PASSIVE_TEXT = {
   critChance: ['치명타 확률', percent],
   critDamage: ['치명타 피해', percent],
   relicPower: ['보물 피해', percent],
+  relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
+  relicArea: ['보물 범위', percent],
 };
 
 // 무기 능력치 이름. lower는 줄어들수록 좋은 값이고, plain은 퍼센트 대신 개수로 보여 준다.
@@ -878,6 +882,12 @@ export function damageEnemy(game, enemy, amount, knockback = 0, from = game.play
   // 얼음틀: 한 대씩 때리는 공격만 얼린다(매 순간 조금씩 닿는 공격은 빼고).
   const ice = relic(game, 'icetray');
   if (ice && !enemy.boss && amount >= 3 && game.random() < ice.chance) enemy.chillUntil = game.time + ice.freezeSec;
+  // 성냥: 한 대씩 때리는 공격에 가끔 불이 붙는다.
+  const match = relic(game, 'match');
+  if (match && amount >= 3 && game.random() < match.chance) {
+    enemy.burnUntil = game.time + match.burnSec;
+    enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps));
+  }
   enemy.hitFlash = 0.1;
   if (amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
@@ -1393,7 +1403,7 @@ function fireWeapons(game, dt) {
     }
     game.staplerAt = game.time;
   }
-  if (game.fusions.dryoven) {
+  if (game.fusions.dryoven || game.relics.match) {
     for (const enemy of game.enemies) {
       enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
       if (enemy.burning) damageEnemy(game, enemy, enemy.burnDps * dt);
@@ -1964,6 +1974,9 @@ function gainRelic(game, id) {
   if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
   if (id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
   if (id === 'pas') game.pasIn = RELICS.pas.everySec;
+  if (id === 'outlet') game.outletIn = RELICS.outlet.everySec;
+  if (id === 'glove') game.gloveIn = RELICS.glove.everySec;
+  if (id === 'purifier') game.purifierIn = RELICS.purifier.everySec;
   if (id === 'freshener') game.freshIn = RELICS.freshener.everySec;
   addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
 }
@@ -2131,7 +2144,18 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   return game;
 }
 
-// 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게
+// 팽이 보물의 지금 위치(그리기용). 오리 둘레를 크게 돈다.
+export function topSpinners(game) {
+  const top = relic(game, 'top');
+  if (!top) return [];
+  const orbit = relicReach(game, top.orbit);
+  return Array.from({ length: top.count }, (_, index) => {
+    const angle = game.time * top.spin + (index / top.count) * Math.PI * 2;
+    return { x: game.player.x + Math.cos(angle) * orbit, y: game.player.y + Math.sin(angle) * orbit, radius: relicReach(game, top.radius) };
+  });
+}
+
+// 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게, 멀티탭, 고무장갑, 팽이, 정수기
 function updateDamageRelics(game, dt) {
   const { player } = game;
   const pas = relic(game, 'pas');
@@ -2182,6 +2206,78 @@ function updateDamageRelics(game, dt) {
       addEffect(game, { type: 'snap', x: spot.x, y: spot.y, radius: pinReach, life: 0.3 });
     }
     game.pins = game.pins.filter((spot) => spot.life > 0);
+  }
+  const outlet = relic(game, 'outlet');
+  if (outlet) {
+    game.outletIn = (game.outletIn ?? outlet.everySec) - dt;
+    if (game.outletIn <= 0) {
+      // 멀티탭: 가까운 적 몇에게 하늘에서 벼락이 떨어진다.
+      game.outletIn = relicEvery(game, outlet.everySec);
+      const range = relicReach(game, outlet.range);
+      const blast = relicReach(game, outlet.radius);
+      const damage = relicDamage(game, outlet.damage);
+      const targets = shuffle(near(game, player.x, player.y, range).filter((enemy) => !enemy.dead && distance(enemy, player) < range), game.random)
+        .slice(0, outlet.strikes);
+      for (const target of targets) {
+        const spot = { x: target.x, y: target.y };
+        for (const enemy of near(game, spot.x, spot.y, blast)) {
+          if (!enemy.dead && distance(enemy, spot) < blast + enemy.radius) damageEnemy(game, enemy, damage, 10, spot);
+        }
+        addEffect(game, { type: 'bolt', points: [{ x: spot.x + 30, y: spot.y - 260 }, { x: spot.x - 10, y: spot.y - 120 }, { x: spot.x + 8, y: spot.y - 50 }, spot],
+          life: 0.25, mega: true });
+        addEffect(game, { type: 'ring', x: spot.x, y: spot.y, radius: blast, color: 'spark', life: 0.3 });
+      }
+    }
+  }
+  const glove = relic(game, 'glove');
+  if (glove) {
+    game.gloveIn = (game.gloveIn ?? glove.everySec) - dt;
+    if (game.gloveIn <= 0) {
+      // 고무장갑: 바라보는 쪽으로 길게 충격파를 날려 밀어낸다.
+      game.gloveIn = relicEvery(game, glove.everySec);
+      const angle = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
+      const length = relicReach(game, glove.length);
+      const half = relicReach(game, glove.width) / 2;
+      const damage = relicDamage(game, glove.damage);
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      for (const enemy of near(game, player.x + dx * length / 2, player.y + dy * length / 2, length / 2 + half)) {
+        if (enemy.dead) continue;
+        const along = (enemy.x - player.x) * dx + (enemy.y - player.y) * dy;
+        const across = Math.abs(-(enemy.x - player.x) * dy + (enemy.y - player.y) * dx);
+        if (along > -10 && along < length + enemy.radius && across < half + enemy.radius) damageEnemy(game, enemy, damage, glove.knockback);
+      }
+      addEffect(game, { type: 'punch', x: player.x, y: player.y, angle, length, width: half * 2, life: 0.35 });
+    }
+  }
+  const top = relic(game, 'top');
+  if (top) {
+    const damage = relicDamage(game, top.damage);
+    for (const spinner of topSpinners(game)) {
+      for (const enemy of near(game, spinner.x, spinner.y, spinner.radius)) {
+        if (enemy.dead || distance(enemy, spinner) > spinner.radius + enemy.radius) continue;
+        if (game.time - (enemy.topHitAt ?? -9) < top.hitEverySec) continue;
+        enemy.topHitAt = game.time;
+        damageEnemy(game, enemy, damage, 12, spinner);
+      }
+    }
+  }
+  const purifier = relic(game, 'purifier');
+  if (purifier) {
+    game.purifierIn = (game.purifierIn ?? purifier.everySec) - dt;
+    if (game.purifierIn <= 0) {
+      // 정수기: 얼음 조각을 사방으로 고르게 쏜다.
+      game.purifierIn = relicEvery(game, purifier.everySec);
+      const damage = relicDamage(game, purifier.damage);
+      const reach = relicReach(game, 1);
+      const turn = game.random() * Math.PI * 2;
+      for (let shard = 0; shard < purifier.shards; shard += 1) {
+        const angle = turn + (shard / purifier.shards) * Math.PI * 2;
+        game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * purifier.speed, vy: Math.sin(angle) * purifier.speed,
+          damage, pierce: purifier.pierce, life: purifier.lifeSec * reach, radius: 7, scale: 1, hit: new Set(), kind: 'ice', knockback: 6 });
+      }
+      addEffect(game, { type: 'ring', x: player.x, y: player.y, radius: 50, color: 'water', life: 0.3 });
+    }
   }
   // 과충전이 시작될 때 알려 준다.
   const charging = overcharged(game);

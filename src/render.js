@@ -1,4 +1,4 @@
-import { coilOrbs, sawBlades, statsOf } from './engine.js';
+import { coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, EVOLUTIONS, RELICS, WEAPONS } from './rules.js';
@@ -234,7 +234,7 @@ const PARTICLES = {
 // 내 투사체 빛무리 색
 const SHOT_GLOW = {
   spray: [150, 210, 255], megaSpray: [120, 255, 170], staple: [255, 230, 160], plane: [255, 255, 255],
-  bubble: [200, 170, 255], laser: [120, 255, 140],
+  bubble: [200, 170, 255], laser: [120, 255, 140], ice: [150, 230, 255],
 };
 const ENEMY_SHOT = { core: '#ffffff', body: '#ff3b2f', edge: '#c0150d', outline: '#2a0a08', glow: 'rgba(255, 59, 47, 0.32)', trail: 'rgba(255,59,47,0.55)' };
 
@@ -522,6 +522,31 @@ function drawEffects(ctx, game, toBuffer) {
         const reach = radius * (0.7 + progress * 0.5);
         ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach - progress * 3), 1, 1);
       }
+    } else if (effect.type === 'punch') {
+      // 고무장갑: 앞으로 뻗는 노란 충격파 띠와 맨 앞의 주먹 자국
+      const dx = Math.cos(effect.angle);
+      const dy = Math.sin(effect.angle);
+      const reach = (effect.length / WORLD_PER_PIXEL) * Math.min(1, progress * 2.5);
+      const half = (effect.width / WORLD_PER_PIXEL) / 2;
+      const fade = 1 - progress;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(effect.angle);
+      ctx.fillStyle = `rgba(255, 210, 63, ${0.22 * fade})`;
+      ctx.fillRect(4, -half, reach, half * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.8 * fade})`;
+      ctx.fillRect(4, -half, reach, 1);
+      ctx.fillRect(4, half - 1, reach, 1);
+      ctx.restore();
+      for (let arc = 0; arc < 4; arc += 1) {
+        const at = reach * (0.4 + arc * 0.2);
+        for (let side = -half; side <= half; side += 2) {
+          const bend = (side / half) ** 2 * 4;
+          ctx.fillStyle = arc === 3 ? `rgba(255, 255, 255, ${fade})` : `rgba(255, 207, 63, ${0.7 * fade})`;
+          ctx.fillRect(Math.round(x + dx * (at - bend) - dy * side), Math.round(y + dy * (at - bend) + dx * side), 1, 1);
+        }
+      }
+      glow(ctx, Math.round(x + dx * reach), Math.round(y + dy * reach), 8 * fade + 2, [255, 210, 63], 0.6 * fade);
     } else if (effect.type === 'slash') {
       // 톱날이 벤 자리: 빛나는 사선 두 줄과 불똥
       const reach = 10 * (0.6 + progress * 0.6);
@@ -1087,6 +1112,19 @@ export function render(ctx, game, width, height, time) {
       ctx.fill();
       continue;
     }
+    if (shot.kind === 'ice') {
+      // 정수기 얼음 조각: 날아가는 쪽으로 뾰족한 하늘색 마름모
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const fx = shot.vx / pace;
+      const fy = shot.vy / pace;
+      line(ctx, Math.round(x - fx * 4), Math.round(y - fy * 4), Math.round(x + fx * 3), Math.round(y + fy * 3), '#8fd0ff');
+      ctx.fillStyle = '#d3f3ff';
+      ctx.fillRect(Math.round(x - fy), Math.round(y + fx), 1, 1);
+      ctx.fillRect(Math.round(x + fy), Math.round(y - fx), 1, 1);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.round(x + fx * 2), Math.round(y + fy * 2), 1, 1);
+      continue;
+    }
     if (shot.kind === 'staple') {
       // 심은 날아가는 방향으로 길쭉한 빛줄기다.
       const pace = Math.hypot(shot.vx, shot.vy) || 1;
@@ -1119,6 +1157,21 @@ export function render(ctx, game, width, height, time) {
       drawBeam(ctx, duckX, duckY, game.spinAngle + (index / count) * Math.PI * 2, length / WORLD_PER_PIXEL,
         (width / WORLD_PER_PIXEL / 2) * 0.7 * pulse, BEAM.spin, index * 31 + Math.floor(time * 20), 0.3);
     }
+  }
+  for (const spinner of topSpinners(game)) {
+    // 팽이: 빙글빙글 도는 알록달록 팽이와 회오리 자국
+    const [x, y] = toBuffer(spinner);
+    const radius = Math.max(4, Math.round(spinner.radius / WORLD_PER_PIXEL));
+    glow(ctx, x, y, radius + 4, [255, 120, 160], 0.35);
+    disc(ctx, x, y, radius, '#3a2a1a');
+    disc(ctx, x, y, radius - 1, '#ff6f91');
+    const spin = time * 18;
+    for (let stripe = 0; stripe < 3; stripe += 1) {
+      const angle = spin + (stripe / 3) * Math.PI * 2;
+      line(ctx, x, y, Math.round(x + Math.cos(angle) * (radius - 1)), Math.round(y + Math.sin(angle) * (radius - 1)), ['#ffd23f', '#7fe9ff', '#ffffff'][stripe]);
+    }
+    disc(ctx, x, y, 1, '#ffffff');
+    ring(ctx, x, y, radius + 2, 'rgba(255, 255, 255, 0.45)', 2, Math.floor(time * 20));
   }
   for (const blade of sawBlades(game)) {
     const [x, y] = toBuffer(blade);

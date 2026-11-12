@@ -1976,6 +1976,166 @@ ITEMS.shockshower = item([
   bolts.forEach(([x, y], index) => fx.set(x, y, index % 2 ? 'W' : 'Y'));
 });
 ITEMS.ramen = ITEMS.heal;
+// 피해를 주는 보물 2와 보물 전용 패시브
+ITEMS.outlet = item([
+  '................',
+  '................',
+  '..WWWWWWWWWWWW..',
+  '.WzzzzzzzzzzzzW.',
+  '.WzWWWzWWWzWWWW.',
+  '.WzWDWzWDWzWDWW.',
+  '.WzWDWzWDWzWDWW.',
+  '.WzWWWzWWWzWWWW.',
+  '.WzzzzzzzzzzRzW.',
+  '..WWWWWWWWWWWW..',
+  '.............D..',
+  '.............D..',
+  '............DD..',
+  '...........D....',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 전기가 찌릿: 콘센트 위로 번개가 튄다.
+    if (f % 2 === 0) [[3, 0], [4, 1], [3, 1]].forEach(([x, y]) => fx.set(x + f, y, 'O'));
+    else [[9, 0], [10, 1], [9, 1]].forEach(([x, y]) => fx.set(x, y, 'Y'));
+    body.set(13, 8, f % 2 ? 'R' : 'e');
+  });
+ITEMS.glove = item([
+  '................',
+  '....YYYYYY......',
+  '...YOOOOOOY.....',
+  '..YOyOOOOOOY....',
+  '..YOOOOOOOOOY...',
+  '..YOOOOOOOOOOY..',
+  '..YOOOOOOOOOOY..',
+  '..YOOOOOOOOOY...',
+  '...YOOOOOOOY....',
+  '...YoooooooY....',
+  '....YOOOOOY.....',
+  '....YOOOOOY.....',
+  '....YWWWWWY.....',
+  '....YYYYYYY.....',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 퍽! 주먹 앞으로 충격선
+    [[14, 3], [15, 5], [14, 7]].forEach(([x, y], index) => { if ((index + f) % 2 === 0) fx.set(x, y, 'W'); });
+    twinkle(fx, 1, 12, f, 'Y');
+  });
+ITEMS.match = item([
+  '................',
+  '.......ee.......',
+  '......eOOe......',
+  '......eOye......',
+  '.......RR.......',
+  '......rRRr......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......nn.......',
+  '.......NN.......',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 불꽃이 일렁인다.
+    const tip = [[7, 0], [8, 0], [6, 1], [9, 1]][f];
+    fx.set(tip[0], tip[1], f % 2 ? 'O' : 'Y');
+    steam(fx, 10, 1, f, 2);
+  });
+ITEMS.top = item([
+  '................',
+  '.......DD.......',
+  '.......DD.......',
+  '....AAAAAAAA....',
+  '...AaaaaaaaaA...',
+  '..AYYYYYYYYYYA..',
+  '..AEEEEEEEEEEA..',
+  '...AAAAAAAAAA...',
+  '....AaaaaaaA....',
+  '.....AaaaaA.....',
+  '......AaaA......',
+  '.......AA.......',
+  '.......DD.......',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 빙글빙글: 띠 무늬가 돌고, 바닥에 회오리
+    for (let x = 3; x <= 12; x += 1) if ((x + f) % 4 === 0) body.set(x, 5, 'W');
+    [[4, 13], [11, 13], [6, 14], [9, 14]].forEach(([x, y], index) => { if ((index + f) % 2) fx.set(x, y, 'z'); });
+  });
+ITEMS.purifier = item([
+  '.....llllll.....',
+  '....lLLLLLLl....',
+  '....lLiiiiLl....',
+  '....lLiiiiLl....',
+  '.....llllll.....',
+  '....WWWWWWWW....',
+  '...WzzzzzzzzW...',
+  '...WzBBzzRRzW...',
+  '...WzzzzzzzzW...',
+  '...WzzzzzzzzW...',
+  '...WzzWDDWzzW...',
+  '...WzzWDDWzzW...',
+  '...WzzzzzzzzW...',
+  '...WWWWWWWWWW...',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 얼음 조각이 튄다.
+    [[1, 4], [14, 4], [1, 10], [14, 10]].forEach(([x, y], index) => { if ((index + f) % 2 === 0) fx.set(x, y, index % 2 ? 'E' : 'i'); });
+    twinkle(fx, 8, 2, f, 'W');
+  });
+ITEMS.windup = item([
+  '................',
+  '...ff....ff.....',
+  '..fFFf..fFFf....',
+  '..fFyFffFyFf....',
+  '..fFFFFFFFFf....',
+  '...ffFFFFff.....',
+  '.....fFFf.......',
+  '.....fFFf.......',
+  '.....fFFf.......',
+  '.....fFFf.......',
+  '.....fFFfff.....',
+  '.....fFFFFf.....',
+  '.....fFFfff.....',
+  '.....fFFfff.....',
+  '.....fFFFFf.....',
+  '......ffff......',
+], (body, fx, f) => {
+    // 태엽을 감는다.
+    [[12, 2], [13, 4], [12, 6], [11, 4]].forEach(([x, y], index) => { if (index === f) fx.set(x, y, 'W'); });
+    twinkle(fx, 2, 9, f, 'Y');
+  });
+ITEMS.megaphone = item([
+  '................',
+  '..........RR....',
+  '........RRWR....',
+  '......RRWWWR....',
+  '....RRWWWWWR....',
+  '..DDRWWWWWWR....',
+  '..DdRWWWWWWR....',
+  '..DdRWWWWWWR....',
+  '..DDRWWWWWWR....',
+  '....RRWWWWWR....',
+  '...D..RRWWWR....',
+  '...D....RRWR....',
+  '...DD.....RR....',
+  '................',
+  '................',
+  '................',
+], (body, fx, f) => {
+    // 소리가 멀리 퍼진다.
+    for (let wave = 0; wave < 3; wave += 1) {
+      if ((wave + f) % 3 === 0) continue;
+      const x = 13 + wave;
+      if (x < 16) [4, 6, 8, 10].forEach((y) => fx.set(x, y + (wave % 2), 'Y'));
+    }
+  });
 // 피해를 주는 보물과 광택제
 ITEMS.pas = item([
   '................',

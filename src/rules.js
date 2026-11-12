@@ -284,6 +284,9 @@ export const PASSIVES = {
   hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
   // 보물이 직접 주는 피해(폭죽, 팝콘 기계, 물파스 등)만 세게 한다.
   polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75] },
+  // 보물 전용: 때마다 발동하는 보물의 주기와 보물이 닿는 범위
+  windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.06, 0.12, 0.18, 0.24, 0.3] },
+  megaphone: { label: '확성기', description: '보물 효과가 더 멀리 퍼진다', relicArea: [0.1, 0.2, 0.3, 0.4, 0.5] },
 };
 
 export const MAX_LEVEL = 5;
@@ -397,6 +400,16 @@ export const RELICS = {
     everySec: 12, radius: 640, damage: 30 },
   clothespin: { label: '빨래집게', description: '쓰러진 적 자리에 집게를 남긴다',
     stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 45(레벨·보물 피해 비례)'], chance: 0.2, damage: 45, radius: 46, lifeSec: 7, max: 12 },
+  outlet: { label: '멀티탭', description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 45(레벨·보물 피해 비례)'],
+    everySec: 5, strikes: 4, range: 520, radius: 44, damage: 45 },
+  glove: { label: '고무장갑', description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 60(레벨·보물 피해 비례)'],
+    everySec: 4, length: 300, width: 80, damage: 60, knockback: 50 },
+  match: { label: '성냥', description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 16(레벨·보물 피해 비례)'],
+    chance: 0.12, burnSec: 3, dps: 16 },
+  top: { label: '팽이', description: '멀리서 빙빙 돌며 적을 친다', stats: ['팽이 둘이 오리 둘레를 크게 돎', '닿을 때 피해 24(레벨·보물 피해 비례)'],
+    count: 2, orbit: 175, spin: 2.4, radius: 16, damage: 24, hitEverySec: 0.3 },
+  purifier: { label: '정수기', description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 30(레벨·보물 피해 비례), 셋까지 뚫음'],
+    everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 30 },
 };
 
 // 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).

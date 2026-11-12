@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, sawBlades, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1602,3 +1602,91 @@ describe('난이도와 보물 범위·쿨타임', () => {
     assert.ok(boosted.pasIn < plain.pasIn);
   });
 });
+
+describe('딜 보물 2와 보물 전용 패시브', () => {
+  const calm = () => {
+    const game = createGame(seeded(41));
+    game.spawnCarry = -1000;
+    game.weapons = {};
+    game.random = () => 0.99;
+    return game;
+  };
+
+  it('멀티탭은 가까운 적들에게 벼락을 떨어뜨린다', () => {
+    const game = calm();
+    game.random = () => 0.5;
+    game.relics = { outlet: true };
+    game.outletIn = 0.001;
+    const targets = [100, 200, 300].map((dx) => placeEnemy(game, 'trash', dx, 0, { hp: 1e6, speed: 0 }));
+    update(game, 1 / 60);
+    assert.ok(targets.every((enemy) => enemy.hp < 1e6));
+  });
+
+  it('고무장갑은 바라보는 쪽만 후려친다', () => {
+    const game = calm();
+    game.relics = { glove: true };
+    game.gloveIn = 0.001;
+    game.player.heading = 0;
+    const front = placeEnemy(game, 'trash', 200, 0, { hp: 1e6, speed: 0 });
+    const back = placeEnemy(game, 'trash', -200, 0, { hp: 1e6, speed: 0 });
+    update(game, 1 / 60);
+    assert.ok(front.hp < 1e6);
+    assert.equal(back.hp, 1e6);
+  });
+
+  it('성냥은 한 대씩 맞힌 적에게 불을 붙인다', () => {
+    const game = calm();
+    game.relics = { match: true };
+    game.random = () => 0.01;
+    const enemy = placeEnemy(game, 'trash', 300, 0, { hp: 1e6, speed: 0 });
+    damageEnemy(game, enemy, 10);
+    assert.ok(enemy.burnUntil > game.time);
+    const before = enemy.hp;
+    game.random = () => 0.99;
+    update(game, 1 / 60);
+    assert.ok(enemy.hp < before);
+  });
+
+  it('팽이는 오리 둘레를 크게 돌며 닿는 적을 친다', () => {
+    const game = calm();
+    game.relics = { top: true };
+    const [spinner] = topSpinners(game);
+    near(distance2(spinner, game.player), RELICS.top.orbit, 1e-6);
+    const enemy = placeEnemy(game, 'trash', spinner.x - game.player.x, spinner.y - game.player.y, { hp: 1e6, speed: 0 });
+    update(game, 1 / 60);
+    assert.ok(enemy.hp < 1e6);
+  });
+
+  it('정수기는 얼음 조각을 사방으로 쏜다', () => {
+    const game = calm();
+    game.relics = { purifier: true };
+    game.purifierIn = 0.001;
+    update(game, 1 / 60);
+    assert.equal(game.shots.filter((shot) => shot.kind === 'ice').length, RELICS.purifier.shards);
+  });
+
+  it('태엽 열쇠는 보물을 더 자주, 확성기는 더 멀리 닿게 한다', () => {
+    const plain = calm();
+    const tuned = calm();
+    tuned.passives = { windup: 5, megaphone: 5 };
+    for (const game of [plain, tuned]) {
+      game.relics = { pas: true };
+      game.pasIn = 0.001;
+    }
+    const reach = RELICS.pas.radius * (1 + PASSIVES.megaphone.relicArea[4]) - 5;
+    const a = placeEnemy(plain, 'trash', reach, 0, { hp: 1e6, speed: 0 });
+    const b = placeEnemy(tuned, 'trash', reach, 0, { hp: 1e6, speed: 0 });
+    update(plain, 1 / 60);
+    update(tuned, 1 / 60);
+    assert.equal(a.hp, 1e6);
+    assert.ok(b.hp < 1e6);
+    near(tuned.pasIn / plain.pasIn, 1 - PASSIVES.windup.relicHaste[4], 1e-3);
+    const sheet = Object.fromEntries(statSheet(tuned));
+    assert.equal(sheet['보물 발동 주기'], '-30%');
+    assert.equal(sheet['보물 범위'], '+50%');
+  });
+});
+
+function distance2(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
