@@ -62,20 +62,24 @@ export const MAPS = {
 // regen은 아무것도 없어도 1초에 차는 체력이다. 비타민의 회복력은 여기에 더해진다.
 // critDamage는 치명타가 날 때 피해 배율이다. 치명타 확률은 네잎클로버로만 생긴다.
 // maxHitShare: 한 번에 받는 피해는 최대 체력의 이 비율을 넘지 않는다. 후반에도 한 방에 쓰러지지 않게 한다.
-export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.8,
-  maxHitShare: 0.25 };
+export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.6,
+  maxHitShare: 0.3 };
 
-// 시간이 갈수록 끝없이 세진다. 정해진 끝이 없어서 오래 버틴 사람이 이긴다.
+// 시간이 갈수록 끝없이 세진다. 정해진 끝은 없지만, 14분부터는 벽처럼 세져서 20분 안팎이 한계다.
 export function difficultyAt(time) {
   const minutes = time / 60;
   // 6분부터는 보물과 합체 무기까지 갖춘 오리를 상대해야 해서 훨씬 가파르게 세진다.
   const late = Math.max(0, minutes - 6);
+  // 14분부터는 벽: 체력이 크게 뛰고, 한 번에 깎이는 체력 상한도 커진다.
+  const wall = Math.max(0, minutes - 14);
   return {
-    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05,
-    damage: 1 + minutes * 0.25 + minutes * minutes * 0.02 + late * 0.4,
-    speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03),
-    spawnPerSec: Math.min(46, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.8),
+    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05 + wall * wall * wall * 1.5,
+    damage: 1.3 + minutes * 0.3 + minutes * minutes * 0.025 + late * 0.5 + wall * 1.5,
+    speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03) + wall * 0.04,
+    spawnPerSec: Math.min(46 + wall * 6, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.8),
     maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
+    // 한 번에 깎이는 체력 상한(최대 체력 대비). 14분 이후 1분마다 8%씩 커진다.
+    hitShare: Math.min(0.9, PLAYER.maxHitShare + wall * 0.08),
   };
 }
 
@@ -94,8 +98,9 @@ export const ENEMIES = {
   spider: { label: '거미', description: '웅크렸다가 한 번에 뛰어든다', hp: 20, speed: 50, radius: 12, damage: 9, xp: 2, from: 140, weight: 3,
     leapEverySec: 2.4, crouchSec: 0.4, leapSec: 0.4, leapSpeed: 4.2, leapRange: 300 },
   // 가까이 오면 멈춰서 부풀다가 터진다. 터질 자리를 미리 보여 준다.
-  milk: { label: '상한 우유', description: '가까이 오면 부풀다가 터진다. 터지기 전에 잡으면 안 터진다', hp: 26, speed: 62, radius: 13, damage: 6, xp: 3, from: 180, weight: 2,
-    fuseRange: 85, fuseSec: 0.9, blastRadius: 72, blastDamage: 14 },
+  // 가까이 오면 부풀다가 터지고, 쓰러져도 그 자리에서 조금 뒤 터진다.
+  milk: { label: '상한 우유', description: '가까이 오면 부풀다가 터진다. 쓰러져도 잠시 뒤 터진다', hp: 26, speed: 62, radius: 13, damage: 6, xp: 3, from: 180, weight: 2,
+    fuseRange: 85, fuseSec: 0.9, blastRadius: 72, blastDamage: 14, deathFuseSec: 0.6 },
   // 빠르고 단단하다.
   mouse: { label: '생쥐', description: '빠르고 단단하다', hp: 55, speed: 98, radius: 13, damage: 11, xp: 4, from: 220, weight: 2 },
   // 거리를 두고 세 갈래로 가루를 쏜다.
@@ -156,12 +161,15 @@ export const BOSSES = [
     sporeDamage: 11 },
 ];
 
+// 보스는 도망만 다녀서는 따돌릴 수 없게 빠르게 쫓아온다.
+export const BOSS_SPEED = 1.35;
+
 export function bossStatsOf(index, time) {
   const base = BOSSES[index % BOSSES.length];
   const round = Math.floor(index / BOSSES.length);
   const hpScale = difficultyAt(time).hp * (1 + round * 0.9);
   // 보스도 나오는 시점의 난이도만큼 더 아프게 때린다.
-  return { ...base, hp: Math.round(base.hp * hpScale), damage: base.damage * difficultyAt(time).damage * (1 + round * 0.5) };
+  return { ...base, speed: base.speed * BOSS_SPEED, hp: Math.round(base.hp * hpScale), damage: base.damage * difficultyAt(time).damage * (1 + round * 0.5) };
 }
 
 // 무기. 배열은 1~5레벨 값이다.
@@ -194,7 +202,7 @@ export const WEAPONS = {
   },
   coil: {
     label: '모기향', description: '불씨가 주위를 빙빙 돌며 태운다',
-    damage: [12, 15, 19, 24, 30], count: [2, 3, 3, 4, 5], orbit: [85, 92, 100, 110, 122], hitEverySec: 0.35, spin: 4.2,
+    damage: [16, 20, 25, 31, 38], count: [2, 3, 3, 4, 5], orbit: [85, 92, 100, 110, 122], hitEverySec: 0.3, spin: 4.6,
   },
   zapper: {
     label: '전기 파리채', description: '전기가 적에서 적으로 튄다',
@@ -233,7 +241,7 @@ export const WEAPONS = {
   },
   robot: {
     label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
-    damage: [6, 7, 9, 11, 14], count: [1, 1, 1, 1, 2], speed: [110, 118, 126, 136, 148], radius: 12, hitEverySec: 0.6,
+    damage: [10, 13, 16, 20, 25], count: [1, 1, 1, 2, 2], speed: [125, 134, 144, 156, 170], radius: 12, hitEverySec: 0.45,
   },
   towel: {
     // 젖어서 맞은 적은 잠깐 느려진다(보스 제외).

@@ -233,7 +233,7 @@ const PARTICLES = {
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
 // 내 투사체 빛무리 색
 const SHOT_GLOW = {
-  spray: [150, 210, 255], megaSpray: [120, 255, 170], staple: [255, 230, 160], plane: [255, 255, 255], roller: [255, 240, 200],
+  spray: [150, 210, 255], megaSpray: [120, 255, 170], staple: [255, 230, 160], plane: [255, 255, 255],
   bubble: [200, 170, 255], laser: [120, 255, 140],
 };
 const ENEMY_SHOT = { core: '#ffffff', body: '#ff3b2f', edge: '#c0150d', outline: '#2a0a08', glow: 'rgba(255, 59, 47, 0.32)', trail: 'rgba(255,59,47,0.55)' };
@@ -777,6 +777,44 @@ function drawBossArrows(ctx, game, toBuffer, width, height, time) {
   }
 }
 
+// 적의 공격 예고(빨간 원, 증기 줄기, 포자, 떨어지는 쓰레기). 내 무기와 이펙트 위에 그려서 가려지지 않게 한다.
+function drawHazards(ctx, game, toBuffer, time) {
+  for (const hazard of game.hazards) {
+    const [x, y] = toBuffer(hazard);
+    const radius = hazard.radius / WORLD_PER_PIXEL;
+    const closing = 1 - hazard.delay / hazard.total;
+    if (hazard.line) {
+      // 증기 줄기 예고: 빨간 띠가 차오른다.
+      const dx = Math.cos(hazard.angle);
+      const dy = Math.sin(hazard.angle);
+      const reach = hazard.length / WORLD_PER_PIXEL;
+      // 띠는 돌린 사각형으로 한 번에 그린다(점을 하나씩 찍으면 느리다).
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(hazard.angle);
+      ctx.fillStyle = `rgba(224, 100, 91, ${0.08 + closing * 0.2})`;
+      ctx.fillRect(0, -radius, reach, radius * 2);
+      ctx.fillStyle = '#e0645b';
+      ctx.fillRect(0, -radius - 1, reach, 1);
+      ctx.fillRect(0, radius, reach, 1);
+      ctx.restore();
+      line(ctx, x, y, Math.round(x + dx * reach * closing), Math.round(y + dy * reach * closing), 'rgba(255,255,255,0.9)');
+      continue;
+    }
+    const [fill, edge] = hazard.spore ? [`rgba(111, 150, 70, ${0.15 + closing * 0.25})`, '#6f9646'] : [`rgba(224, 100, 91, ${0.12 + closing * 0.22})`, '#e0645b'];
+    disc(ctx, x, y, radius, fill);
+    ring(ctx, x, y, radius, edge, 2, Math.floor(time * 16));
+    ring(ctx, x, y, radius * closing, 'rgba(255,255,255,0.8)');
+    if (hazard.spore) {
+      // 포자가 위에서 천천히 내려온다.
+      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 3, '#a9c77f');
+      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 1.5, '#6f9646');
+    } else if (!hazard.blast) {
+      drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
+    }
+  }
+}
+
 export function render(ctx, game, width, height, time) {
   const map = game.map ?? 'room';
   const floor = floorOf(map);
@@ -899,7 +937,7 @@ export function render(ctx, game, width, height, time) {
 
   if (game.relics?.heatpad) {
     // 전기장판: 발밑에 뜨끈한 주황빛 장판과 일렁이는 아지랑이
-    const radius = RELICS.heatpad.radius / WORLD_PER_PIXEL;
+    const radius = (RELICS.heatpad.radius * statsOf(game).area) / WORLD_PER_PIXEL;
     const [x, y] = toBuffer(player);
     disc(ctx, x, y, radius, `rgba(255, 138, 61, ${0.1 + Math.sin(time * 4) * 0.03})`);
     ring(ctx, x, y, radius, 'rgba(255, 106, 42, 0.75)', 4, Math.floor(time * 10));
@@ -909,36 +947,6 @@ export function render(ctx, game, width, height, time) {
       const angle = (wisp / 8) * Math.PI * 2 + time * 0.6;
       const at = radius * (0.35 + ((time * 0.7 + wisp * 0.37) % 1) * 0.6);
       ctx.fillRect(Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - ((time * 6 + wisp) % 4)), 1, 2);
-    }
-  }
-
-  for (const hazard of game.hazards) {
-    const [x, y] = toBuffer(hazard);
-    const radius = hazard.radius / WORLD_PER_PIXEL;
-    const closing = 1 - hazard.delay / hazard.total;
-    if (hazard.line) {
-      // 증기 줄기 예고: 빨간 띠가 차오른다.
-      const dx = Math.cos(hazard.angle);
-      const dy = Math.sin(hazard.angle);
-      const reach = hazard.length / WORLD_PER_PIXEL;
-      for (let offset = -radius; offset <= radius; offset += 1) {
-        const edge = Math.abs(offset) > radius - 1;
-        line(ctx, Math.round(x - dy * offset), Math.round(y + dx * offset), Math.round(x + dx * reach - dy * offset),
-          Math.round(y + dy * reach + dx * offset), edge ? '#e0645b' : `rgba(224, 100, 91, ${0.08 + closing * 0.2})`);
-      }
-      line(ctx, x, y, Math.round(x + dx * reach * closing), Math.round(y + dy * reach * closing), 'rgba(255,255,255,0.9)');
-      continue;
-    }
-    const [fill, edge] = hazard.spore ? [`rgba(111, 150, 70, ${0.15 + closing * 0.25})`, '#6f9646'] : [`rgba(224, 100, 91, ${0.12 + closing * 0.22})`, '#e0645b'];
-    disc(ctx, x, y, radius, fill);
-    ring(ctx, x, y, radius, edge, 2, Math.floor(time * 16));
-    ring(ctx, x, y, radius * closing, 'rgba(255,255,255,0.8)');
-    if (hazard.spore) {
-      // 포자가 위에서 천천히 내려온다.
-      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 3, '#a9c77f');
-      disc(ctx, x, Math.round(y - (1 - closing) * 50 - 3), 1.5, '#6f9646');
-    } else if (!hazard.blast) {
-      drawCentered(ctx, sprite('trashA'), x, y - Math.round((1 - closing) * 70) - 4);
     }
   }
 
@@ -1235,6 +1243,7 @@ export function render(ctx, game, width, height, time) {
     ctx.restore();
   }
   drawEffects(ctx, game, toBuffer);
+  drawHazards(ctx, game, toBuffer, time);
   // 적 탄막은 내 무기와 이펙트 위에 그려서 무엇을 피해야 하는지 바로 보이게 한다.
   for (const shot of game.enemyShots) {
     const [x, y] = toBuffer(shot);

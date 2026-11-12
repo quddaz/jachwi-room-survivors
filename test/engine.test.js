@@ -4,7 +4,7 @@ import {
   applyBuild, sawBlades, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -510,7 +510,7 @@ describe('새 적', () => {
     assert.ok(fastest > 50 * 3);
   });
 
-  it('상한 우유는 가까이 오면 터지고, 그 전에 잡으면 터지지 않는다', () => {
+  it('상한 우유는 가까이 오면 터지고, 부풀다가 잡혀도 그대로 터진다', () => {
     const blown = quiet();
     placeEnemy(blown, 'milk', 60, 0, { hp: 1e6 });
     for (let step = 0; step < 90; step += 1) update(blown, 1 / 60);
@@ -521,11 +521,23 @@ describe('새 적', () => {
     const milk = placeEnemy(defused, 'milk', 60, 0, { hp: 10 });
     update(defused, 1 / 60);
     assert.equal(defused.hazards.length, 1);
-    milk.x += 400; // 닿아서 다치는 것과 구분하려고 멀리 옮긴 뒤 잡는다
     damageEnemy(defused, milk, 999);
     for (let step = 0; step < 90; step += 1) update(defused, 1 / 60);
-    assert.equal(defused.player.hp, PLAYER.maxHp);
+    assert.ok(defused.player.hp < PLAYER.maxHp);
     assert.equal(defused.hazards.length, 0);
+  });
+
+  it('상한 우유는 멀리서 잡아도 그 자리에서 잠시 뒤 터진다', () => {
+    const game = quiet();
+    const milk = placeEnemy(game, 'milk', 300, 0, { hp: 10 });
+    const neighbor = placeEnemy(game, 'trash', 330, 0, { hp: 1e6, speed: 0 });
+    damageEnemy(game, milk, 999);
+    assert.equal(game.hazards.length, 1);
+    assert.equal(game.hazards[0].delay, ENEMIES.milk.deathFuseSec);
+    for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
+    assert.equal(game.hazards.length, 0);
+    assert.equal(game.player.hp, PLAYER.maxHp);
+    assert.ok(neighbor.hp <= 1e6);
   });
 
   it('나방은 멀리서 세 갈래로 쏜다', () => {
@@ -892,12 +904,12 @@ describe('시즌', () => {
       return { ok: true, json: async () => [] };
     };
     try {
-      assert.equal(SEASON, 2);
-      assert.deepEqual(SEASONS, [2, 1]);
+      assert.equal(SEASON, 3);
+      assert.deepEqual(SEASONS, [3, 2, 1]);
       await submitRecord({ crewName: '쿠다', survivedMs: 60_000, kills: 10, level: 3 });
-      assert.equal(calls[0].body.season, 2);
+      assert.equal(calls[0].body.season, 3);
       await fetchRanking();
-      assert.ok(calls[1].url.includes('room_survivors_season_best') && calls[1].url.includes('season=eq.2'));
+      assert.ok(calls[1].url.includes('room_survivors_season_best') && calls[1].url.includes('season=eq.3'));
       await fetchRanking(1);
       assert.ok(calls[2].url.includes('season=eq.1'));
     } finally {
@@ -974,14 +986,16 @@ describe('정예와 한 방 피해 상한', () => {
     assert.ok(game.effects.some((effect) => effect.type === 'banner' && effect.text === '정예 바퀴벌레 등장!'));
   });
 
-  it('아무리 센 공격도 한 번에 최대 체력의 25%까지만 깎는다', () => {
+  it('아무리 센 공격도 한 번에 최대 체력의 30%까지만 깎는다(14분부터는 상한이 커진다)', () => {
     const game = createGame(seeded(1));
     game.spawnCarry = -1000;
     game.weapons = {};
     placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 9999 });
     update(game, 1 / 60);
-    near(game.player.hp, PLAYER.maxHp * 0.75);
+    near(game.player.hp, PLAYER.maxHp * (1 - PLAYER.maxHitShare));
     assert.equal(game.over, false);
+    near(difficultyAt(14 * 60).hitShare, PLAYER.maxHitShare, 1e-9);
+    near(difficultyAt(19 * 60).hitShare, PLAYER.maxHitShare + 0.4, 1e-9);
   });
 });
 
@@ -1554,5 +1568,37 @@ describe('도탄 톱날', () => {
     assert.ok(first.hp < 1e6 && second.hp < 1e6);
     assert.ok(first.bleedUntil > game.time - 3);
     assert.equal(sawBlades(game).length, FUSIONS.sawblade.count);
+  });
+});
+
+describe('난이도와 보물 범위·쿨타임', () => {
+  it('14분부터 벽처럼 세져서 20분 무렵에는 체력이 14분의 몇 배다', () => {
+    assert.ok(difficultyAt(20 * 60).hp / difficultyAt(14 * 60).hp > 3);
+    assert.ok(difficultyAt(20 * 60).damage - difficultyAt(14 * 60).damage > 10);
+  });
+
+  it('보스는 일반 보스 수치보다 빠르게 쫓아온다', () => {
+    assert.equal(bossStatsOf(0, 90).speed, BOSSES[0].speed * BOSS_SPEED);
+  });
+
+  it('보물은 범위와 쿨타임 영향을 받는다', () => {
+    const plain = createGame(seeded(5));
+    const boosted = createGame(seeded(5));
+    boosted.passives = { wipes: 5, battery: 5 };
+    for (const game of [plain, boosted]) {
+      game.spawnCarry = -1000;
+      game.weapons = {};
+      game.random = () => 0.99;
+      game.relics = { pas: true };
+      game.pasIn = 0.001;
+    }
+    const reach = RELICS.pas.radius * (1 + PASSIVES.wipes.area[4]) - 5;
+    const a = placeEnemy(plain, 'trash', reach, 0, { hp: 1e6, speed: 0 });
+    const b = placeEnemy(boosted, 'trash', reach, 0, { hp: 1e6, speed: 0 });
+    update(plain, 1 / 60);
+    update(boosted, 1 / 60);
+    assert.equal(a.hp, 1e6);
+    assert.ok(b.hp < 1e6);
+    assert.ok(boosted.pasIn < plain.pasIn);
   });
 });

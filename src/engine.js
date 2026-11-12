@@ -95,9 +95,14 @@ function relicDamage(game, base) {
   return base * mightOf(game) * relicPowerOf(game) * (1 + RELIC_LEVEL_SCALE * (game.level - 1));
 }
 
-// 때마다 발동하는 보물의 주기(보물 파트 10점이면 짧아진다)
+// 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
 function relicEvery(game, sec) {
-  return sec * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0));
+  return sec * statsOf(game).cooldownScale * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0));
+}
+
+// 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
+function relicReach(game, radius) {
+  return radius * statsOf(game).area;
 }
 
 // 가질 수 있는 보물 수
@@ -472,7 +477,7 @@ function damagePlayer(game, amount, ranged = false) {
   if (player.invulnerable > 0 || game.time < game.shieldUntil) return false;
   if (ranged) amount *= 1 - (relic(game, 'umbrella')?.guard ?? 0);
   // 아무리 센 공격도 한 번에 최대 체력의 일정 비율까지만 깎는다.
-  amount = Math.min(amount, statsOf(game).maxHp * PLAYER.maxHitShare);
+  amount = Math.min(amount, statsOf(game).maxHp * difficultyAt(game.time).hitShare);
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
   player.invulnerable = PLAYER.invulnerableSec + (perk(game, 'survival', 10)?.guardSec ?? 0);
@@ -905,15 +910,25 @@ function dropGem(game, x, y, value) {
 function killEnemy(game, enemy) {
   enemy.dead = true;
   game.kills += 1;
+  if (enemy.kind === 'milk' && !enemy.exploded) {
+    // 상한 우유는 쓰러져도 터진다. 이미 부풀던 중이면 그 폭발이 그대로 터지고, 아니면 잠시 뒤 그 자리에서 터진다.
+    const base = ENEMIES.milk;
+    enemy.exploded = true;
+    if (!enemy.fuseAt) {
+      game.hazards.push({ x: enemy.x, y: enemy.y, radius: base.blastRadius, delay: base.deathFuseSec, total: base.deathFuseSec,
+        damage: base.blastDamage * difficultyAt(game.time).damage * (enemy.elite ? ELITE.damage : 1), blast: true });
+    }
+  }
   const popcorn = relic(game, 'popcorn');
   // 팝콘 기계: 터진 팝콘이 또 터지는 건 두 번까지만 이어진다.
   if (popcorn && (game.popDepth ?? 0) < 2 && game.random() < popcorn.chance) {
     game.popDepth = (game.popDepth ?? 0) + 1;
     const damage = relicDamage(game, popcorn.damage);
-    addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popcorn.radius, color: 'gold', life: 0.3 });
+    const popReach = relicReach(game, popcorn.radius);
+    addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popReach, color: 'gold', life: 0.3 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
-    for (const other of near(game, enemy.x, enemy.y, popcorn.radius)) {
-      if (other !== enemy && !other.dead && distance(other, enemy) < popcorn.radius + other.radius) damageEnemy(game, other, damage, 10, enemy);
+    for (const other of near(game, enemy.x, enemy.y, popReach)) {
+      if (other !== enemy && !other.dead && distance(other, enemy) < popReach + other.radius) damageEnemy(game, other, damage, 10, enemy);
     }
     game.popDepth -= 1;
   }
@@ -1806,12 +1821,13 @@ function contactDamage(game) {
     const scrubber = relic(game, 'scrubber');
     if (scrubber) {
       // 철수세미: 받은 피해를 주변 적에게 몇 배로 돌려준다.
-      for (const enemy of near(game, game.player.x, game.player.y, scrubber.radius)) {
-        if (!enemy.dead && distance(enemy, game.player) < scrubber.radius + enemy.radius) {
+      const scrubReach = relicReach(game, scrubber.radius);
+      for (const enemy of near(game, game.player.x, game.player.y, scrubReach)) {
+        if (!enemy.dead && distance(enemy, game.player) < scrubReach + enemy.radius) {
           damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), 30);
         }
       }
-      addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubber.radius, color: 'spark', life: 0.3 });
+      addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubReach, color: 'spark', life: 0.3 });
     }
   }
 }
@@ -2088,9 +2104,9 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
       game.fireIn = relicEvery(game, firecracker.everySec);
       const damage = relicDamage(game, firecracker.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, game.player) < firecracker.radius + enemy.radius) damageEnemy(game, enemy, damage, 40);
+        if (!enemy.dead && distance(enemy, game.player) < relicReach(game, firecracker.radius) + enemy.radius) damageEnemy(game, enemy, damage, 40);
       }
-      addEffect(game, { type: 'nova', x: game.player.x, y: game.player.y, radius: firecracker.radius, life: 0.6 });
+      addEffect(game, { type: 'nova', x: game.player.x, y: game.player.y, radius: relicReach(game, firecracker.radius), life: 0.6 });
       addEffect(game, { type: 'burst', x: game.player.x, y: game.player.y, color: 'gold', count: 40, life: 0.8, big: true });
       game.shake = Math.max(game.shake, 0.3);
     }
@@ -2125,17 +2141,18 @@ function updateDamageRelics(game, dt) {
       game.pasIn = relicEvery(game, pas.everySec);
       const damage = relicDamage(game, pas.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, player) < pas.radius + enemy.radius) damageEnemy(game, enemy, damage, 20);
+        if (!enemy.dead && distance(enemy, player) < relicReach(game, pas.radius) + enemy.radius) damageEnemy(game, enemy, damage, 20);
       }
-      addEffect(game, { type: 'nova', x: player.x, y: player.y, radius: pas.radius, life: 0.45, color: 'mint' });
+      addEffect(game, { type: 'nova', x: player.x, y: player.y, radius: relicReach(game, pas.radius), life: 0.45, color: 'mint' });
       addEffect(game, { type: 'burst', x: player.x, y: player.y, color: 'teal', count: 16, life: 0.5 });
     }
   }
   const heat = relic(game, 'heatpad');
   if (heat) {
     const damage = relicDamage(game, heat.dps) * dt;
-    for (const enemy of near(game, player.x, player.y, heat.radius)) {
-      if (!enemy.dead && distance(enemy, player) < heat.radius + enemy.radius) damageEnemy(game, enemy, damage);
+    const heatReach = relicReach(game, heat.radius);
+    for (const enemy of near(game, player.x, player.y, heatReach)) {
+      if (!enemy.dead && distance(enemy, player) < heatReach + enemy.radius) damageEnemy(game, enemy, damage);
     }
   }
   const fresh = relic(game, 'freshener');
@@ -2145,7 +2162,7 @@ function updateDamageRelics(game, dt) {
       game.freshIn = relicEvery(game, fresh.everySec);
       const damage = relicDamage(game, fresh.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, player) < fresh.radius) damageEnemy(game, enemy, damage);
+        if (!enemy.dead && distance(enemy, player) < relicReach(game, fresh.radius)) damageEnemy(game, enemy, damage);
       }
       addEffect(game, { type: 'mist', x: player.x, y: player.y, radius: fresh.radius, life: 0.9 });
     }
@@ -2154,14 +2171,15 @@ function updateDamageRelics(game, dt) {
   if (pin && game.pins.length > 0) {
     for (const spot of game.pins) {
       spot.life -= dt;
-      const victim = near(game, spot.x, spot.y, pin.radius).find((enemy) => !enemy.dead && distance(enemy, spot) < pin.radius * 0.5 + enemy.radius);
+      const pinReach = relicReach(game, pin.radius);
+      const victim = near(game, spot.x, spot.y, pinReach).find((enemy) => !enemy.dead && distance(enemy, spot) < pinReach * 0.5 + enemy.radius);
       if (!victim) continue;
       spot.life = 0;
       const damage = relicDamage(game, pin.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, spot) < pin.radius + enemy.radius) damageEnemy(game, enemy, damage, 6, spot);
+        if (!enemy.dead && distance(enemy, spot) < pinReach + enemy.radius) damageEnemy(game, enemy, damage, 6, spot);
       }
-      addEffect(game, { type: 'snap', x: spot.x, y: spot.y, radius: pin.radius, life: 0.3 });
+      addEffect(game, { type: 'snap', x: spot.x, y: spot.y, radius: pinReach, life: 0.3 });
     }
     game.pins = game.pins.filter((spot) => spot.life > 0);
   }
