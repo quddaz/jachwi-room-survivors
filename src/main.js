@@ -1,7 +1,5 @@
 import { applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
-import {
-  claimEventRun, EVENT, fetchEventRanking, fetchRanking, finishEventRun, isEventOpen, isShared, SEASON, SEASONS, submitRecord,
-} from './leaderboard.js';
+import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
   BOSS_EVERY_SEC, BOSSES, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
@@ -28,7 +26,6 @@ const banner = document.querySelector('.banner');
 
 let game = null;
 let crewName = '';
-let eventRun = false;
 let frameId = 0;
 let lastFrame = 0;
 let carry = 0;
@@ -279,7 +276,7 @@ function setPaused(value) {
 async function finish() {
   cancelAnimationFrame(frameId);
   const survivedMs = Math.round(game.time * 1000);
-  document.querySelector('.result-name').textContent = eventRun ? `${crewName} (${EVENT.label})` : crewName;
+  document.querySelector('.result-name').textContent = crewName;
   document.querySelector('.result-time-value').textContent = formatTime(game.time);
   const stats = [
     ['잡은 적', game.kills.toLocaleString('ko-KR')],
@@ -292,14 +289,6 @@ async function finish() {
   rankText.textContent = '순위를 확인하고 있어요';
   show('result');
   try {
-    if (eventRun) {
-      eventRun = false;
-      await finishEventRun({ crewName, survivedMs, kills: game.kills, level: game.level });
-      const ranking = await fetchEventRanking();
-      const index = ranking.findIndex((entry) => entry.crewName === crewName);
-      rankText.textContent = index < 0 ? '이벤트 기록을 남겼어요' : `${EVENT.label} ${index + 1}위`;
-      return;
-    }
     await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level });
     const ranking = await fetchRanking();
     const index = ranking.findIndex((entry) => entry.crewName === crewName);
@@ -459,26 +448,21 @@ async function openRanking(season = SEASON) {
   show('ranking');
   rankingSeason = season;
   const list = document.querySelector('.ranking-list');
-  document.querySelector('.season-tabs').innerHTML = `
-    <button class="season-tab is-event${season === 'event' ? ' is-active' : ''}" type="button" data-season="event">
-      ${EVENT.label}${isEventOpen() ? '<small>오늘만</small>' : ''}
-    </button>` + SEASONS.map((value) => `
+  document.querySelector('.season-tabs').innerHTML = SEASONS.map((value) => `
     <button class="season-tab${value === season ? ' is-active' : ''}" type="button" data-season="${value}">
       시즌 ${value}${value === SEASON ? '<small>진행 중</small>' : ''}
     </button>`).join('');
   // 조합표 화면에도 .ranking-note가 있어서 순위 화면 것을 콕 집는다.
   document.querySelector('.screen-ranking .ranking-note').textContent = !isShared
     ? '공유 순위가 연결되지 않아 이 브라우저의 기록만 보여요.'
-    : season === 'event' ? '크루마다 딱 한 판씩만 기록돼요. 0초는 시작하고 끝까지 하지 않은 판이에요.'
-      : season === SEASON ? '크루마다 이번 시즌에 가장 오래 버틴 기록만 보여요.'
+    : season === SEASON ? '크루마다 이번 시즌에 가장 오래 버틴 기록만 보여요.'
       : '지난 시즌 기록이에요. 이미 끝나서 더 이상 바뀌지 않아요.';
   list.innerHTML = '<li class="ranking-empty">불러오는 중</li>';
   try {
-    const ranking = season === 'event' ? await fetchEventRanking() : await fetchRanking(season);
+    const ranking = await fetchRanking(season);
     if (season !== rankingSeason) return; // 탭을 빨리 바꾸면 늦게 온 응답은 버린다.
     list.innerHTML = ranking.length === 0
-      ? `<li class="ranking-empty">${season === 'event' ? '아직 이벤트 기록이 없어요. 첫 주인공이 되어 보세요.'
-        : season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
+      ? `<li class="ranking-empty">${season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
       : ranking.map((entry, index) => `
           <li class="${entry.crewName === crewName ? 'is-me' : ''}">
             <span class="rank${index < 3 ? ' is-top' : ''}">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
@@ -563,80 +547,27 @@ document.querySelector('.choices').addEventListener('click', (event) => {
   drawLoadout();
 });
 
-// 입력한 크루 이름을 확인해 돌려준다. 비어 있으면 안내하고 null을 돌려준다.
-function readCrewName() {
+document.querySelector('.start-form').addEventListener('submit', (event) => {
+  event.preventDefault();
   const name = nameInput.value.trim().replace(/\s+/g, ' ');
   const error = document.querySelector('.field-error');
   if (!name) {
     error.textContent = '크루 이름을 입력해 주세요.';
     nameInput.focus();
-    return null;
+    return;
   }
   error.textContent = '';
-  return name;
-}
-
-document.querySelector('.start-form').addEventListener('submit', (event) => {
-  event.preventDefault();
-  const name = readCrewName();
-  if (!name) return;
   crewName = name;
-  eventRun = false;
   remember(NAME_KEY, name);
   nameInput.blur();
   start();
 });
 
-const eventConfirm = document.querySelector('.event-confirm');
-
-function openEventConfirm() {
-  const name = readCrewName();
-  if (!name) return;
-  document.querySelector('.event-name').textContent = name;
-  document.querySelector('.event-error').textContent = '';
-  eventConfirm.hidden = false;
-}
-
-// 확인을 누르면 참가권을 먼저 쓰고 나서 판을 시작한다.
-async function startEventRun() {
-  const name = readCrewName();
-  const goButton = document.querySelector('[data-action="event-go"]');
-  const error = document.querySelector('.event-error');
-  if (!name || !isEventOpen()) {
-    error.textContent = '이벤트가 끝났어요.';
-    return;
-  }
-  goButton.disabled = true;
-  error.textContent = '';
-  try {
-    if (!(await claimEventRun(name))) {
-      error.textContent = `'${name}' 이름으로 이미 이벤트 판을 했어요. 순위에서 기록을 확인해 보세요.`;
-      return;
-    }
-    crewName = name;
-    eventRun = true;
-    remember(NAME_KEY, name);
-    eventConfirm.hidden = true;
-    nameInput.blur();
-    start();
-  } catch (failure) {
-    error.textContent = failure.message;
-  } finally {
-    goButton.disabled = false;
-  }
-}
-
-document.querySelector('.event-label').textContent = EVENT.label;
-document.querySelector('.event-start').hidden = !isEventOpen();
-
 app.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'ranking') openRanking();
   const season = event.target.closest('[data-season]')?.dataset.season;
-  if (season) openRanking(season === 'event' ? 'event' : Number(season));
-  if (action === 'event-start') openEventConfirm();
-  if (action === 'event-go') startEventRun();
-  if (action === 'event-cancel') eventConfirm.hidden = true;
+  if (season) openRanking(Number(season));
   if (action === 'recipes') openRecipes();
   const buildButton = event.target.closest('[data-build]');
   if (buildButton) changeBuild(buildButton.dataset.build, Number(buildButton.dataset.delta));

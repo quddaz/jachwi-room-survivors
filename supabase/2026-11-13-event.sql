@@ -1,3 +1,4 @@
+-- 11/13 이벤트는 끝났고 게임에서 이벤트 화면을 뺐다. 기록은 room_survivors_event_records에 남아 있다.
 -- 2026-11-13 이벤트용. SQL Editor에서 한 번 실행한다. 시즌 기록(room_survivors_records)은 건드리지 않는다.
 -- 이벤트마다 크루 이름 하나당 한 판만 남길 수 있다. 판을 시작할 때 0초 기록으로 자리를 잡고,
 -- 끝났을 때 finish_room_survivors_event로 한 번만 채운다. 중간에 나가면 0초로 남는다.
