@@ -395,5 +395,5 @@ img { display: block; max-width: 100%; }
 .season-tab.is-event small { background: #ff7a59; }
 .season-tab.is-event.is-active small { color: #ff7a59; }
 .button:disabled { opacity: 0.5; cursor: default; }
-.season-tabs { overflow-x: auto; scrollbar-width: none; }
+.season-tabs { flex: none; min-height: max-content; padding-bottom: 2px; overflow-x: auto; scrollbar-width: none; }
 .season-tab { flex: none; white-space: nowrap; }
