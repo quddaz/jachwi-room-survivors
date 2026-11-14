@@ -423,3 +423,91 @@ img { display: block; max-width: 100%; }
   .character-picker { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .screen-start.is-active { align-content: start; }
 }
+
+/* 시즌 4 기록에 사용한 캐릭터와 조합 */
+.ranking-list li { min-width: 0; }
+.ranking-build, .ranking-build-missing { grid-column: 2 / -1; min-width: 0; }
+.ranking-build-heading { display: flex; align-items: center; gap: 8px; }
+.ranking-build-heading img { width: 36px; height: 36px; flex: none; image-rendering: pixelated; }
+.ranking-build-heading > div { display: grid; gap: 3px; min-width: 0; }
+.ranking-build-heading b { font-size: 13px; }
+.ranking-build-heading > div > span { color: var(--color-ink-soft); font-size: 12px; }
+.ranking-build-summary { margin: 5px 0 7px; color: var(--color-sky-ink); font-size: 12px; line-height: 1.5; word-break: keep-all; }
+.ranking-build-details summary { width: fit-content; color: var(--color-ink-soft); font-size: 12px; font-weight: 700; cursor: pointer; }
+.ranking-build-details[open] { padding-top: 5px; }
+.ranking-character-bonus, .ranking-build-missing { margin: 0; color: var(--color-muted); font-size: 11px; line-height: 1.5; }
+.ranking-character-bonus { margin-top: 9px; }
+.ranking-kit-group { display: grid; gap: 6px; margin-top: 12px; }
+.ranking-kit-group > b { font-size: 12px; }
+.ranking-kit-items { display: flex; flex-wrap: wrap; gap: 5px; }
+.ranking-kit-items > span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 8px; background: var(--color-cream); font-size: 11px; line-height: 1.35; }
+.ranking-kit-items .item { --size: 24px; flex: none; }
+.ranking-kit-items small { display: block; color: var(--color-muted); font-size: 10px; }
+.ranking-snapshot-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 0; padding: 8px; border-radius: 10px; background: #f3f6fb; font-size: 11px; }
+.ranking-snapshot-stats > div { display: flex; justify-content: space-between; gap: 4px; }
+.ranking-snapshot-stats dt { color: var(--color-ink-soft); }
+.ranking-snapshot-stats dd { margin: 0; font-weight: 700; }
+@media (max-width: 360px) {
+  .ranking-list li { grid-template-columns: 30px minmax(0, 1fr) auto; padding: 10px; gap: 6px; }
+  .ranking-snapshot-stats { grid-template-columns: 1fr; }
+}
+
+/* 시작은 오리 → 추천 배분 → 공간 순서로 짧게 설정한다. */
+.screen-start { gap: 18px; }
+.start-intro .hero { max-height: 240px; }
+.start-season { margin: 14px 0 6px; color: var(--color-sky-ink); font-size: 11px; font-weight: 900; letter-spacing: .15em; }
+.start-intro .title { margin: 0 0 10px; font-size: 30px; }
+.start-intro .lead { margin-bottom: 8px; }
+.start-how { margin: 0; color: var(--color-ink-soft); font-size: 13px; line-height: 1.5; }
+.start-highlights { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; }
+.start-highlights span { padding: 5px 8px; border-radius: 8px; background: #fff; color: var(--color-ink-soft); font-size: 11px; }
+.start-form { gap: 20px; margin-top: 0; }
+.setup-step { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 5px; border-radius: 50%; background: #eaf1ff; color: var(--color-sky-ink); font-size: 11px; }
+.character-description { min-height: 16px; margin: 0; color: var(--color-ink-soft); font-size: 12px; }
+.build-presets { display: flex; gap: 6px; }
+.build-presets button { flex: 1; padding: 9px; border: 1px solid var(--color-wood); border-radius: 10px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.build-presets button.is-active { border-color: var(--color-sky-ink); background: #edf3ff; color: var(--color-sky-ink); }
+.build-summary { margin: 0; padding: 10px 12px; border-radius: 10px; background: #f4f7fc; color: var(--color-sky-ink); font-size: 13px; font-weight: 800; }
+.build-custom summary { width: fit-content; padding: 5px 0; color: var(--color-ink-soft); font-size: 12px; font-weight: 700; cursor: pointer; }
+.build-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; color: var(--color-muted); font-size: 11px; }
+.start-crew { gap: 6px; }
+.start-crew .field-error { min-height: 0; }
+.start-go { position: sticky; bottom: -20px; z-index: 3; padding: 10px 0 4px; background: var(--color-cream); }
+.start-go .button { width: 100%; }
+.start-summary { margin: 0 0 7px; color: var(--color-ink-soft); font-size: 11px; text-align: center; }
+.start-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 0; }
+.start-links .button { flex: 1; min-width: 120px; }
+@media(max-width:959px) {
+  .start-intro .hero { max-height: 130px; aspect-ratio: 3 / 1; }
+  .start-intro .title { font-size: 27px; }
+  .start-intro .title .logo { width: 34px; height: 34px; vertical-align: -7px; }
+  .start-highlights { display: none; }
+  .start-form { gap: 16px; }
+  .character-choice img { width: 52px; height: 52px; }
+}
+@media(min-width:960px) {
+  .screen-start.is-active { grid-template-columns: minmax(300px,400px) minmax(0,1fr); grid-template-areas:'intro form' 'links form'; column-gap:36px; grid-template-rows:auto 1fr; }
+  .screen-start .start-form { grid-template-areas:'character character' 'build build' 'map map' 'crew crew' 'go go'; gap:16px; }
+  .start-go { grid-area:go; position:static; background:transparent; padding:0; }
+  .start-intro { position:sticky; top:0; }
+  .start-links { grid-area:links; align-self:start; justify-content:flex-start; }
+}
+
+.season-tab { white-space: nowrap; }
+@media(max-width:420px){.season-tabs{gap:4px;}.season-tabs .season-tab{padding-left:9px;padding-right:9px;font-size:12px;}}
+
+.ranking-list li.is-expandable { display: block; }
+.ranking-card { position: relative; display: grid; grid-template-columns: 36px minmax(0,1fr) auto; align-items: center; gap: 7px 8px; list-style: none; cursor: pointer; }
+.ranking-card::-webkit-details-marker { display: none; }
+.ranking-card:focus-visible { outline: 2px solid var(--color-sky-ink); outline-offset: 5px; border-radius: 6px; }
+.ranking-preview { grid-column: 2 / -1; padding-right: 20px; color: var(--color-ink-soft); font-size: 11px; line-height: 1.5; word-break: keep-all; }
+.ranking-expand-indicator { position: absolute; right: 0; bottom: 1px; color: var(--color-sky-ink); font-size: 18px; transition: transform .15s; }
+.ranking-entry[open] .ranking-expand-indicator { transform: rotate(180deg); }
+.ranking-entry .ranking-build, .ranking-entry .ranking-build-missing { margin: 12px 0 0 44px; padding-top: 12px; border-top: 1px solid #eee7df; }
+.start-character-preview { display: none; }
+@media(min-width:960px){
+  .start-character-preview { display: flex; align-items: center; gap: 16px; margin: 18px 0; padding: 12px; border-radius: 18px; background: #edf3ff; }
+  .start-character-preview img { width: 88px; height: 88px; image-rendering: pixelated; flex: none; }
+  .start-character-preview b { font-size: 18px; }
+  .start-character-preview p { margin: 6px 0 0; color: var(--color-ink-soft); font-size: 12px; line-height: 1.5; }
+}

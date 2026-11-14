@@ -1113,11 +1113,13 @@ describe('새 적 2', () => {
     assert.ok(game.player.hp < PLAYER.maxHp);
   });
 
-  it('먼지 토끼는 멀리 있으면 오리 근처로 순간 이동한다', () => {
+  it('먼지 토끼는 멀리 있으면 안전한 착지 위치를 먼저 예고한다', () => {
     const game = quiet();
     const bunny = placeEnemy(game, 'dustbunny', 600, 0, { hp: 1e6, speed: 0, timer: 10 });
     update(game, 1 / 60);
-    assert.ok(Math.hypot(bunny.x - game.player.x, bunny.y - game.player.y) < 160);
+    assert.ok(bunny.blinkTarget);
+    assert.ok(Math.hypot(bunny.blinkTarget.x - game.player.x, bunny.blinkTarget.y - game.player.y) >= 279);
+    assert.ok(Math.hypot(bunny.x - game.player.x, bunny.y - game.player.y) > 500);
   });
 
   it('비둘기는 겨눈 뒤 걷는 속도보다 훨씬 빠르게 내리꽂는다', () => {
@@ -1713,14 +1715,11 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
 });
 
 describe('보물 20점 무기 칸', () => {
-  it('보물 파트 20점이면 무기는 5칸이라 여섯 번째 새 무기는 교체를 묻는다', () => {
-    const game = createGame(seeded(61));
-    applyBuild(game, { treasure: 20 });
-    game.weapons = { spray: 1, broom: 1, bleach: 1, coil: 1, ball: 1 };
-    game.pendingLevels = 1;
-    game.choices = [{ kind: 'weapon', id: 'swatter', level: 1, label: WEAPONS.swatter.label }];
-    choose(game, 0);
-    assert.equal(game.choices[0].kind, 'weapon-swap');
-    assert.equal(game.choices.filter((choice) => choice.kind === 'weapon-swap').length, 5);
+  it('보물 20점은 무기 없이 시작하고 무기 선택지가 나오지 않는다', () => {
+    const game = createGame(seeded(61));applyBuild(game,{treasure:20});
+    assert.deepEqual(game.weapons,{});
+    for(let n=0;n<20;n++) assert.ok(rollChoices(game).every(choice=>!['weapon','evolve','fusion'].includes(choice.kind)));
+    game.pendingLevels=1;game.choices=[{kind:'weapon',id:'swatter',level:1,label:WEAPONS.swatter.label}];
+    assert.equal(choose(game,0),null);assert.deepEqual(game.weapons,{});
   });
 });

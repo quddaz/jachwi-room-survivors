@@ -1,7 +1,7 @@
 import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
-import { ARENA, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
+import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, duckSprite, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
@@ -1048,6 +1048,14 @@ export function render(ctx, game, width, height, time) {
   }
 
 
+  for (const enemy of game.enemies) {
+    if (!enemy.blinkTarget || enemy.dead) continue;
+    const [bx,by] = toBuffer(enemy.blinkTarget);
+    const progress = 1 - enemy.blinkLeft / ENEMIES.dustbunny.blinkAimSec;
+    ring(ctx,bx,by,12,'rgba(224,100,91,0.75)',3,Math.floor(time*12));
+    ring(ctx,bx,by,3+progress*9,'rgba(255,240,180,0.9)');
+    line(ctx,bx-4,by,bx+4,by,'#e0645b');line(ctx,bx,by-4,bx,by+4,'#e0645b');
+  }
   const enemies = game.enemies
     .map((enemy) => ({ enemy, point: toBuffer(enemy) }))
     .filter(({ point, enemy }) => visible(point, enemy.boss ? 60 : 16))

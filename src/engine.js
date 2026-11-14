@@ -1,5 +1,5 @@
 import {
-  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, SECRET_MAPS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -98,7 +98,8 @@ const perk = (game, tree, at) => ((game.build?.[tree] ?? 0) >= at ? BUILD[tree].
 
 // 보물이 직접 주는 피해의 배율: 보물 파트, 광택제, 보물 파트 10점
 function relicPowerOf(game) {
-  return 1 + buildValue(game, 'relicPower') + passiveValue(game, 'polish', 'relicPower') + (perk(game, 'treasure', 10)?.relicPower ?? 0);
+  return 1 + buildValue(game, 'relicPower') + passiveValue(game, 'polish', 'relicPower') + (perk(game, 'treasure', 10)?.relicPower ?? 0) + SECRET_MAPS.reduce((sum,id)=>sum+passiveValue(game,id,'relicPower'),0)
+    + passiveValue(game,'idol','inheritedRelicPower') + passiveValue(game,'idol','relicPower');
 }
 
 // 보물이 직접 주는 피해. 공격력, 레벨, 보물 피해에 비례해서 후반에도 쓸모 있다.
@@ -128,7 +129,7 @@ function hasDotSource(game) {
 }
 
 function fixedPowerOf(game) {
-  return 1 + (relic(game, 'precisionscale')?.fixedPower ?? 0);
+  return (1 + (relic(game, 'precisionscale')?.fixedPower ?? 0)) * (1 + characterBonus(game,'fixedPower'));
 }
 
 // 전용 보물과 패시브는 해당 파트 20점이어야 나온다.
@@ -137,7 +138,20 @@ function buildUnlocked(game, def) {
     && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)))
     && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
     && (!def.dotOnly || hasDotSource(game))
-    && (!def.requiresFixedDamage || flatDamageOf(game) > 0);
+    && (!def.requiresFixedDamage || flatDamageOf(game) > 0)
+    && (!def.requiresMaps || SECRET_MAPS.every(id => game.passives[id] === 5));
+}
+
+function relicCastPowers(game,id,clock,dt,initial=RELICS[id].everySec) {
+  const echoes = game.relicEchoes ?? [];
+  const powers = echoes.filter(echo=>echo.id===id && echo.at<=game.time).map(echo=>echo.power ?? 1);
+  game.relicEchoes = echoes.filter(echo=>echo.id!==id || echo.at>game.time);
+  game[clock] = (game[clock] ?? initial) - dt;
+  if (game[clock] <= 0) {
+    game[clock] = relicEvery(game,RELICS[id].everySec);powers.push(1);
+    if (game.passives.idol) game.relicEchoes.push({id,at:game.time+PASSIVES.idol.echoDelay,power:PASSIVES.idol.echoDamage[0]});
+  }
+  return powers;
 }
 
 // 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 3칸이다.
@@ -160,6 +174,7 @@ function overcharged(game) {
 export function applyBuild(game, build) {
   game.build = normalizeBuild(build);
   game.player.hp = statsOf(game).maxHp;
+  if (maxWeaponsOf(game) === 0) for (const id of Object.keys(game.weapons)) dropWeapon(game,id);
 }
 
 function maxHpOf(game) {
@@ -179,7 +194,7 @@ function critChanceOf(game, bonus = 0) {
 // 고무망치 전환은 치명타 확률 감소까지 적용한 뒤 계산한다.
 function malletDamageOf(game) {
   const mallet = relic(game, 'mallet');
-  return mallet ? Math.floor(Math.max(0, rawCritChance(game)) / mallet.step + 1e-9) * mallet.flat * fixedPowerOf(game) : 0;
+  return mallet ? Math.floor(Math.max(0, rawCritChance(game) - characterBonus(game,'critChance')) / mallet.step + 1e-9) * mallet.flat * fixedPowerOf(game) : 0;
 }
 
 // 새 고정 피해는 공격력·진화·합체 배율과 치명타를 적용한 뒤 한 번 더한다.
@@ -238,6 +253,8 @@ export function statsOf(game) {
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
     relicPower: relicPowerOf(game),
+    relicRepeats: 1 + passiveValue(game,'idol','relicRepeats'),
+    dropBonus: passiveValue(game,'idol','dropBonus'),
     dotPower: 1 + (relic(game, 'thermos')?.dotPower ?? 0),
     summonPower: (1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower')) * (1 + (relic(game, 'baton')?.power ?? 0)),
     summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
@@ -287,6 +304,7 @@ export function statSheet(game) {
     ...(game.relics.concentrate ? [['농축 피해', `최대 ${percent(RELICS.concentrate.power)}`]] : []),
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
+    ...(game.passives.idol ? [['보물 발동','2회'],['소모품 드랍','+1%p']] : []),
     ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
   ];
 }
@@ -311,6 +329,10 @@ const PASSIVE_TEXT = {
   attackPenalty: ['공격력 감소', (value) => percent(-value)],
   hitDamage: ['타격당 고정 피해', (value) => `+${number(value)}`],
   relicPower: ['보물 피해', percent],
+  inheritedRelicPower: ['지도 효과 계승', percent],
+  relicRepeats: ['보물 발동', value => `${value+1}회`],
+  echoDamage: ['두 번째 발동 피해', value => `${Math.round(value*100)}%`],
+  dropBonus: ['소모품 드랍 확률', value => `+${Math.round(value*100)}%p`],
   relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
 };
 
@@ -719,13 +741,32 @@ function moveEnemies(game, dt) {
     }
     if (enemy.kind === 'dustbunny') {
       const base = ENEMIES.dustbunny;
+      if (game.time < (enemy.blinkGraceUntil ?? 0)) continue;
+      if (enemy.blinkTarget) {
+        enemy.blinkLeft -= dt;
+        if (enemy.blinkLeft <= 0) {
+          const spot = enemy.blinkTarget;
+          enemy.blinkTarget = null;enemy.timer = 0;
+          // 예고된 지점에 플레이어가 다가오면 순간이동을 취소한다.
+          if (distance(spot, player) >= base.blinkSafe) {
+            addEffect(game, { type:'burst',x:enemy.x,y:enemy.y,color:'dust',count:8,life:0.3 });
+            enemy.x = spot.x;enemy.y = spot.y;enemy.blinkGraceUntil = game.time + base.blinkGraceSec;
+            addEffect(game, { type:'ring',x:enemy.x,y:enemy.y,radius:40,color:'dust',life:base.blinkGraceSec });
+          }
+        }
+        continue;
+      }
       if (enemy.timer >= base.blinkEverySec && gap > base.blinkMin) {
         enemy.timer = 0;
-        addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'dust', count: 10, life: 0.4 });
-        const angle = game.random() * Math.PI * 2;
-        enemy.x = clamp(player.x + Math.cos(angle) * base.blinkTo, enemy.radius, ARENA.width - enemy.radius);
-        enemy.y = clamp(player.y + Math.sin(angle) * base.blinkTo, enemy.radius, ARENA.height - enemy.radius);
-        addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 40, color: 'dust', life: 0.35 });
+        const start = game.random() * Math.PI * 2;
+        for (let trial = 0; trial < 12; trial++) {
+          const angle = start + trial / 12 * Math.PI * 2;
+          const spot = { x:clamp(player.x + Math.cos(angle) * base.blinkTo,enemy.radius,ARENA.width-enemy.radius),
+            y:clamp(player.y + Math.sin(angle) * base.blinkTo,enemy.radius,ARENA.height-enemy.radius) };
+          if (distance(spot,player) >= base.blinkTo - 0.01) {
+            enemy.blinkTarget = spot;enemy.blinkLeft = base.blinkAimSec;break;
+          }
+        }
         continue;
       }
     }
@@ -1032,7 +1073,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   const match = relic(game, 'match');
   if (hitEffects && match && amount >= 3 && game.random() < match.chance) {
     enemy.burnUntil = game.time + match.burnSec;
-    enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps));
+    enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps) * (game.passives.idol ? 2 : 1));
   }
   enemy.hitFlash = 0.1;
   if (showHit && amount >= 6) {
@@ -1082,13 +1123,14 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
     for (const other of near(game, enemy.x, enemy.y, popReach)) {
       if (other !== enemy && !other.dead && distance(other, enemy) < popReach + other.radius) damageEnemy(game, other, damage, true, enemy);
+      if (game.passives.idol && other !== enemy && !other.dead && distance(other,enemy)<popReach+other.radius) damageEnemy(game,other,damage,true,enemy);
     }
     game.popDepth -= 1;
   }
   const pin = relic(game, 'clothespin');
   if (pin && !enemy.boss && game.pins.length < pin.max && game.random() < pin.chance) {
     // 빨래집게: 쓰러진 자리에 집게를 남기고, 적이 밟으면 콱 문다.
-    game.pins.push({ x: enemy.x, y: enemy.y, life: pin.lifeSec });
+    for(let cast=0;cast<(game.passives.idol?2:1) && game.pins.length<pin.max;cast++) game.pins.push({ x:enemy.x+cast*8,y:enemy.y,life:pin.lifeSec,power:1 });
   }
   dropGem(game, enemy.x, enemy.y, enemy.xp);
   addEffect(game, { type: 'pop', x: enemy.x, y: enemy.y, radius: enemy.radius, life: 0.3 });
@@ -1118,10 +1160,20 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'banner', text: `${enemy.label} 처치! 보물상자를 주워요`, life: 2.4 });
     return;
   }
+  const extraDrop = passiveValue(game,'idol','dropBonus');
+  if(extraDrop){
+    const available=Object.entries(DROPS).filter(([type])=>game.drops.filter(item=>item.type===type).length<DROP_LIMIT);
+    const sum=available.reduce((total,[,drop])=>total+drop.chance,0);
+    if(available.length && game.random()<Math.min(1,sum*(enemy.elite?ELITE.drop:1)+extraDrop)){
+      let pick=game.random()*sum;
+      for(const [type,drop] of available){pick-=drop.chance;if(pick<=0){game.drops.push({type,x:enemy.x,y:enemy.y});break;}}
+    }
+    return;
+  }
   for (const [type, drop] of Object.entries(DROPS)) {
     // 같은 종류가 이미 맵에 가득 떨어져 있으면 그 아이템은 건너뛴다.
     if (game.drops.filter((item) => item.type === type).length >= DROP_LIMIT) continue;
-    if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1) * 1) {
+    if (game.random() < drop.chance * (enemy.elite ? ELITE.drop : 1)) {
       game.drops.push({ type, x: enemy.x, y: enemy.y });
       break;
     }
@@ -2328,7 +2380,7 @@ function updateProjectiles(game, dt) {
 function contactDamage(game) {
   let strongest = 0;
   for (const enemy of near(game, game.player.x, game.player.y, PLAYER.radius)) {
-    if (!enemy.dead && !enemy.frozen && distance(enemy, game.player) < enemy.radius + PLAYER.radius) {
+    if (!enemy.dead && !enemy.frozen && game.time >= (enemy.blinkGraceUntil ?? 0) && !enemy.blinkTarget && distance(enemy, game.player) < enemy.radius + PLAYER.radius) {
       strongest = Math.max(strongest, enemy.damage);
     }
   }
@@ -2339,7 +2391,7 @@ function contactDamage(game) {
       const scrubReach = relicReach(game, scrubber.radius);
       for (const enemy of near(game, game.player.x, game.player.y, scrubReach)) {
         if (!enemy.dead && distance(enemy, game.player) < scrubReach + enemy.radius) {
-          damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), true);
+          for(let cast=0;cast<(game.passives.idol?2:1);cast++) damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), true);
         }
       }
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubReach, color: 'spark', life: 0.3 });
@@ -2421,10 +2473,10 @@ function shuffle(items, random) {
 // 레벨업 선택지 3개. 새 무기, 무기 강화, 패시브 중에서 고르고, 다 올렸으면 라면으로 회복한다.
 export function rollChoices(game) {
   const pool = [
-    ...Object.keys(WEAPONS).filter((id) => (game.weapons[id] ?? 0) < MAX_LEVEL)
+    ...Object.keys(WEAPONS).filter((id) => maxWeaponsOf(game) > 0 && (game.weapons[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'weapon', id, level: (game.weapons[id] ?? 0) + 1, ...WEAPONS[id] })),
-    ...Object.keys(PASSIVES).filter((id) => (game.passives[id] ?? 0) < passiveMaxLevel(id)
-      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && buildUnlocked(game, PASSIVES[id]))
+    ...Object.keys(PASSIVES).filter((id) => id !== 'idol' && (game.passives[id] ?? 0) < passiveMaxLevel(id)
+      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && !(game.passives.idol && SECRET_MAPS.includes(id)) && buildUnlocked(game, PASSIVES[id]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
@@ -2434,7 +2486,8 @@ export function rollChoices(game) {
   const fusable = Object.entries(FUSIONS)
     .filter(([id, recipe]) => fusionRoom && !game.fusions[id] && recipe.from.every((weapon) => game.evolved[weapon] && !inFusion(game, weapon)))
     .map(([id, recipe]) => ({ kind: 'fusion', id, level: MAX_LEVEL + 2, ...recipe }));
-  const special = [...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
+  const idol = !game.passives.idol && buildUnlocked(game,PASSIVES.idol) ? [{kind:'passive',id:'idol',level:1,...PASSIVES.idol}] : [];
+  const special = [...idol, ...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
   const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)
     .map(({ kind, id, level, label, description, icon }) => ({ kind, id, level, label, description, ...(icon ? { icon } : {}) }));
   while (choices.length < 3) {
@@ -2522,6 +2575,7 @@ function nextChoices(game) {
 
 // 게임을 시작하면 보물을 하나 고른다.
 export function startWithRelic(game) {
+  if (maxWeaponsOf(game) === 0 && !game.relics.heatpad) gainRelic(game,'heatpad');
   game.pendingRelics += 1 + (perk(game, 'treasure', 5)?.relics ?? 0);
   game.choices = nextChoices(game);
   game.rerollLeft = rerollsPerLevel(game);
@@ -2554,6 +2608,7 @@ export function declineChoice(game) {
 export function choose(game, index) {
   const choice = game.choices?.[index];
   if (!choice) return null;
+  if (maxWeaponsOf(game) === 0 && ['weapon','weapon-swap','evolve','fusion'].includes(choice.kind)) return null;
   if (choice.kind === 'relic' && relicsFull(game)) {
     // 보물이 가득 찼으면 무엇을 내려놓을지 한 번 더 고른다.
     game.swapIn = choice.id;
@@ -2591,7 +2646,10 @@ export function choose(game, index) {
     game.weapons[incoming] = 1;
     addEffect(game, { type: 'banner', text: `무기 교체: ${WEAPONS[choice.id].label} → ${WEAPONS[incoming].label}`, life: 2.4 });
   }
-  if (choice.kind === 'passive') game.passives[choice.id] = choice.level;
+  if (choice.kind === 'passive') {
+    game.passives[choice.id] = choice.level;
+    if (choice.id === 'idol') { for (const id of SECRET_MAPS) delete game.passives[id];addEffect(game,{type:'banner',text:'지도가 완성됐어요! 우상 각성',life:3}); }
+  }
   if (choice.kind === 'evolve') {
     game.evolved[choice.id] = true;
     addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1, gold: true });
@@ -2646,6 +2704,7 @@ function updateHpSurge(game, previousTime) {
 
 export function update(game, dt, input = { x: 0, y: 0 }) {
   if (game.over || game.choices) return game;
+  game.relicEchoes = (game.relicEchoes ?? []).filter(echo=>game.relics[echo.id] && game.passives.idol);
   const previousTime = game.time;
   game.stepDt = dt;
   game.time += dt;
@@ -2665,10 +2724,8 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   game.effects = game.effects.filter((effect) => effect.age < effect.life);
   const firecracker = relic(game, 'firecracker');
   if (firecracker && !game.over) {
-    game.fireIn = (game.fireIn ?? firecracker.everySec) - dt;
-    if (game.fireIn <= 0) {
-      game.fireIn = relicEvery(game, firecracker.everySec);
-      const damage = relicDamage(game, firecracker.damage);
+    for (const castPower of relicCastPowers(game,'firecracker','fireIn',dt)) {
+      const damage = relicDamage(game, firecracker.damage) * castPower;
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, game.player) < relicReach(game, firecracker.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
       }
@@ -2680,10 +2737,8 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);
   const alarm = relic(game, 'alarm');
   if (alarm && !game.over) {
-    game.alarmIn -= dt;
-    if (game.alarmIn <= 0) {
-      game.alarmIn = relicEvery(game, alarm.everySec);
-      game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec);
+    for (const castPower of relicCastPowers(game,'alarm','alarmIn',dt)) {
+      game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec * castPower);
       addEffect(game, { type: 'banner', text: '따르릉! 적이 얼었어요', life: 1.4 });
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: 300, color: 'spark', life: 0.5 });
     }
@@ -2712,12 +2767,10 @@ function updateTops(game, dt) {
   }
   const { player } = game;
   game.tops ??= [];
-  game.topIn = (game.topIn ?? 0.5) - dt;
-  if (game.topIn <= 0) {
-    game.topIn = relicEvery(game, top.everySec);
+  for (const castPower of relicCastPowers(game,'top','topIn',dt,0.5)) {
     if (game.tops.length >= top.max) game.tops.shift();
     const angle = game.random() * Math.PI * 2;
-    game.tops.push({ id: game.nextId++, x: player.x, y: player.y, dx: Math.cos(angle), dy: Math.sin(angle), life: top.lifeSec });
+    game.tops.push({ id: game.nextId++, x: player.x, y: player.y, dx: Math.cos(angle), dy: Math.sin(angle), life: top.lifeSec, power:castPower });
   }
   const radius = relicReach(game, top.radius);
   const damage = relicDamage(game, top.damage);
@@ -2736,7 +2789,7 @@ function updateTops(game, dt) {
       enemy.topHits ??= {};
       if (game.time - (enemy.topHits[spinner.id] ?? -9) < top.hitEverySec) continue;
       enemy.topHits[spinner.id] = game.time;
-      damageEnemy(game, enemy, damage, true, spinner);
+      damageEnemy(game, enemy, damage * (spinner.power ?? 1), true, spinner);
     }
   }
   game.tops = game.tops.filter((spinner) => spinner.life > 0);
@@ -2747,10 +2800,8 @@ function updateDamageRelics(game, dt) {
   const { player } = game;
   const pas = relic(game, 'pas');
   if (pas) {
-    game.pasIn = (game.pasIn ?? pas.everySec) - dt;
-    if (game.pasIn <= 0) {
-      game.pasIn = relicEvery(game, pas.everySec);
-      const damage = relicDamage(game, pas.damage);
+    for (const castPower of relicCastPowers(game,'pas','pasIn',dt)) {
+      const damage = relicDamage(game, pas.damage) * castPower;
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, player) < relicReach(game, pas.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
       }
@@ -2760,11 +2811,9 @@ function updateDamageRelics(game, dt) {
   }
   const heat = relic(game, 'heatpad');
   if (heat) {
-    game.heatIn = (game.heatIn ?? heat.everySec) - dt;
-    if (game.heatIn <= 0) {
+    for (const castPower of relicCastPowers(game,'heatpad','heatIn',dt)) {
       // 전기장판: 때마다 넓은 장판이 달아오르며 한꺼번에 지진다.
-      game.heatIn = relicEvery(game, heat.everySec);
-      const damage = relicDamage(game, heat.damage);
+      const damage = relicDamage(game, heat.damage) * castPower;
       const heatReach = relicReach(game, heat.radius);
       for (const enemy of near(game, player.x, player.y, heatReach)) {
         if (!enemy.dead && distance(enemy, player) < heatReach + enemy.radius) damageEnemy(game, enemy, damage);
@@ -2774,10 +2823,8 @@ function updateDamageRelics(game, dt) {
   }
   const fresh = relic(game, 'freshener');
   if (fresh) {
-    game.freshIn = (game.freshIn ?? fresh.everySec) - dt;
-    if (game.freshIn <= 0) {
-      game.freshIn = relicEvery(game, fresh.everySec);
-      const damage = relicDamage(game, fresh.damage);
+    for (const castPower of relicCastPowers(game,'freshener','freshIn',dt)) {
+      const damage = relicDamage(game, fresh.damage) * castPower;
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, player) < relicReach(game, fresh.radius)) damageEnemy(game, enemy, damage);
       }
@@ -2792,7 +2839,7 @@ function updateDamageRelics(game, dt) {
       const victim = near(game, spot.x, spot.y, pinReach).find((enemy) => !enemy.dead && distance(enemy, spot) < pinReach * 0.5 + enemy.radius);
       if (!victim) continue;
       spot.life = 0;
-      const damage = relicDamage(game, pin.damage);
+      const damage = relicDamage(game, pin.damage) * (spot.power ?? 1);
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, spot) < pinReach + enemy.radius) damageEnemy(game, enemy, damage, true, spot);
       }
@@ -2802,13 +2849,11 @@ function updateDamageRelics(game, dt) {
   }
   const outlet = relic(game, 'outlet');
   if (outlet) {
-    game.outletIn = (game.outletIn ?? outlet.everySec) - dt;
-    if (game.outletIn <= 0) {
+    for (const castPower of relicCastPowers(game,'outlet','outletIn',dt)) {
       // 멀티탭: 가까운 적 몇에게 하늘에서 벼락이 떨어진다.
-      game.outletIn = relicEvery(game, outlet.everySec);
       const range = relicReach(game, outlet.range);
       const blast = relicReach(game, outlet.radius);
-      const damage = relicDamage(game, outlet.damage);
+      const damage = relicDamage(game, outlet.damage) * castPower;
       const targets = shuffle(near(game, player.x, player.y, range).filter((enemy) => !enemy.dead && distance(enemy, player) < range), game.random)
         .slice(0, outlet.strikes);
       for (const target of targets) {
@@ -2824,14 +2869,12 @@ function updateDamageRelics(game, dt) {
   }
   const glove = relic(game, 'glove');
   if (glove) {
-    game.gloveIn = (game.gloveIn ?? glove.everySec) - dt;
-    if (game.gloveIn <= 0) {
+    for (const castPower of relicCastPowers(game,'glove','gloveIn',dt)) {
       // 고무장갑: 바라보는 쪽으로 길게 충격파를 날리고 적을 둔화시킨다.
-      game.gloveIn = relicEvery(game, glove.everySec);
       const angle = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
       const length = relicReach(game, glove.length);
       const half = relicReach(game, glove.width) / 2;
-      const damage = relicDamage(game, glove.damage);
+      const damage = relicDamage(game, glove.damage) * castPower;
       const dx = Math.cos(angle);
       const dy = Math.sin(angle);
       for (const enemy of near(game, player.x + dx * length / 2, player.y + dy * length / 2, length / 2 + half)) {
@@ -2846,11 +2889,9 @@ function updateDamageRelics(game, dt) {
   updateTops(game, dt);
   const purifier = relic(game, 'purifier');
   if (purifier) {
-    game.purifierIn = (game.purifierIn ?? purifier.everySec) - dt;
-    if (game.purifierIn <= 0) {
+    for (const castPower of relicCastPowers(game,'purifier','purifierIn',dt)) {
       // 정수기: 얼음 조각을 사방으로 고르게 쏜다.
-      game.purifierIn = relicEvery(game, purifier.everySec);
-      const damage = relicDamage(game, purifier.damage);
+      const damage = relicDamage(game, purifier.damage) * castPower;
       const reach = relicReach(game, 1);
       const turn = game.random() * Math.PI * 2;
       for (let shard = 0; shard < purifier.shards; shard += 1) {

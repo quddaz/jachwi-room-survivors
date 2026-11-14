@@ -18,20 +18,26 @@ function target(game, dx = 60) {
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-6, `${actual} != ${expected}`);
 
 describe('특화 오리 캐릭터', () => {
+  it('같은 고정 피해 장비를 갖추면 총잡이가 일반 오리보다 고정 피해와 연사 DPS가 높다',()=>{
+    const games=['normal','gunner'].map(role=>{const g=quiet(role);applyBuild(g,{haste:20,crit:10});g.passives={clover:10,precision:5,lightgear:5,counterweight:5};g.relics={mallet:true,precisionscale:true};return statsOf(g);});
+    assert.ok(games[1].flatDamage>games[0].flatDamage);
+    assert.ok(games[1].flatDamage/games[1].cooldownScale>games[0].flatDamage/games[0].cooldownScale);
+  });
+
   it('잘못된 캐릭터는 일반 오리로 복구하고 재적용해도 보너스가 누적되지 않는다', () => {
     const game = quiet('__proto__');assert.equal(game.character, 'normal');
     for (let n = 0; n < 5; n++) applyCharacter(game, 'normal');
     near(statsOf(game).critChance, 0.2);near(statsOf(game).critDamage, 1.85);
     applyCharacter(game, 'gunner');near(statsOf(game).critChance, 0);near(statsOf(game).critDamage, 1.5);
-    near(statsOf(game).flatDamage, 8);
+    near(statsOf(game).flatDamage, 10);
     assert.equal(Object.keys(CHARACTERS).length, 4);
   });
-  it('일반 오리의 치명타 확률과 피해가 능력치·패시브와 합산되고 고무망치로도 전환된다', () => {
+  it('일반 오리의 치명타 확률과 피해가 능력치·패시브와 합산되고 캐릭터 치확은 고무망치 전환에서 제외한다', () => {
     const game = quiet('normal');applyBuild(game, { crit: 20 });
     near(statsOf(game).critChance, 0.2 + 20 * 0.004 * 1.4);
     near(statsOf(game).critDamage, PLAYER.critDamage + 0.35 + 20 * 0.015 * 1.4 + 0.5);
     applyBuild(game, {});game.relics.mallet = true;
-    near(statsOf(game).critChance, 0);near(statsOf(game).flatDamage, 80);
+    near(statsOf(game).critChance, 0);near(statsOf(game).flatDamage, 0);
   });
   it('소환사는 20점을 찍지 않아도 각 무기에 한 명을 더 부르고 용은 머리 대신 길이가 늘어난다', () => {
     const game = quiet('summoner', { robot: 1, sockpuppet: 1, toydragon: 1 });update(game, DT);
@@ -74,11 +80,11 @@ describe('특화 오리 캐릭터', () => {
     game.passives = { protein:10, clover:10 };game.random = () => 0;
     game.shots.push({ x:enemy.x,y:enemy.y,vx:0,vy:0,damage:10,radius:4,life:1,pierce:0,hit:new Set() });
     update(game, DT);
-    near(enemy.maxHp - enemy.hp, 10 * statsOf(game).critDamage + 8);
+    near(enemy.maxHp - enemy.hp, 10 * statsOf(game).critDamage + 10);
   });
   it('총잡이 고정 피해는 지속 피해에 붙지 않고 정밀 저울의 강화만 받는다', () => {
     const game = quiet('gunner', { dehumidifier:1 }), enemy = target(game, 40);
     update(game, 0.1);near(enemy.maxHp - enemy.hp, 18 * 0.1);
-    game.relics.precisionscale = true;near(statsOf(game).flatDamage, (8 + 20) * 1.25);
+    game.relics.precisionscale = true;near(statsOf(game).flatDamage, (8 + 20) * 1.25 * 1.25);
   });
 });

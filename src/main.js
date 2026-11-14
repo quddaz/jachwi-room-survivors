@@ -6,6 +6,7 @@ import {
   BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
+import { captureRunBuild, runBuildWeapons } from './run-build.js';
 
 const EFFECTS_KEY = 'room-survivors:effects';
 const SOUND_KEY = 'room-survivors:sound';
@@ -375,7 +376,7 @@ async function finish() {
   drawResultItems();
   show('result');
   try {
-    await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level });
+    await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level, loadout: captureRunBuild(game, statsOf(game)) });
     const ranking = await fetchRanking();
     const index = ranking.findIndex((entry) => entry.crewName === crewName);
     const best = ranking[index];
@@ -408,7 +409,7 @@ const CODEX_TABS = [
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 지속 피해 전용은 관련 무기·합체나 성냥이 있어야 나와요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. 로봇청소기·양말 인형·장난감 드론·태엽 자동차·화분 정령·장난감 검사·장난감 용은 소환 능력치를 받아요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. 로봇청소기·양말 인형·장난감 드론·태엽 자동차·화분 정령·장난감 검사·장난감 용은 소환 능력치를 받아요. 보물 20점 빌드는 무기 없이 전기장판으로 시작해요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,
@@ -422,7 +423,7 @@ const CODEX_TABS = [
         <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;
     }).join('')}</ul>`],
   ['passive', '패시브', () => `<p class="ranking-note">무기와 함께 레벨업 선택지에 나와요. 치명타 피해(핫소스)는 네잎클로버를 가진 뒤에만 나오고, 보물 패시브(광택제, 태엽 열쇠)는 보물 파트 20점, 고정 피해 패시브(정밀 스프링, 경량 기어, 균형추)는 공속 파트 20점이어야 나와요. 소환 휘장·증원 호루라기는 소환 파트 20점부터 나와요.</p>
-    <ul class="evolve-list">${Object.entries(PASSIVES).map(([id, passive]) => {
+    <ul class="evolve-list">${Object.entries(PASSIVES).filter(([,passive])=>!passive.hidden).map(([id, passive]) => {
       const max = Object.values(passive).find(Array.isArray).length;
       return `<li>${itemIcon(id)}<span><b>${escapeHtml(passive.label)} <small>최대 ${max}레벨${passive.treasureOnly ? ' · 보물 20점' : passive.hasteOnly ? ' · 공속 20점' : passive.summonOnly ? ' · 소환 20점' : ''}</small></b><em>${escapeHtml(passive.description)}</em>
         <i>1레벨: ${escapeHtml(passiveLines(id, 1).join(', '))}</i><i>${max}레벨: ${escapeHtml(passiveLines(id, max).join(', '))}</i></span></li>`;
@@ -492,9 +493,20 @@ function buildEffect(tree, points) {
   return Object.entries(BUILD[tree].per).map(([key, per]) => `${BUILD_TEXT[key][0]} ${BUILD_TEXT[key][1](per * points * efficiency)}`).join(', ');
 }
 
+const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10} })[role] ?? {});
+const balancedBuild = () => normalizeBuild({crit:10,haste:10,summon:5,treasure:5});
+const sameBuild = (a,b) => Object.keys(BUILD).every(key=>a[key]===b[key]);
+function drawStartSummary() {
+  const used=Object.values(selectedBuild).reduce((sum,value)=>sum+value,0);
+  document.querySelector('.start-summary').textContent=`${CHARACTERS[selectedCharacter].label} · ${MAPS[selectedMap].label} · ${used}/30점`;
+}
+
 function drawBuild() {
   const used = Object.values(selectedBuild).reduce((sum, points) => sum + points, 0);
   document.querySelector('.build-left').textContent = `${BUILD_POINTS - used}`;
+  document.querySelector('.build-summary').textContent=Object.entries(selectedBuild).filter(([,points])=>points>0).map(([key,points])=>`${BUILD[key].label} ${points}`).join(' · ') || '포인트를 배분해 주세요';
+  document.querySelectorAll('[data-build-preset]').forEach(button=>button.classList.toggle('is-active',sameBuild(selectedBuild,button.dataset.buildPreset==='recommended'?recommendedBuild(selectedCharacter):balancedBuild())));
+  drawStartSummary();
   document.querySelector('.build-list').innerHTML = Object.entries(BUILD).map(([tree, def]) => {
     const points = selectedBuild[tree];
     const steps = BUILD_STEPS.map(([at, bonus]) => `<span class="build-step${points >= at ? ' is-on' : ''}" style="left: ${(at / BUILD_MAX) * 100}%">${at}</span>`).join('');
@@ -531,6 +543,8 @@ function drawCharacterPicker() {
       <img src="${duckIconUrl(id)}" alt=""><b>${escapeHtml(character.label)}</b>
       <small>${character.stats.map(line => `<span>${escapeHtml(line)}</span>`).join('')}</small>
     </button>`).join('');
+  document.querySelector('.character-description').textContent=CHARACTERS[selectedCharacter].description;
+  document.querySelector('.start-character-preview').innerHTML=`<img src="${duckIconUrl(selectedCharacter)}" alt=""><div><b>${CHARACTERS[selectedCharacter].label}</b><p>${CHARACTERS[selectedCharacter].description}</p></div>`;
 }
 
 // 시작 화면의 맵 고르기. 바닥 타일만 달라서 순위는 함께 매긴다.
@@ -542,6 +556,52 @@ function drawMapPicker() {
       <span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span>
       <b>${escapeHtml(map.label)}</b><small>${escapeHtml(map.description)}</small>
     </button>`).join('');
+}
+
+const rankingStat = {
+  maxHp: ['체력', value => Math.round(value)],
+  speed: ['이동 속도', value => Math.round(value)],
+  might: ['공격력', value => `${Math.round((value - 1) * 100)}%`],
+  cooldownScale: ['공격 속도', value => `${Math.round((1 / Math.max(value, 0.0001) - 1) * 100)}%`],
+  critChance: ['치명타 확률', value => `${Math.round(value * 100)}%`],
+  critDamage: ['치명타 피해', value => `${Math.round(value * 100)}%`],
+  flatDamage: ['고정 피해', value => `+${Math.round(value * 10) / 10}`],
+  area: ['공격 범위', value => `${Math.round((value - 1) * 100)}%`],
+  summonPower: ['소환 피해', value => `${Math.round((value - 1) * 100)}%`],
+  summonCount: ['추가 소환 수', value => `+${Math.round(value)}`],
+  relicPower: ['보물 피해', value => `${Math.round((value-1)*100)}%`],
+  relicRepeats: ['보물 발동', value => `${Math.round(value)}회`],
+  dropBonus: ['추가 드랍', value => `+${Math.round(value*100)}%p`],
+  dotPower: ['지속 피해', value => `${Math.round((value - 1) * 100)}%`],
+};
+function rankingBuild(entry) {
+  const loadout = entry.loadout;
+  if (!loadout) return '<div class="ranking-build-missing">조합 정보가 없는 기록이에요.</div>';
+  const character = CHARACTERS[loadout.character];
+  const points = Object.entries(loadout.build).filter(([, value]) => value > 0)
+    .map(([key, value]) => `${BUILD[key].label} ${value}`).join(' · ') || '능력치 미투자';
+  const weapons = runBuildWeapons(loadout);
+  const mainItems = weapons.length ? weapons : loadout.relics.map(id=>({label:RELICS[id].label}));
+  const group = (label, items) => items.length ? `<div class="ranking-kit-group"><b>${label}</b><div class="ranking-kit-items">${items.map(item => `<span>${itemIcon(item.icon ?? item.id)}<span>${escapeHtml(item.label)}${item.badge ? `<small>${escapeHtml(item.badge)}</small>` : ''}</span></span>`).join('')}</div></div>` : '';
+  return `<div class="ranking-build">
+    <div class="ranking-build-heading"><img src="${duckIconUrl(loadout.character)}" alt=""><div><b>${escapeHtml(character.label)}</b><span>${escapeHtml(points)}</span></div></div>
+    <p class="ranking-build-summary">${mainItems.length ? mainItems.slice(0,3).map(item=>escapeHtml(item.label)).join(' · ')+(mainItems.length>3?` 외 ${mainItems.length-3}개`:'') : '장비 없음'}</p>
+    <div class="ranking-build-details">
+      <p class="ranking-character-bonus">${character.stats.map(escapeHtml).join(' · ')}</p>
+      ${group('무기·합체', weapons)}
+      ${group('패시브', loadout.passives.map(item => ({ id:item.id, label:PASSIVES[item.id].label, badge:`Lv ${item.level}` })))}
+      ${group('보물', loadout.relics.map(id => ({ id, label:RELICS[id].label })))}
+      ${Object.keys(loadout.stats).length ? `<div class="ranking-kit-group"><b>종료 시점 능력치</b><dl class="ranking-snapshot-stats">${Object.entries(loadout.stats).map(([key, value]) => `<div><dt>${rankingStat[key][0]}</dt><dd>${escapeHtml(String(rankingStat[key][1](value)))}</dd></div>`).join('')}</dl></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function rankingRow(entry,index,season) {
+  const top=`<span class="rank${index<3?' is-top':''}">${['🥇','🥈','🥉'][index]??index+1}</span><span class="crew">${escapeHtml(entry.crewName)}<small>${entry.kills.toLocaleString('ko-KR')}마리</small></span><span class="points">${formatTime(entry.survivedMs/1000)}</span>`;
+  if(season<4)return `<li class="${entry.crewName===crewName?'is-me':''}">${top}</li>`;
+  const points=entry.loadout?Object.entries(entry.loadout.build).filter(([,value])=>value>0).map(([key,value])=>`${BUILD[key].label} ${value}`).join(' · '):'';
+  const preview=entry.loadout?`${CHARACTERS[entry.loadout.character].label} · ${points||'능력치 미투자'}`:'조합 정보 없는 기록';
+  return `<li class="is-expandable${entry.crewName===crewName?' is-me':''}"><details class="ranking-entry"><summary class="ranking-card">${top}<span class="ranking-preview">${escapeHtml(preview)}</span><span class="ranking-expand-indicator" aria-hidden="true">⌄</span></summary>${rankingBuild(entry)}</details></li>`;
 }
 
 let rankingSeason = SEASON;
@@ -557,7 +617,7 @@ async function openRanking(season = SEASON) {
   // 조합표 화면에도 .ranking-note가 있어서 순위 화면 것을 콕 집는다.
   document.querySelector('.screen-ranking .ranking-note').textContent = !isShared
     ? '공유 순위가 연결되지 않아 이 브라우저의 기록만 보여요.'
-    : season === SEASON ? '크루마다 이번 시즌에 가장 오래 버틴 기록만 보여요.'
+    : season === SEASON ? '크루별 최고 기록과 그 판의 오리·능력치·조합을 보여요.'
       : '지난 시즌 기록이에요. 이미 끝나서 더 이상 바뀌지 않아요.';
   list.innerHTML = '<li class="ranking-empty">불러오는 중</li>';
   try {
@@ -565,12 +625,7 @@ async function openRanking(season = SEASON) {
     if (season !== rankingSeason) return; // 탭을 빨리 바꾸면 늦게 온 응답은 버린다.
     list.innerHTML = ranking.length === 0
       ? `<li class="ranking-empty">${season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
-      : ranking.map((entry, index) => `
-          <li class="${entry.crewName === crewName ? 'is-me' : ''}">
-            <span class="rank${index < 3 ? ' is-top' : ''}">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
-            <span class="crew">${escapeHtml(entry.crewName)}<small>${entry.kills.toLocaleString('ko-KR')}마리</small></span>
-            <span class="points">${formatTime(entry.survivedMs / 1000)}</span>
-          </li>`).join('');
+      : ranking.map((entry,index)=>rankingRow(entry,index,season)).join('');
   } catch (error) {
     list.innerHTML = `<li class="ranking-empty">${escapeHtml(error.message)}</li>`;
   }
@@ -697,6 +752,8 @@ app.addEventListener('click', (event) => {
   if (action === 'recipes') openRecipes();
   const buildButton = event.target.closest('[data-build]');
   if (buildButton) changeBuild(buildButton.dataset.build, Number(buildButton.dataset.delta));
+  const preset=event.target.closest('[data-build-preset]')?.dataset.buildPreset;
+  if(preset){selectedBuild=preset==='recommended'?recommendedBuild(selectedCharacter):balancedBuild();remember(BUILD_KEY,JSON.stringify(selectedBuild));drawBuild();}
   if (action === 'build-reset') {
     selectedBuild = normalizeBuild({});
     remember(BUILD_KEY, JSON.stringify(selectedBuild));
@@ -704,15 +761,18 @@ app.addEventListener('click', (event) => {
   }
   const character = event.target.closest('[data-character]')?.dataset.character;
   if (character && Object.hasOwn(CHARACTERS, character)) {
+    const wasRecommended=sameBuild(selectedBuild,recommendedBuild(selectedCharacter));
     selectedCharacter = character;
     remember(CHARACTER_KEY, character);
-    drawCharacterPicker();
+    if(wasRecommended){selectedBuild=recommendedBuild(character);remember(BUILD_KEY,JSON.stringify(selectedBuild));}
+    drawCharacterPicker();drawBuild();
+    document.querySelector(`[data-character="${character}"]`).focus({preventScroll:true});
   }
   const map = event.target.closest('[data-map]')?.dataset.map;
   if (map && MAPS[map]) {
     selectedMap = map;
     remember(MAP_KEY, map);
-    drawMapPicker();
+    drawMapPicker();drawStartSummary();
   }
   const codex = event.target.closest('[data-codex]')?.dataset.codex;
   if (codex) openRecipes(codex);
@@ -736,8 +796,9 @@ selectedMap = MAPS[recall(MAP_KEY)] ? recall(MAP_KEY) : 'room';
 drawMapPicker();
 selectedCharacter = Object.hasOwn(CHARACTERS, recall(CHARACTER_KEY)) ? recall(CHARACTER_KEY) : 'normal';
 drawCharacterPicker();
-selectedBuild = normalizeBuildSafe();
+selectedBuild = recall(BUILD_KEY) ? normalizeBuildSafe() : recommendedBuild(selectedCharacter);
 drawBuild();
+document.querySelector('.start-season').textContent=`SEASON ${SEASON}`;
 nameInput.value = crewName;
 
 

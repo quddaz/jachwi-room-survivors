@@ -10,7 +10,7 @@ export const CHARACTERS = {
   hunter: { label: '트레저헌터 오리', description: '보물을 더 많이 챙기는 탐험가',
     stats: ['보물 슬롯 +1', '보물 20점이면 최대 7칸'], maxRelics: 1 },
   gunner: { label: '총잡이 오리', description: '빠른 연사와 고정 피해를 사용하는 사수',
-    stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8'], attackSpeed: 0.15, hitDamage: 8 },
+    stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8', '전체 고정 피해 +25%'], attackSpeed: 0.15, hitDamage: 8, fixedPower: 0.25 },
 };
 
 // 능력치 투자. 게임을 시작할 때 모두 같은 30점을 네 파트에 나눈다(파트당 최대 20).
@@ -43,7 +43,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
-      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 대신 무기는 2칸', maxRelics: 3, offers: 1, maxWeapons: 1 },
+      20: { name: '보물 사냥꾼', text: '무기 없이 보물 6칸으로 싸워요. 전기장판으로 시작하고 공격 보물·전용 패시브가 나와요', maxRelics: 3, offers: 1, maxWeapons: 0 },
     } },
 };
 
@@ -142,8 +142,8 @@ export const ENEMIES = {
   sock: { label: '냄새나는 양말', description: '가까이 있으면 지독한 냄새로 계속 아프다', hp: 30, speed: 50, radius: 12, damage: 6, xp: 3,
     from: 300, weight: 2, auraRadius: 85, auraEverySec: 1.2, auraDamage: 4 },
   // 때때로 오리 근처로 순간 이동한다.
-  dustbunny: { label: '먼지 토끼', description: '때때로 오리 근처로 휙 순간 이동한다', hp: 24, speed: 70, radius: 11, damage: 7, xp: 3,
-    from: 340, weight: 2, blinkEverySec: 3.2, blinkMin: 220, blinkTo: 140 },
+  dustbunny: { label: '먼지 토끼', description: '착지 위치를 예고한 뒤 충분한 거리를 두고 순간 이동한다', hp: 24, speed: 70, radius: 11, damage: 7, xp: 3,
+    from: 340, weight: 2, blinkEverySec: 4.2, blinkMin: 320, blinkTo: 280, blinkSafe: 240, blinkAimSec: 0.9, blinkGraceSec: 0.65 },
   // 오리를 겨눈 뒤 일직선으로 내리꽂는다. 겨누는 동안 빨간 선이 보인다.
   pigeon: { label: '비둘기', description: '오리를 겨눈 뒤 일직선으로 날아와 내리꽂는다', hp: 18, speed: 60, radius: 12, damage: 9, xp: 3,
     from: 380, weight: 1.5, swoopEverySec: 4, aimSec: 0.6, swoopSec: 0.7, swoopSpeed: 6, swoopRange: 380 },
@@ -328,7 +328,15 @@ export const WEAPONS = {
 };
 
 // 패시브의 배열 길이가 최대 레벨이다. 공격력·이동 속도·치명타 확률은 10, 증원 호루라기는 3, 나머지는 5레벨이다.
+export const SECRET_MAPS = ['mapnorth', 'mapsouth', 'mapwest', 'mapeast'];
 export const PASSIVES = {
+  mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
+  mapsouth: { label:'하단 지도',description:'잃어버린 지도의 아래쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
+  mapwest: { label:'왼쪽 지도',description:'잃어버린 지도의 왼쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
+  mapeast: { label:'오른쪽 지도',description:'잃어버린 지도의 오른쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
+  idol: { label:'우상',description:'완성한 지도가 고대의 우상으로 바뀐다',hidden:true,treasureOnly:true,requiresMaps:true,
+    inheritedRelicPower:[0.6],relicPower:[0.5],relicRepeats:[1],echoDamage:[1],dropBonus:[0.01],echoDelay:0.18 },
+
   sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
   vitamin: { label: '비타민', description: '최대 체력과 회복력이 오른다', maxHp: [10, 20, 30, 40, 50], regen: [0.4, 0.8, 1.2, 1.6, 2] },

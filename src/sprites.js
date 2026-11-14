@@ -1383,6 +1383,18 @@ ITEMS.marchdrum = item([], (body, fx, f) => {
   body.rect(1, f % 2, 2, 5, 'N').rect(12, 1 - f % 2, 2, 5, 'N');
   if (f % 2) fx.set(6, 1, 'E').set(9, 1, 'E');
 });
+function secretMap(body,fx,frame,direction) {
+  body.rect(2,2,12,12,'h').rect(3,3,10,10,'s').rect(4,4,8,1,'n').rect(4,10,6,1,'n');
+  const dx=[0,0,-1,1][direction],dy=[-1,1,0,0][direction];
+  for(let n=0;n<4;n++) body.rect(7+dx*n,7+dy*n,2,2,'B');
+  body.rect(7+dx*4,7+dy*4,2,2,'R');if(frame%2)fx.set(13,1,'Y');
+}
+['mapnorth','mapsouth','mapwest','mapeast'].forEach((id,index)=>{ITEMS[id]=item([],(body,fx,frame)=>secretMap(body,fx,frame,index));});
+ITEMS.idol=item([],(body,fx,frame)=>{
+  body.rect(3,13,10,2,'N').rect(4,6,8,7,'F').rect(5,2,6,6,'Y').rect(4,1,8,2,'F');
+  body.rect(6,4,1,2,'R').rect(9,4,1,2,'R').rect(7,7,2,2,'N').rect(3,8,3,2,'Y').rect(10,8,3,2,'Y');
+  twinkle(fx,1,3,frame,'Y');twinkle(fx,14,5,frame,'W');
+});
 ITEMS.summoncrest = item([], (body, fx, f) => {
   body.rect(3, 1, 10, 11, 'h').rect(4, 2, 8, 9, 'B').rect(5, 3, 6, 7, 'b');
   body.rect(6, 5, 4, 1, 'Y').rect(7, 4, 2, 4, 'Y');
