@@ -424,12 +424,14 @@ describe('새 무기', () => {
 });
 
 describe('패시브 확장', () => {
-  it('단백질 셰이크, 운동화, 네잎클로버는 10레벨까지, 나머지는 5레벨까지 올린다', () => {
+  it('패시브마다 정해진 최대 레벨까지만 강화한다', () => {
     assert.equal(passiveMaxLevel('protein'), 10);
     assert.equal(passiveMaxLevel('sneakers'), 10);
     assert.equal(passiveMaxLevel('clover'), 10);
     assert.equal(passiveMaxLevel('hotsauce'), 5);
     assert.equal(passiveMaxLevel('battery'), 5);
+    assert.equal(passiveMaxLevel('summonwhistle'), 3);
+    assert.equal(passiveMaxLevel('summoncrest'), 5);
     const game = createGame(seeded(4));
     game.weapons = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, MAX_LEVEL]));
     game.evolved = Object.fromEntries(Object.keys(WEAPONS).map((id) => [id, true]));
@@ -1289,31 +1291,35 @@ describe('능력치 투자', () => {
   });
 
   it('배분은 파트당 20, 합계 30을 넘지 못한다', () => {
-    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, treasure: 'x' }), { crit: 20, haste: 10, survival: 0, treasure: 0 });
-    assert.deepEqual(normalizeBuild({ crit: 5.7, treasure: 3 }), { crit: 5, haste: 0, survival: 0, treasure: 3 });
+    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, treasure: 'x' }), { crit: 20, haste: 10, summon: 0, treasure: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 5.7, treasure: 3 }), { crit: 5, haste: 0, summon: 0, treasure: 3 });
   });
 
-  it('기본 수치는 작게 오르고, 체력은 늘어난 최대치로 시작한다', () => {
+  it('소환 기본 수치는 소환 피해와 이동 속도만 올린다', () => {
     const game = createGame(seeded(97));
-    applyBuild(game, { survival: 4 });
+    applyBuild(game, { summon: 4 });
     const stats = statsOf(game);
-    assert.equal(stats.maxHp, PLAYER.maxHp + 4);
+    assert.equal(stats.maxHp, PLAYER.maxHp);
+    near(stats.summonPower, 1.08, 1e-9);
+    near(stats.summonSpeed, 1.04, 1e-9);
     assert.equal(game.player.hp, stats.maxHp);
-    near(stats.armor, 4 * 0.0025, 1e-9);
+    near(stats.armor, 0, 1e-9);
     near(stats.regen, PLAYER.regen, 1e-9);
   });
 
-  it('생존 5점은 초당 회복 +1, 10점은 받는 피해 -10%와 무적 시간을 더한다', () => {
+  it('소환 10점은 공격속도를 올리고 기존 생존 보너스를 주지 않는다', () => {
     const game = createGame(seeded(97));
-    applyBuild(game, { survival: 10 });
+    applyBuild(game, { summon: 10 });
     const stats = statsOf(game);
-    near(stats.regen, PLAYER.regen + 1, 1e-9);
-    near(stats.armor, 1 - (1 - 10 * 0.0025 * 1.2) * 0.9, 1e-9);
+    near(stats.regen, PLAYER.regen, 1e-9);
+    assert.equal(stats.summonCount, 0);
+    near(stats.summonHaste, 1.25, 1e-9);
+    near(stats.armor, 0, 1e-9);
     game.spawnCarry = -1000;
     game.weapons = {};
     placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 5 });
     update(game, 1 / 60);
-    assert.ok(game.player.invulnerable > PLAYER.invulnerableSec);
+    assert.ok(game.player.invulnerable <= PLAYER.invulnerableSec);
   });
 
   it('공속 5점은 레벨업 뒤 잠깐 공격 속도가 오르고, 10점은 크기와 범위를 키운다', () => {
@@ -1370,16 +1376,16 @@ describe('능력치 투자', () => {
     assert.ok(enemy.chillUntil > game.time);
   });
 
-  it('생존 20점은 한 번 부활한다', () => {
+  it('소환 20점은 생존 부활을 제공하지 않는다', () => {
     const game = createGame(seeded(97));
-    applyBuild(game, { survival: 20 });
+    applyBuild(game, { summon: 20 });
     game.spawnCarry = -1000;
     game.weapons = {};
     game.player.hp = 1;
     placeEnemy(game, 'roach', 3, 0, { hp: 1e9, damage: 500 });
     update(game, 1 / 60);
-    assert.equal(game.over, false);
-    assert.ok(game.player.hp > 1);
+    assert.equal(game.over, true);
+    assert.equal(game.player.hp, 0);
   });
 
   it('보물 파트는 보물 피해를 올리고, 5점이면 시작 보물을 두 번 고른다', () => {

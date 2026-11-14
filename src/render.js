@@ -1091,6 +1091,17 @@ export function render(ctx, game, width, height, time) {
     const halo = SHOT_GLOW[shot.kind ?? (shot.mega ? 'megaSpray' : 'spray')] ?? null;
     const haloSize = shot.kind === 'roller' ? shot.radius / WORLD_PER_PIXEL + 3 : shot.kind === 'staple' ? 3 : 5;
     if (halo && visible([x, y])) glow(ctx, x, y, haloSize * (shot.scale ?? 1), shot.poison ? [93, 255, 154] : halo, shot.mega ? 0.5 : 0.35);
+    if (shot.kind === 'summon' || shot.kind === 'seed') {
+      const seed = shot.kind === 'seed';
+      const angle = Math.atan2(shot.vy, shot.vx);
+      const color = seed ? '#8fd19e' : '#7fe9ff';
+      line(ctx, Math.round(x - Math.cos(angle) * 7), Math.round(y - Math.sin(angle) * 7), Math.round(x), Math.round(y), color);
+      disc(ctx, x, y, (seed ? 3 : 2) * (shot.scale ?? 1), color);
+      ctx.fillStyle = seed ? '#3e9f6a' : '#ffffff';
+      ctx.fillRect(Math.round(x), Math.round(y - 1), 2, 2);
+      if (seed) { ctx.fillStyle = '#ffe08a'; ctx.fillRect(Math.round(x - 1), Math.round(y), 1, 1); }
+      continue;
+    }
     if (shot.kind === 'marine') {
       const angle = Math.atan2(shot.vy, shot.vx);
       const color = shot.acid ? '#76ff93' : '#83c8ff';
@@ -1331,6 +1342,27 @@ export function render(ctx, game, width, height, time) {
           Math.round(x + Math.cos(angle + 0.4) * to), Math.round(y + Math.sin(angle + 0.4) * to), arc % 2 === 0 ? '#fff6b0' : '#ffffff');
       }
     }
+  }
+  for (const unit of game.summons ?? []) {
+    const [x, y] = toBuffer(unit);
+    const drone = unit.weapon === 'toydrone';
+    const bob = drone ? Math.sin(time * 8 + unit.id) * 1.5 - 3 : Math.sin(time * 6 + unit.id) * 0.5;
+    ring(ctx, x, y + 5, 6, 'rgba(95,134,207,0.5)', 3, 0);
+    ctx.fillStyle = 'rgba(40,50,70,0.2)'; ctx.fillRect(x - 5, y + 5, 10, 2);
+    if (unit.charging) {
+      const dx = Math.cos(unit.angle), dy = Math.sin(unit.angle);
+      for (let trail = 1; trail <= 3; trail++) {
+        ctx.fillStyle = trail % 2 ? '#ffe08a' : '#ffb21f';
+        ctx.fillRect(Math.round(x - dx * trail * 5), Math.round(y - dy * trail * 5), 2, 2);
+      }
+    }
+    const firing = game.time < (unit.muzzleUntil ?? 0);
+    const frame = firing ? 1 : Math.floor(time * (drone ? 16 : 8)) % ITEM_FRAMES;
+    const spriteId = unit.evolved ? EVOLUTIONS[unit.weapon].icon : unit.weapon;
+    ctx.save(); ctx.translate(Math.round(x), Math.round(y + bob));
+    if (Math.cos(unit.angle) < 0) ctx.scale(-1, 1);
+    ctx.drawImage(icon(spriteId, frame), -8, -10); ctx.restore();
+    if (firing && drone) disc(ctx, Math.round(x + Math.cos(unit.angle) * 9), Math.round(y + bob + Math.sin(unit.angle) * 6), 2, '#fff4c2');
   }
   for (const robot of game.robots) {
     const [x, y] = toBuffer(robot);

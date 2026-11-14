@@ -27,6 +27,7 @@ export function createGame(random = Math.random) {
     splashes: [],
     balls: [],
     robots: [],
+    summons: [],
     enemyShots: [],
     puddles: [],
     slimes: [],
@@ -60,7 +61,7 @@ export function createGame(random = Math.random) {
 
 function passiveValue(game, id, key) {
   const level = game.passives[id] ?? 0;
-  return level === 0 ? 0 : PASSIVES[id][key][level - 1];
+  return level === 0 ? 0 : PASSIVES[id][key][Math.min(level, PASSIVES[id][key].length) - 1];
 }
 
 const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
@@ -115,7 +116,8 @@ function relicReach(game, radius) {
 // 전용 보물과 패시브는 해당 파트 20점이어야 나온다.
 function buildUnlocked(game, def) {
   return (!def.treasureOnly || Boolean(perk(game, 'treasure', 20)))
-    && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)));
+    && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)))
+    && (!def.summonOnly || Boolean(perk(game, 'summon', 20)));
 }
 
 // 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 3칸이다.
@@ -198,12 +200,10 @@ export function statsOf(game) {
   return {
     speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed') + (relic(game, 'energy')?.speed ?? 0)
       + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
-    armor: 1 - (1 - guard) * (1 - buildValue(game, 'armor'))
-      * (1 - (perk(game, 'survival', 10)?.armor ?? 0)),
+    armor: guard,
     pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0)),
     maxHp: maxHpOf(game),
-    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0)
-      + (perk(game, 'survival', 5)?.regen ?? 0),
+    regen: PLAYER.regen + passiveValue(game, 'vitamin', 'regen') + (relic(game, 'waterbottle')?.regen ?? 0),
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
       * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
       / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1)
@@ -218,6 +218,11 @@ export function statsOf(game) {
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
     relicPower: relicPowerOf(game),
+    summonPower: 1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower'),
+    summonSpeed: 1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0),
+    summonHaste: 1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0),
+    summonRange: 1 + (perk(game, 'summon', 5)?.range ?? 0),
+    summonCount: passiveValue(game, 'summonwhistle', 'summonCount'),
   };
 }
 
@@ -253,6 +258,9 @@ export function statSheet(game) {
     ['경험치', percent(stats.xpGain - 1)],
     ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
+    ...(stats.summonPower > 1 ? [['소환 피해', percent(stats.summonPower - 1)], ['소환 이동 속도', percent(stats.summonSpeed - 1)]] : []),
+    ...(stats.summonHaste > 1 ? [['소환 공격 속도', percent(stats.summonHaste - 1)]] : []),
+    ...(stats.summonCount ? [['추가 소환수', `+${stats.summonCount}`]] : []),
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
     ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
@@ -261,6 +269,8 @@ export function statSheet(game) {
 
 // 패시브 효과를 사람이 읽는 말로. [이름, 값을 글로 바꾸는 함수]
 const PASSIVE_TEXT = {
+  summonPower: ['소환 피해', percent],
+  summonCount: ['소환수', value => `+${number(value)}`],
   speed: ['이동 속도', percent],
   pickup: ['줍는 범위', percent],
   maxHp: ['최대 체력', (value) => `+${number(value)}`],
@@ -317,9 +327,11 @@ export function describeChoice(game, choice) {
     const might = statsOf(game).might;
     return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
       const text = WEAPON_TEXT[key];
-      const scale = text.might ? might * weaponDamageScaleOf(game) : 1;
-      const flat = key === 'damage' ? flatDamageOf(game) : 0;
-      const value = (level) => values[level - 1] * scale + flat;
+      const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
+      const scale = text.might ? might * weaponDamageScaleOf(game) * summonPower : 1;
+      const flat = key === 'damage' ? malletDamageOf(game) * summonPower + onHitDamageOf(game) : 0;
+      const countBonus = key === 'count' && weapon.summon ? statsOf(game).summonCount : 0;
+      const value = (level) => values[level - 1] * scale + flat + countBonus;
       const show = (amount) => `${number(amount)}${text.unit ?? ''}`;
       if (choice.level === 1) return [`${text.name} ${show(value(1))}`];
       const before = value(choice.level - 1);
@@ -556,7 +568,7 @@ function damagePlayer(game, amount, ranged = false) {
   amount = Math.min(amount, statsOf(game).maxHp * difficultyAt(game.time).hitShare);
   player.hp -= amount * (1 - statsOf(game).armor);
   player.hurtFlash = 0.15;
-  player.invulnerable = PLAYER.invulnerableSec + (perk(game, 'survival', 10)?.guardSec ?? 0);
+  player.invulnerable = PLAYER.invulnerableSec;
   game.shake = 0.25;
   if (player.hp <= 0 && relic(game, 'firstaid') && !game.revived) {
     // 구급상자: 한 번만 일어난다.
@@ -567,15 +579,6 @@ function damagePlayer(game, amount, ranged = false) {
     addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 1.2, gold: true });
     addEffect(game, { type: 'flash', life: 0.5 });
     addEffect(game, { type: 'banner', text: '구급상자! 다시 일어났어요', life: 2.4 });
-  }
-  if (player.hp <= 0 && perk(game, 'survival', 20) && !game.buildRevived) {
-    // 생존 20점: 한 번 버틴다.
-    game.buildRevived = true;
-    player.hp = statsOf(game).maxHp * BUILD.survival.perks[20].revive;
-    player.invulnerable = 3;
-    game.shieldUntil = game.time + 3;
-    addEffect(game, { type: 'levelup', x: player.x, y: player.y, life: 1.2, gold: true });
-    addEffect(game, { type: 'banner', text: '불사조 오리! 다시 일어났어요', life: 2.4 });
   }
   if (player.hp <= 0) {
     player.hp = 0;
@@ -1104,8 +1107,9 @@ function weaponValue(game, id, key) {
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? malletDamageOf(game) : 0;
   const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
+  const summonPower = WEAPONS[id].summon && (key === 'damage' || key === 'dps') ? statsOf(game).summonPower : 1;
   return (WEAPONS[id][key][game.weapons[id] - 1] * might
-    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower;
+    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower * summonPower;
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -1285,6 +1289,105 @@ function updateMegaLaser(game, dt) {
     } else {
       beam = game.megaLaser = makeCharge();
     }
+  }
+}
+
+// 소환수는 무기별 정해진 수만 유지하며 공속과 소환 능력치를 별도로 적용한다.
+function updateSummons(game, dt) {
+  const stats = statsOf(game), player = game.player;
+  const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot');
+  game.summons = game.summons.filter(unit => ids.includes(unit.weapon));
+  for (const id of ids) {
+    const weapon = WEAPONS[id], evolved = evolution(game, id);
+    const count = (evolved?.count ?? weaponValue(game, id, 'count')) + stats.summonCount;
+    const units = game.summons.filter(unit => unit.weapon === id).slice(0, count);
+    game.summons = game.summons.filter(unit => unit.weapon !== id).concat(units);
+    while (units.length < count) {
+      const unit = { id: game.nextId++, weapon: id, x: player.x, y: player.y, angle: 0, attackIn: units.length * 0.12 };
+      units.push(unit); game.summons.push(unit);
+    }
+    const range = weaponValue(game, id, 'range') * stats.summonRange;
+    const speed = weaponValue(game, id, 'speed') * attackTempoOf(game) * stats.summonSpeed;
+    const damage = weaponValue(game, id, 'damage');
+    const cooldown = weaponValue(game, id, 'cooldown') * stats.cooldownScale / stats.summonHaste;
+    const move = (unit, goal, pace) => {
+      const gap = distance(unit, goal);
+      if (gap < 1) return;
+      const step = Math.min(gap, pace * dt);
+      unit.angle = Math.atan2(goal.y - unit.y, goal.x - unit.x);
+      unit.x = clamp(unit.x + (goal.x - unit.x) / gap * step, PLAYER.radius, ARENA.width - PLAYER.radius);
+      unit.y = clamp(unit.y + (goal.y - unit.y) / gap * step, PLAYER.radius, ARENA.height - PLAYER.radius);
+    };
+    units.forEach((unit, index) => {
+      if (distance(unit, player) > 850) { unit.x = player.x; unit.y = player.y; unit.charging = false; unit.returning = false; }
+      unit.evolved = Boolean(evolved);
+      unit.attackIn = Math.max(0, unit.attackIn - dt);
+      const seek = weapon.summon === 'melee' ? weapon.seek * stats.summonRange : range;
+      let target = null, best = Infinity;
+      for (const enemy of near(game, player.x, player.y, seek + 100)) {
+        if (enemy.dead || distance(enemy, player) > seek + 100) continue;
+        const gap = distance(enemy, unit) + (enemy.id + index) % count * 25;
+        if (distance(enemy, unit) <= seek && gap < best) { target = enemy; best = gap; }
+      }
+      const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit'].indexOf(id) * 0.8;
+      const orbit = weapon.summon === 'ranged' ? 76 : 56;
+      const home = { x: player.x + Math.cos(angle) * orbit, y: player.y + Math.sin(angle) * orbit };
+      if (weapon.summon === 'charge' && unit.charging) {
+        const previous = { x: unit.x, y: unit.y };
+        const step = Math.min(unit.chargeLeft, speed * 2.6 * dt);
+        const x = unit.x + Math.cos(unit.angle) * step, y = unit.y + Math.sin(unit.angle) * step;
+        unit.x = clamp(x, PLAYER.radius, ARENA.width - PLAYER.radius);
+        unit.y = clamp(y, PLAYER.radius, ARENA.height - PLAYER.radius);
+        unit.chargeLeft = x === unit.x && y === unit.y ? unit.chargeLeft - step : 0;
+        const radius = weapon.radius * (evolved?.size ?? 1) * stats.area;
+        for (const { enemy } of sweepHits(game, previous, unit, radius)) {
+          if (unit.hit.has(enemy.id)) continue;
+          unit.hit.add(enemy.id); damageWeaponHit(game, enemy, damage, true, unit);
+        }
+        if (unit.chargeLeft <= 0) {
+          unit.charging = false; unit.returning = true;
+          if (evolved?.blast) {
+            const blast = evolved.blast * stats.area;
+            for (const enemy of near(game, unit.x, unit.y, blast)) {
+              if (!enemy.dead && distance(enemy, unit) <= blast + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
+            }
+            addEffect(game, { type: 'ring', x: unit.x, y: unit.y, radius: blast, color: 'gold', life: 0.35, sound: 'impact' });
+          }
+        }
+        return;
+      }
+      const flank = index / count * Math.PI * 2;
+      const goal = weapon.summon === 'melee' && target ? { x: target.x + Math.cos(flank) * (target.radius + range * 0.35), y: target.y + Math.sin(flank) * (target.radius + range * 0.35) } : home;
+      const regroup = unit.returning || distance(unit, player) > 180;
+      move(unit, goal, regroup ? Math.max(speed, stats.speed * 1.35) : speed);
+      if (unit.returning) { if (distance(unit, player) < 75) unit.returning = false; else return; }
+      if (!target || unit.attackIn > 0) return;
+      unit.angle = Math.atan2(target.y - unit.y, target.x - unit.x);
+      if (weapon.summon === 'melee') {
+        if (distance(target, unit) > range + target.radius) return;
+        const cleave = evolved?.cleave ? evolved.cleave * stats.area : 0;
+        if (cleave) {
+          for (const enemy of near(game, target.x, target.y, cleave)) {
+            if (!enemy.dead && distance(enemy, target) <= cleave + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
+          }
+        } else damageWeaponHit(game, target, damage, true, unit);
+        addEffect(game, { type: 'slash', x: unit.x, y: unit.y, angle: unit.angle, life: 0.18, sound: 'slash' });
+      } else if (weapon.summon === 'charge') {
+        unit.charging = true; unit.chargeLeft = Math.min(range, distance(unit, target) + 60); unit.hit = new Set();
+      } else {
+        const shots = evolved?.shots ?? 1;
+        for (let n = 0; n < shots; n++) {
+          const angle = unit.angle + (n - (shots - 1) / 2) * 0.1;
+          const seed = weapon.summon === 'artillery';
+          game.shots.push({ weapon: id, kind: seed ? 'seed' : 'summon', x: unit.x, y: unit.y,
+            vx: Math.cos(angle) * weapon.bulletSpeed, vy: Math.sin(angle) * weapon.bulletSpeed,
+            damage, life: (range + 100) / weapon.bulletSpeed, radius: (seed ? 6 : 4) * stats.projectile,
+            scale: stats.projectile, hit: new Set(), pierce: evolved?.pierce ?? 0, slows: true,
+            pop: seed ? weaponValue(game, id, 'radius') * stats.area : 0, popColor: 'teal', popSound: seed ? 'impact' : undefined });
+        }
+      }
+      unit.attackIn = cooldown; unit.muzzleUntil = game.time + 0.12;
+    });
   }
 }
 
@@ -1642,17 +1745,18 @@ function fireWeapons(game, dt) {
   }
   if (activeWeapon(game, 'robot')) {
     const squad = evolution(game, 'robot');
-    const count = squad ? squad.count : weaponValue(game, 'robot', 'count');
+    const summonStats = statsOf(game);
+    const count = (squad ? squad.count : weaponValue(game, 'robot', 'count')) + summonStats.summonCount;
     while (game.robots.length < count) game.robots.push({ id: game.nextId++, x: player.x, y: player.y, angle: 0 });
     game.robots.length = count;
     const sanitizer = fusion(game, 'bleachbot');
-    const speed = weaponValue(game, 'robot', 'speed') * (sanitizer?.speed ?? 1) * attackTempoOf(game);
+    const speed = weaponValue(game, 'robot', 'speed') * (sanitizer?.speed ?? 1) * attackTempoOf(game) * summonStats.summonSpeed;
     const damage = weaponValue(game, 'robot', 'damage') * (sanitizer?.damage ?? 1);
     const reach = WEAPONS.robot.radius * area;
     game.robots.forEach((robot, index) => {
       let target = null;
       let best = Infinity;
-      const range = squad?.range ?? 300;
+      const range = (squad?.range ?? 300) * summonStats.summonRange;
       for (const enemy of near(game, player.x, player.y, range)) {
         if (enemy.dead || distance(enemy, player) > range) continue;
         const gap = distance(enemy, robot) + ((enemy.id + index) % count) * 60;
@@ -1677,14 +1781,14 @@ function fireWeapons(game, dt) {
         if (target) {
           robot.angle = Math.atan2(target.y - robot.y, target.x - robot.x);
           if (robot.fireIn <= 0) {
-            robot.fireIn = squad.fireEverySec * statsOf(game).cooldownScale;
+            robot.fireIn = squad.fireEverySec * summonStats.cooldownScale / summonStats.summonHaste;
             for (let shot = 0; shot < squad.shots; shot += 1) {
               const angle = robot.angle + (shot - (squad.shots - 1) / 2) * 0.06;
               game.shots.push({ weapon: 'robot', x: robot.x, y: robot.y, vx: Math.cos(angle) * squad.bulletSpeed, vy: Math.sin(angle) * squad.bulletSpeed,
                 speed: squad.bulletSpeed, damage, life: squad.bulletLifeSec, radius: 4 * projectile, scale: projectile,
                 pierce: squad.pierce, hit: new Set(), kind: 'marine', slows: true,
                 acid: sanitizer ? { everySec: sanitizer.impactEverySec, radius: sanitizer.radius * area,
-                  dps: weaponValue(game, 'bleach', 'dps') * sanitizer.dps, life: sanitizer.lifeSec, slow: sanitizer.slow } : null });
+                  dps: weaponValue(game, 'bleach', 'dps') * sanitizer.dps * summonStats.summonPower, life: sanitizer.lifeSec, slow: sanitizer.slow } : null });
             }
             robot.muzzleUntil = game.time + 0.08;
           }
@@ -1693,12 +1797,13 @@ function fireWeapons(game, dt) {
       }
       for (const enemy of near(game, robot.x, robot.y, reach)) {
         if (enemy.dead || distance(enemy, robot) > reach + enemy.radius) continue;
-        if (game.time - (enemy.robotHitAt ?? -9) < WEAPONS.robot.hitEverySec) continue;
+        if (game.time - (enemy.robotHitAt ?? -9) < WEAPONS.robot.hitEverySec / summonStats.summonHaste) continue;
         enemy.robotHitAt = game.time;
         damageWeaponHit(game, enemy, damage, true, robot);
       }
     });
   }
+  updateSummons(game, dt);
   if (activeWeapon(game, 'towel') && ready(game, 'towel', dt)) {
     const beach = evolution(game, 'towel');
     const length = weaponValue(game, 'towel', 'length') * area;
@@ -1919,8 +2024,8 @@ function updateProjectiles(game, dt) {
           }
           damageWeaponHit(game, other, shot.damage, true, shot);
         }
-        addEffect(game, { type: 'ring', x: impact.x, y: impact.y, radius: shot.pop, color: 'bubble', life: 0.3 });
-        addEffect(game, { type: 'burst', x: impact.x, y: impact.y, color: 'bubble', count: 6, life: 0.35 });
+        addEffect(game, { type: 'ring', x: impact.x, y: impact.y, radius: shot.pop, color: shot.popColor ?? 'bubble', life: 0.3, sound: shot.popSound });
+        addEffect(game, { type: 'burst', x: impact.x, y: impact.y, color: shot.popColor ?? 'bubble', count: 6, life: 0.35 });
         shot.life = 0;
         break;
       }
@@ -2174,6 +2279,8 @@ function dropWeapon(game, id) {
   delete game.weapons[id];
   delete game.evolved[id];
   delete game.cooldowns[id];
+  game.summons = game.summons.filter(unit => unit.weapon !== id);
+  if (WEAPONS[id].summon) game.shots = game.shots.filter(shot => shot.weapon !== id);
   if (id === 'ball') game.balls = [];
   if (id === 'robot') game.robots = [];
   if (id === 'slipper') game.slippers = [];
@@ -2183,6 +2290,7 @@ function dropWeapon(game, id) {
 
 function clearMaterialAttacks(game, fusionId) {
   const materials = FUSIONS[fusionId].from;
+  game.summons = game.summons.filter(unit => !materials.includes(unit.weapon));
   game.shots = game.shots.filter(shot => !materials.includes(shot.weapon));
   game.effects = game.effects.filter(effect => !materials.includes(effect.weapon));
   if (materials.includes('slipper')) game.slippers = [];

@@ -20,11 +20,11 @@ export const BUILD = {
       10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
       20: { name: '과충전', text: '공격 속도 +10%, 8초마다 3초 동안 공격 속도 1.5배, 고정 피해 패시브 해금', attackSpeed: 0.1, everySec: 8, burstSec: 3, burst: 0.5 },
     } },
-  survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
+  summon: { label: '소환', icon: 'toydrone', per: { summonPower: 0.02, summonSpeed: 0.01 },
     perks: {
-      5: { name: '잘 먹고 잘 자기', text: '초당 회복 +1', regen: 1 },
-      10: { name: '맷집', text: '맞은 뒤 무적 +0.4초, 받는 피해 -10%', guardSec: 0.4, armor: 0.1 },
-      20: { name: '불사조 오리', text: '한 번 쓰러져도 체력 50%로 부활', revive: 0.5 },
+      5: { name: '신속 집결', text: '소환 이동 속도 +20%, 탐색·사격 사거리 +20%', speed: 0.2, range: 0.2 },
+      10: { name: '군단 훈련', text: '소환 공격 속도 +25%', attackSpeed: 0.25 },
+      20: { name: '군단 지휘', text: '소환 휘장·증원 호루라기 패시브 해금: 레벨업으로 소환 피해와 소환수 증가' },
     } },
   // 보물 피해는 폭죽, 팝콘 기계, 물파스처럼 보물이 직접 주는 피해다.
   treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.02, relicHaste: 0.01 },
@@ -44,7 +44,7 @@ export function buildEfficiency(points) {
 export function normalizeBuild(build = {}) {
   let left = BUILD_POINTS;
   return Object.fromEntries(Object.keys(BUILD).map((tree) => {
-    const points = Math.max(0, Math.min(BUILD_MAX, left, Math.floor(Number(build[tree]) || 0)));
+    const points = Math.max(0, Math.min(BUILD_MAX, left, Math.floor(Number(tree === 'summon' ? build.summon ?? build.survival : build[tree]) || 0)));
     left -= points;
     return [tree, points];
   }));
@@ -254,7 +254,7 @@ export const WEAPONS = {
     damage: [18, 22, 27, 33, 40], count: [1, 1, 2, 2, 3], speed: [300, 320, 340, 365, 390], radius: 10, hitEverySec: 0.35,
   },
   robot: {
-    label: '로봇청소기', description: '혼자 돌아다니며 가까운 적을 들이받는다',
+    label: '로봇청소기', summon: 'robot', description: '혼자 돌아다니며 가까운 적을 들이받는다',
     damage: [10, 13, 16, 20, 25], count: [1, 1, 1, 2, 2], speed: [125, 134, 144, 156, 170], radius: 12, hitEverySec: 0.45,
   },
   towel: {
@@ -280,9 +280,29 @@ export const WEAPONS = {
     label: '샤워기', description: '적 머리 위로 물줄기를 떨어뜨린다',
     cooldown: [1.4, 1.3, 1.2, 1.1, 1.0], damage: [16, 19, 23, 27, 32], count: [2, 3, 3, 4, 5], radius: [34, 36, 38, 41, 44], fallSec: 0.35,
   },
+  sockpuppet: {
+    label: '양말 인형', summon: 'melee', description: '양말 인형이 적을 쫓아가 가까이서 주먹을 날린다',
+    damage: [14, 18, 24, 31, 40], count: [1, 1, 2, 2, 3], cooldown: [0.9, 0.84, 0.78, 0.72, 0.65],
+    speed: [145, 158, 172, 188, 205], range: [32, 35, 38, 42, 46], seek: 500,
+  },
+  toydrone: {
+    label: '장난감 드론', summon: 'ranged', description: '호위 드론이 플레이어 곁을 돌며 적을 조준해 사격한다',
+    damage: [10, 13, 17, 22, 28], count: [1, 1, 2, 2, 3], cooldown: [1.05, 0.96, 0.86, 0.76, 0.65],
+    speed: [150, 165, 180, 195, 210], range: [330, 365, 405, 450, 490], bulletSpeed: 460,
+  },
+  windcar: {
+    label: '태엽 자동차', summon: 'charge', description: '태엽 자동차가 적을 향해 돌진해 경로를 쓸고 돌아온다',
+    damage: [24, 32, 42, 54, 68], count: [1, 1, 1, 2, 2], cooldown: [2, 1.85, 1.7, 1.5, 1.3],
+    speed: [240, 270, 300, 330, 360], range: [280, 315, 350, 390, 430], radius: 18,
+  },
+  plantspirit: {
+    label: '화분 정령', summon: 'artillery', description: '따라다니는 화분 정령이 적중하면 넓게 터지는 씨앗을 던진다',
+    damage: [20, 27, 35, 44, 54], count: [1, 1, 1, 2, 2], cooldown: [1.7, 1.55, 1.4, 1.25, 1.1],
+    speed: [120, 135, 150, 165, 180], range: [300, 340, 380, 420, 460], radius: [36, 42, 49, 56, 64], bulletSpeed: 300,
+  },
 };
 
-// 패시브. 배열 길이가 곧 최대 레벨이다. 공격력, 이동 속도, 치명타 확률은 10레벨까지, 나머지는 5레벨까지 올린다.
+// 패시브의 배열 길이가 최대 레벨이다. 공격력·이동 속도·치명타 확률은 10, 증원 호루라기는 3, 나머지는 5레벨이다.
 export const PASSIVES = {
   sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
   vacuum: { label: '청소기', description: '먼지를 더 멀리서 빨아들인다', pickup: [0.4, 0.8, 1.2, 1.6, 2.0] },
@@ -306,6 +326,8 @@ export const PASSIVES = {
     weaponPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [6, 12, 18, 24, 30] },
   counterweight: { label: '균형추', hasteOnly: true, description: '현재 공격력을 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
     attackPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [9, 18, 27, 36, 45] },
+  summoncrest: { label: '소환 휘장', summonOnly: true, description: '소환 20점 전용. 소환 피해를 레벨마다 +12%, 최대 +60% 올린다', summonPower: [0.12, 0.24, 0.36, 0.48, 0.6] },
+  summonwhistle: { label: '증원 호루라기', summonOnly: true, description: '소환 20점 전용. 각 소환 무기의 소환수를 레벨마다 한 명, 최대 세 명 추가한다', summonCount: [1, 2, 3] },
 };
 
 export const MAX_LEVEL = 5;
@@ -338,6 +360,10 @@ export const EVOLUTIONS = {
   mousetrap: { label: '대형 끈끈이', description: '덫이 커지고 훨씬 아프게 문다', damage: 1.6, radius: 1.5 },
   microwave: { label: '업소용 전자레인지', description: '더 멀리, 더 세게 데운다', damage: 1.5, radius: 1.35 },
   shower: { label: '수압 샤워', description: '물줄기가 두 배로 쏟아진다', damage: 1.3, double: true },
+  sockpuppet: { label: '양말 기사단', icon: 'sockknight', description: '투구를 쓴 인형 셋이 주먹으로 주변 적을 함께 때린다', damage: 1.7, count: 3, speed: 1.15, cleave: 64 },
+  toydrone: { label: '쌍포 드론', icon: 'dronemk2', description: '드론 셋이 두 발씩 관통탄을 발사한다', damage: 1.6, count: 3, shots: 2, pierce: 2 },
+  windcar: { label: '태엽 전차', icon: 'windtank', description: '전차 셋이 돌진하고 끝에서 충격파를 터뜨린다', damage: 1.7, count: 3, size: 1.25, blast: 90 },
+  plantspirit: { label: '숲의 수호자', icon: 'plantguardian', description: '정령 셋이 씨앗 두 발씩 던지고 폭발 범위가 커진다', damage: 1.6, count: 3, shots: 2, radius: 1.35 },
 };
 
 // 한 판에 만들 수 있는 합체 수. 다 채우면 합체는 더 이상 선택지에 나오지 않는다.

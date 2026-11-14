@@ -1262,6 +1262,71 @@ function drawMarine(body, fx, frame, acid = false) {
   if (frame === 3) fx.set(0, 12, light);
 }
 ITEMS.marine = item([], (body, fx, frame) => drawMarine(body, fx, frame));
+// 소환수와 장비 아이콘은 같은 16×16 도트를 공유한다.
+function sockPuppet(body, fx, frame, knight = false) {
+  const step = frame % 2;
+  body.rect(4, 4, 8, 7, 'h').rect(5, 4, 6, 6, 's');
+  body.rect(4, 1, 3, 5, 's').rect(9, 2, 3, 4, 's');
+  body.rect(5, 10, 6, 4, 'B').rect(3, 8, 3, 3, 'b').rect(10, 8, 3, 3, 'b');
+  body.rect(4, 13, 3, 2 - step, 'h').rect(9, 13, 3, 1 + step, 'h');
+  body.set(6, 6, 'h').set(10, 6, 'h').rect(7, 8, 2, 1, 'O');
+  if (knight) {
+    body.rect(3, 3, 10, 2, 'D').rect(4, 1, 8, 3, 'z').rect(7, 0, 2, 3, 'B');
+    body.rect(11, 9, 4, 5, 'q').rect(12, 10, 2, 3, 'Y');
+  }
+  if (frame === 1) fx.set(14, 7, 'W').set(15, 6, 'Y');
+}
+ITEMS.sockpuppet = item([], (body, fx, f) => sockPuppet(body, fx, f));
+ITEMS.sockknight = item([], (body, fx, f) => sockPuppet(body, fx, f, true));
+function toyDrone(body, fx, frame, twin = false) {
+  body.rect(3, 5, 10, 5, 'h').rect(4, 5, 8, 4, twin ? 'q' : 'B');
+  body.rect(6, 6, 4, 2, 'i').set(9, 8, 'R');
+  for (const x of [1, 12]) {
+    body.rect(x, 3, 3, 2, 'D').rect(x, 11, 3, 2, 'D');
+    fx.rect(x - (frame % 2), 2, 3 + frame % 2 * 2, 1, 'z');
+    fx.rect(x - (frame % 2), 13, 3 + frame % 2 * 2, 1, 'z');
+  }
+  body.rect(10, 8, 5, 2, 'D');
+  if (twin) body.rect(10, 5, 5, 2, 'D');
+  if (frame === 1) fx.set(15, 8, 'Y').set(15, 6, 'W');
+}
+ITEMS.toydrone = item([], (body, fx, f) => toyDrone(body, fx, f));
+ITEMS.dronemk2 = item([], (body, fx, f) => toyDrone(body, fx, f, true));
+function windCar(body, fx, frame, tank = false) {
+  body.rect(2, 6, 12, 7, 'h').rect(3, 6, 10, 6, tank ? 'G' : 'B');
+  body.rect(5, 3, 6, 5, tank ? 'x' : 'q').rect(6, 4, 4, 3, 'i');
+  body.rect(2, 12, 4, 3, 'D').rect(10, 12, 4, 3, 'D');
+  body.set(3 + frame % 2, 13, 'z').set(11 + frame % 2, 13, 'z');
+  body.rect(12, 8, 2, 2, 'Y').rect(2, 8, 2, 2, 'R');
+  if (tank) body.rect(8, 5, 8, 2, 'D').rect(4, 9, 7, 2, 'g');
+  else body.rect(0, 4, 4, 1, 'z').rect(1, 2, 1, 5, 'z');
+  if (frame % 2) fx.set(0, 11, 'p').set(1, 10, 'W');
+}
+ITEMS.windcar = item([], (body, fx, f) => windCar(body, fx, f));
+ITEMS.windtank = item([], (body, fx, f) => windCar(body, fx, f, true));
+function plantSpirit(body, fx, frame, guardian = false) {
+  body.rect(3, 8, 10, 2, 'h').rect(4, 10, 8, 4, guardian ? 'q' : 'N');
+  body.rect(5, 10, 6, 3, guardian ? 'B' : 'n').rect(6, 14, 4, 1, 'h');
+  body.rect(7, 3, 2, 6, 'G').ellipse(4, 4, 3, 2, 'g').ellipse(11, 2, 3, 2, 'G');
+  body.set(6, 11, 'h').set(10, 11, 'h').set(8, 12, 's');
+  body.rect(3, 13, 2, 2, 'G').rect(11, 13, 2, 2, 'G');
+  if (guardian) { body.ellipse(3, 1, 2, 2, 'Y').ellipse(10, 5, 3, 2, 'g'); twinkle(fx, 13, 0, frame, 'Y'); }
+  if (frame === 1) fx.set(14, 7, 'j').set(15, 6, 'W');
+}
+ITEMS.plantspirit = item([], (body, fx, f) => plantSpirit(body, fx, f));
+ITEMS.plantguardian = item([], (body, fx, f) => plantSpirit(body, fx, f, true));
+ITEMS.summoncrest = item([], (body, fx, f) => {
+  body.rect(3, 1, 10, 11, 'h').rect(4, 2, 8, 9, 'B').rect(5, 3, 6, 7, 'b');
+  body.rect(6, 5, 4, 1, 'Y').rect(7, 4, 2, 4, 'Y');
+  body.rect(4, 12, 3, 3, 'q').rect(9, 12, 3, 3, 'q');
+  twinkle(fx, 12, 2, f, 'Y');
+});
+ITEMS.summonwhistle = item([], (body, fx, f) => {
+  body.ellipse(6, 8, 5, 4, 'h').ellipse(6, 8, 4, 3, 'Y').ellipse(5, 8, 2, 2, 'F');
+  body.rect(9, 5, 6, 4, 'h').rect(10, 6, 5, 2, 'Y');
+  body.rect(5, 1, 2, 4, 'B');
+  if (f % 2) fx.set(13, 3, 'E').set(15, 2, 'W');
+});
 ITEMS.magnifier = item([
   '................',
   '....hDDDDh......',
