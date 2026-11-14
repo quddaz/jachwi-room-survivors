@@ -100,7 +100,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     assert.equal(statsOf(game).flatDamage, 90);
   });
 
-  it('독침 기관총의 다섯 발은 각각 고정 피해를 한 번 받는다', () => {
+  it('독침 기관총은 한 적에게 발사당 두 발까지만 고정 피해를 더한다', () => {
     const game = quiet();
     game.passives = { ...game.passives, lightgear: 5 };
     game.weapons = { spray: 5, stapler: 5 };
@@ -126,7 +126,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     plain.weapons = {};
     plain.shots.forEach((shot) => { shot.pierce = 0; });
     for (let frame = 0; frame < 60; frame += 1) update(plain, 1 / 60);
-    near(10000 - enemy.hp, (10000 - other.hp) * 0.25 + 5 * 30);
+    near(10000 - enemy.hp, (10000 - other.hp) * 0.25 + 2 * 30);
   });
 
   it('지속 피해에는 추가 피해를 붙이지 않고 프레임 간격에도 영향을 받지 않는다', () => {

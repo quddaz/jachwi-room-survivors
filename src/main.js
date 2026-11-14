@@ -1,5 +1,5 @@
 import { createMusic } from './audio.js';
-import { applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { inFusion, applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -136,8 +136,9 @@ function readKeys() {
 }
 
 // 반짝이는 아이템 아이콘. 프레임 묶음을 CSS가 차례로 넘긴다.
-function itemIcon(id) {
-  return `<i class="item" style="--sheet: url(${iconSheetUrl(id)})"></i>`;
+function itemIcon(id, evolved = false) {
+  const iconId = evolved ? EVOLUTIONS[id]?.icon ?? id : id;
+  return `<i class="item" style="--sheet: url(${iconSheetUrl(iconId)})"></i>`;
 }
 
 function currentInput() {
@@ -194,14 +195,14 @@ function drawHud() {
 
 function drawLoadout() {
   const items = [
-    ...Object.entries(game.weapons),
+    ...Object.entries(game.weapons).filter(([id]) => !inFusion(game, id)),
     ...Object.entries(game.passives),
   ];
   const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
   document.querySelector('.loadout').innerHTML = owned + fused + items
     .map(([id, level]) => (game.evolved[id]
-      ? `<span class="is-evolved">${itemIcon(id)}★</span>`
+      ? `<span class="is-evolved">${itemIcon(id, true)}★</span>`
       : `<span>${itemIcon(id)}${level}</span>`)).join('');
 }
 
@@ -339,16 +340,16 @@ function setPaused(value) {
 
 function drawResultItems() {
   const groups = [
-    ['무기', Object.entries(game.weapons).map(([id, level]) => ({ id,
+    ['무기', Object.entries(game.weapons).filter(([id]) => !inFusion(game, id)).map(([id, level]) => ({ id,
       name: game.evolved[id] ? EVOLUTIONS[id].label : WEAPONS[id].label,
-      badge: game.evolved[id] ? '완성형' : `Lv ${level}`, kind: game.evolved[id] ? 'evolved' : 'weapon' }))],
+      icon: game.evolved[id] ? EVOLUTIONS[id].icon : undefined, badge: game.evolved[id] ? '완성형' : `Lv ${level}`, kind: game.evolved[id] ? 'evolved' : 'weapon' }))],
     ['합체', Object.keys(game.fusions).map((id) => ({ id, name: FUSIONS[id].label, badge: '합체', kind: 'fusion' }))],
     ['패시브', Object.entries(game.passives).map(([id, level]) => ({ id, name: PASSIVES[id].label, badge: `Lv ${level}`, kind: 'passive' }))],
     ['보물', Object.keys(game.relics).map((id) => ({ id, name: RELICS[id].label, badge: '보물', kind: 'relic' }))],
   ];
   document.querySelector('.result-items').innerHTML = groups.filter(([, items]) => items.length).map(([title, items]) => `
     <section class="result-item-group"><h3>${title}<small>${items.length}</small></h3><ul>
-    ${items.map((item) => `<li class="result-item is-${item.kind}">${itemIcon(item.id)}<span>${escapeHtml(item.name)}<small>${item.badge}</small></span></li>`).join('')}
+    ${items.map((item) => `<li class="result-item is-${item.kind}">${itemIcon(item.icon ?? item.id)}<span>${escapeHtml(item.name)}<small>${item.badge}</small></span></li>`).join('')}
     </ul></section>`).join('');
 }
 
@@ -393,7 +394,7 @@ const statLine = (id, key, unit = '', scale = 1) => {
 const CODEX_TABS = [
   ['fusion', '합체', () => {
     const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
-    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체해도 원래 두 무기는 그대로 써요. 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
+    return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체하면 재료 두 무기의 개별 공격은 사라지고, 더 강한 합체 공격만 나가요. 같은 재료를 다른 합체에 다시 쓸 수 없어요. 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
       <ol class="recipe-list">${Object.entries(FUSIONS).map(([id, fusion]) => `
         <li class="recipe">
           <div class="recipe-formula">${part(fusion.from[0])}<span class="recipe-op">+</span>${part(fusion.from[1])}<span class="recipe-op">→</span>
@@ -404,7 +405,7 @@ const CODEX_TABS = [
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. <b>공격 보물</b>은 보물 파트 20점이어야 나와요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,

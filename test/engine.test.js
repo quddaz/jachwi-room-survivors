@@ -1151,7 +1151,7 @@ describe('합체 무기 2', () => {
     }
   });
 
-  it('물걸레 회오리는 주위 적을 때리고 오리 쪽으로 끌어당긴다', () => {
+  it('물걸레 회오리는 주위 적을 때리고 느리게 한다', () => {
     const game = fused('mopstorm', ['towel', 'broom']);
     game.weapons = {};
     game.weapons.towel = MAX_LEVEL;
@@ -1160,7 +1160,8 @@ describe('합체 무기 2', () => {
     const enemy = placeEnemy(game, 'trash', 0, 150, { hp: 1e6 });
     update(game, 1 / 60);
     assert.ok(enemy.hp < 1e6);
-    assert.ok(enemy.ky < 0);
+    assert.equal(enemy.ky, 0);
+    assert.ok(enemy.slowUntil > game.time);
   });
 
   it('파리채 폭격기는 비행기가 맞힌 적 옆의 적도 때린다', () => {

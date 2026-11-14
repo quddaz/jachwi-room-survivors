@@ -329,7 +329,7 @@ export const EVOLUTIONS = {
   laser: { label: '레이저 쇼', description: '여섯 줄기가 사방으로 한꺼번에 뻗는다', damage: 1.3, count: 6 },
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
-  robot: { label: '로봇청소기 부대', description: '세 대가 몰려다니며 더 세게 들이받는다', damage: 1.2, count: 3 },
+  robot: { label: '스페이스 마린', icon: 'marine', description: '장갑병 셋이 오리를 호위하며 적을 조준해 관통탄 두 발씩 쏜다', damage: 1.4, count: 3, speed: 1.2, fireEverySec: 0.55, shots: 2, range: 520, bulletSpeed: 540, bulletLifeSec: 1.2, pierce: 1 },
   towel: { label: '비치 타월', description: '양쪽을 한꺼번에, 더 넓고 세게 후려친다', damage: 1.5, size: 1.6 },
   paperplane: { label: '종이학 편대', description: '네 마리가 날아가 적을 꿰뚫는다', damage: 1.3, count: 4, pierce: 2 },
   mousetrap: { label: '대형 끈끈이', description: '덫이 커지고 훨씬 아프게 문다', damage: 1.6, radius: 1.5 },
@@ -340,31 +340,31 @@ export const EVOLUTIONS = {
 // 한 판에 만들 수 있는 합체 수. 다 채우면 합체는 더 이상 선택지에 나오지 않는다.
 export const MAX_FUSIONS = 2;
 
-// 완성형 두 개를 모두 가지고 있으면 합체할 수 있다. 원래 두 무기는 그대로 쓰면서 합체 효과가 더해진다.
+// 완성형 두 개의 독립 공격을 합체 공격으로 대체한다. primary는 재사용할 공격 경로(별도 구현이면 null), power는 통합 피해 배율이다.
 export const FUSIONS = {
-  thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', from: ['ball', 'zapper'],
+  thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', primary: 'ball', power: 1, from: ['ball', 'zapper'],
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
-  spinlaser: { label: '회전 레이저', description: '꺼지지 않는 레이저 네 줄기가 빙글빙글 돌며 훑는다', from: ['laser', 'fan'],
-    count: 4, length: 620, turn: 1.5, dps: 1.6 },
+  spinlaser: { label: '회전 레이저', description: '레이저 네 줄기가 회전하며 0.12초 간격으로 강하게 지진다', primary: 'laser', power: 1, from: ['laser', 'fan'],
+    count: 4, length: 620, turn: 1.5, damage: 1.6, hitEverySec: 0.12 },
   // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 앞쪽으로 다섯 발씩 쏜다.
-  poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 앞쪽으로 쏘아 중독시킨다. 기본 발사 속도 -20%. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
-    shots: 5, spread: 0.2, cooldownScale: 1.25, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },
-  bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
-    damage: 1.3, speed: 1.15, dropEverySec: 0.45, radius: 34, dps: 0.6, lifeSec: 2, slow: 0.4 },
-  firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],
-    damage: 1.6, outer: 2.6, novaEverySec: 2.4, novaRadius: 210, nova: 2.2 },
+  poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 앞쪽으로 쏘아 중독시킨다. 한 적에게는 한 번에 최대 두 발이 적중한다. 기본 발사 속도 -20%. 살충제는 따로 뿌리지 않는다', primary: 'stapler', power: 4, from: ['stapler', 'spray'],
+    shots: 5, maxHitsPerTarget: 2, spread: 0.2, cooldownScale: 1.25, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },
+  bleachbot: { label: '소독 강습대', description: '스페이스 마린의 강화 탄환이 적중한 자리에 소독 장판을 남긴다', primary: 'robot', power: 1.5, from: ['robot', 'bleach'],
+    damage: 1.5, speed: 1.15, impactEverySec: 0.45, radius: 42, dps: 1.2, lifeSec: 2, slow: 0.4 },
+  firering: { label: '화염 고리', description: '큰 불씨 고리가 돌고, 주기적으로 화염이 사방을 휩쓴다', primary: 'coil', power: 1.3, from: ['coil', 'dryer'],
+    damage: 1.6, outer: 2.6, novaEverySec: 2, novaRadius: 230, nova: 3.2 },
   // 톱날이 적에서 적으로 튕겨 다니다 돌아온다. 베인 적은 한동안 계속 피해를 입는다.
-  sawblade: { label: '도탄 톱날', description: '톱날 셋이 적에서 적으로 튕겨 다니며 베고, 베인 적은 계속 피해를 입는다', from: ['slipper', 'roller'],
-    count: 3, speed: 560, bounces: 6, hop: 260, seek: 420, radius: 24, damage: 1.5, bleed: 0.6, bleedSec: 2.5, idleOrbit: 60 },
-  mopstorm: { label: '물걸레 회오리', description: '물걸레가 주위를 한 바퀴 휘감아 적을 끌어당기며 때린다', from: ['towel', 'broom'],
-    everySec: 1.6, damage: 1.2, pull: 60 },
+  sawblade: { label: '도탄 톱날', description: '톱날 셋이 적 사이를 튕겨 다닌다. 같은 적에게는 0.16초마다 적중하고 출혈은 중첩되지 않는다', primary: null, power: 3.4, from: ['slipper', 'roller'],
+    count: 3, speed: 560, bounces: 6, hop: 260, seek: 420, radius: 24, maxRadius: 56, hitEverySec: 0.16, damage: 1.5, bleed: 0.6, bleedSec: 2.5, idleOrbit: 60 },
+  mopstorm: { label: '물걸레 회오리', description: '물걸레가 주위를 한 바퀴 크게 휘감아 적을 때리고 느리게 한다', primary: null, power: 1, from: ['towel', 'broom'],
+    everySec: 1.6, damage: 6.8, slow: 0.6 },
   // 파리채는 혼자 내려치지 않고 종이비행기를 따라서만 내려친다.
-  bomber: { label: '파리채 폭격기', description: '종이비행기가 맞힌 자리에 파리채가 함께 내려친다. 파리채는 따로 치지 않는다', from: ['paperplane', 'swatter'],
+  bomber: { label: '파리채 폭격기', description: '종이비행기가 맞힌 자리에 파리채가 함께 내려친다. 파리채는 따로 치지 않는다', primary: 'paperplane', power: 1, from: ['paperplane', 'swatter'],
     damage: 0.6, radius: 55 },
-  foammine: { label: '거품 지뢰', description: '쥐덫이 닫힐 때 거품 여섯 개가 사방으로 터져 나간다', from: ['mousetrap', 'detergent'], bubbles: 6 },
-  dryoven: { label: '건조 오븐', description: '파동이 두 번 퍼지고, 맞은 적을 느리게 하며 바싹 태운다', from: ['microwave', 'dehumidifier'],
-    burnSec: 2, burn: 1, slow: 0.5 },
-  shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', from: ['shower', 'zapper'],
+  foammine: { label: '거품 지뢰', description: '쥐덫이 닫히면 여섯 파편의 피해를 모은 거대 거품이 한 번 폭발한다', primary: 'mousetrap', power: 3.5, from: ['mousetrap', 'detergent'], bubbles: 1, blast: 6, hitEverySec: 0.18 },
+  dryoven: { label: '건조 오븐', description: '강화 파동 두 번이 퍼지고, 맞은 적을 3초 동안 느리게 하며 태운다', primary: 'microwave', power: 1, from: ['microwave', 'dehumidifier'],
+    waves: 2, damage: 1.2, burnSec: 3, burn: 1.5, slow: 0.5 },
+  shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', primary: 'shower', power: 1.3, from: ['shower', 'zapper'],
     targets: 3, range: 170, damage: 0.5 },
 };
 

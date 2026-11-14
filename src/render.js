@@ -1,4 +1,4 @@
-import { coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
+import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, EVOLUTIONS, RELICS, WEAPONS } from './rules.js';
@@ -951,7 +951,7 @@ export function render(ctx, game, width, height, time) {
       ctx.fillRect(Math.round(x + Math.cos(angle) * radius * 0.5), Math.round(y + Math.sin(angle * 1.3) * radius * 0.5), 1, 1);
     }
   }
-  if (game.weapons.dehumidifier) {
+  if (activeWeapon(game, 'dehumidifier')) {
     // 완성형이면 범위가 넓어진 만큼 원도 크게 그린다.
     const radius = (WEAPONS.dehumidifier.radius[game.weapons.dehumidifier - 1] * statsOf(game).area
       * (game.evolved.dehumidifier ? EVOLUTIONS.dehumidifier.radius : 1)) / WORLD_PER_PIXEL;
@@ -996,7 +996,7 @@ export function render(ctx, game, width, height, time) {
   for (const { enemy, point } of enemies) drawEnemy(ctx, enemy, point[0], point[1], time);
   const [duckX, duckY] = toBuffer(player);
 
-  if (game.weapons.dryer && game.dryerOn) {
+  if (activeWeapon(game, 'dryer') && game.dryerOn) {
     // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
     const reach = game.dryerRange / WORLD_PER_PIXEL;
     const spread = game.dryerSpread;
@@ -1045,6 +1045,15 @@ export function render(ctx, game, width, height, time) {
     const halo = SHOT_GLOW[shot.kind ?? (shot.mega ? 'megaSpray' : 'spray')] ?? null;
     const haloSize = shot.kind === 'roller' ? shot.radius / WORLD_PER_PIXEL + 3 : shot.kind === 'staple' ? 3 : 5;
     if (halo && visible([x, y])) glow(ctx, x, y, haloSize * (shot.scale ?? 1), shot.poison ? [93, 255, 154] : halo, shot.mega ? 0.5 : 0.35);
+    if (shot.kind === 'marine') {
+      const angle = Math.atan2(shot.vy, shot.vx);
+      const color = shot.acid ? '#76ff93' : '#83c8ff';
+      line(ctx, Math.round(x - Math.cos(angle) * 6), Math.round(y - Math.sin(angle) * 6), Math.round(x), Math.round(y), color);
+      disc(ctx, x, y, 2 * (shot.scale ?? 1), color);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x, y, 1, 1);
+      continue;
+    }
     if (shot.kind === 'bubble') {
       const wobble = Math.round(Math.sin(time * 6 + shot.seed) * 1.5);
       const size = Math.round((shot.mega ? 5 : 4) * (shot.scale ?? 1));
@@ -1247,6 +1256,19 @@ export function render(ctx, game, width, height, time) {
   }
   for (const robot of game.robots) {
     const [x, y] = toBuffer(robot);
+    if (robot.marine) {
+      const firing = game.time < (robot.muzzleUntil ?? 0);
+      const frame = firing ? 1 : Math.floor(time * 8) % ITEM_FRAMES;
+      ctx.fillStyle = 'rgba(40, 50, 70, 0.25)';
+      ctx.fillRect(x - 6, y + 5, 12, 3);
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      if (Math.cos(robot.angle) < 0) ctx.scale(-1, 1);
+      ctx.drawImage(icon(robot.acid ? 'bleachbot' : 'marine', frame), -8, -10);
+      ctx.restore();
+      if (firing) disc(ctx, Math.round(x + Math.cos(robot.angle) * 9), Math.round(y + Math.sin(robot.angle) * 9), 2, robot.acid ? '#8cff85' : '#ffe08a');
+      continue;
+    }
     const fx = Math.cos(robot.angle);
     const fy = Math.sin(robot.angle);
     ctx.fillStyle = 'rgba(120, 80, 40, 0.25)';

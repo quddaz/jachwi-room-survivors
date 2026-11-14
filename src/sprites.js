@@ -1245,6 +1245,23 @@ ITEMS.robot = item([], (body, fx, f) => {
     if (pull < 3) fx.set(x + (x < 8 ? pull : -pull), y + pull * 0.6, pull === 0 ? 'n' : 'P');
   });
 });
+// 로봇청소기 완성형: 장갑, 헬멧, 블래스터를 든 작은 보병.
+function drawMarine(body, fx, frame, acid = false) {
+  const armor = acid ? 'G' : 'B';
+  const light = acid ? 'g' : 'b';
+  const step = frame % 2;
+  body.rect(4, 11, 3, 4 - step, 'h').rect(9, 11, 3, 3 + step, 'h');
+  body.rect(4, 11, 3, 2, armor).rect(9, 11, 3, 2, armor);
+  body.rect(4, 5, 8, 7, 'h').rect(5, 5, 6, 6, armor).rect(5, 5, 6, 1, light);
+  body.rect(1, 5, 4, 5, 'h').rect(1, 5, 4, 3, armor).rect(1, 5, 4, 1, light);
+  body.rect(11, 5, 4, 5, 'h').rect(11, 5, 4, 3, armor).rect(11, 5, 4, 1, light);
+  body.rect(5, 1, 6, 5, 'h').rect(6, 1, 4, 4, armor).rect(6, 2, 4, 1, 'R');
+  body.rect(6, 7, 4, 1, 'Y').rect(7, 6, 2, 3, 'Y');
+  body.rect(8, 8, 7, 3, 'h').rect(9, 8, 6, 1, 'z').rect(14, 8, 2, 2, 'D');
+  if (frame === 1) fx.set(15, 7, acid ? 'j' : 'Y').set(15, 10, 'O');
+  if (frame === 3) fx.set(0, 12, light);
+}
+ITEMS.marine = item([], (body, fx, frame) => drawMarine(body, fx, frame));
 ITEMS.magnifier = item([
   '................',
   '....hDDDDh......',
@@ -1861,19 +1878,7 @@ ITEMS.poisongun = item([], (body, fx, f) => {
   twinkle(fx, 2, 1, f, 'j');
   twinkle(fx, 11, 1, f + 2, 'g');
 });
-ITEMS.bleachbot = item([], (body, fx, f) => {
-  body.ellipse(8, 7, 6, 6, 't').ellipse(8, 6, 6, 5, 'T').ellipse(8, 6, 5, 4, 'W').ellipse(8, 6, 2, 2, 'T');
-  body.set(8, 6, f % 2 === 0 ? 'W' : 'i').rect(6, 1, 5, 1, 'h').set(5, 2, 'h').set(11, 2, 'h').set(5, 4, 'i').set(4, 6, 'i');
-  // 지나간 자리에 남는 락스 방울
-  [[1, 13], [4, 14], [7, 15], [11, 14], [14, 13]].forEach(([x, y], index) => {
-    const phase = (f + index) % ITEM_FRAMES;
-    fx.set(x, y, phase === 0 ? 'W' : 'T');
-    if (phase < 2) fx.set(x + 1, y, 'i');
-    if (phase === 3) fx.set(x, y - 1, 't');
-  });
-  twinkle(fx, 14, 1, f, 'i');
-  twinkle(fx, 0, 8, f + 2, 'T');
-});
+ITEMS.bleachbot = item([], (body, fx, frame) => drawMarine(body, fx, frame, true));
 ITEMS.firering = item([], (body, fx, f) => {
   for (let orb = 0; orb < 8; orb += 1) {
     const angle = (orb / 8) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 4);
