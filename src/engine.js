@@ -341,12 +341,14 @@ export function describeChoice(game, choice) {
     const weapon = WEAPONS[choice.id];
     const might = statsOf(game).might;
     return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
-      const text = WEAPON_TEXT[key];
+      const dragonLength = weapon.summon === 'dragon' && key === 'count';
+      const text = dragonLength ? { ...WEAPON_TEXT[key], name: '몸통 마디' } : WEAPON_TEXT[key];
       const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
       const scale = text.might ? might * weaponDamageScaleOf(game) * summonPower : 1;
       const flat = key === 'damage' ? malletDamageOf(game) * summonPower + onHitDamageOf(game) : 0;
       const countBonus = key === 'count' && weapon.summon ? statsOf(game).summonCount : 0;
-      const value = (level) => values[level - 1] * scale + flat + countBonus;
+      const value = (level) => dragonLength ? weapon.segments + (values[level - 1] + countBonus - 1) * weapon.segmentsPerCount
+        : values[level - 1] * scale + flat + countBonus;
       const show = (amount) => `${number(amount)}${text.unit ?? ''}`;
       if (choice.level === 1) return [`${text.name} ${show(value(1))}`];
       const before = value(choice.level - 1);
@@ -1334,14 +1336,72 @@ function updateMegaLaser(game, dt) {
   }
 }
 
-// 소환수는 무기별 정해진 수만 유지하며 공속과 소환 능력치를 별도로 적용한다.
+// 용 한 마리의 몸통을 이어 붙이며 길이와 타격 판정을 갱신한다.
+function updateDragon(game, unit, lengthCount, range, speed, damage, dt) {
+  const weapon = WEAPONS.toydragon, evolved = evolution(game, 'toydragon'), stats = statsOf(game);
+  unit.evolved = Boolean(evolved);
+  const parts = weapon.segments + (lengthCount - 1) * weapon.segmentsPerCount;
+  const spacing = weapon.spacing * (evolved?.size ?? 1);
+  if (distance(unit, game.player) > weapon.recall) {
+    unit.x = game.player.x; unit.y = game.player.y; unit.spine = [];
+  }
+  unit.spine ??= [];
+  unit.spine.length = Math.min(unit.spine.length, parts);
+  while (unit.spine.length < parts) {
+    const tail = unit.spine.at(-1) ?? unit;
+    unit.spine.push({ x: clamp(tail.x - Math.cos(unit.angle) * spacing, PLAYER.radius, ARENA.width - PLAYER.radius),
+      y: clamp(tail.y - Math.sin(unit.angle) * spacing, PLAYER.radius, ARENA.height - PLAYER.radius) });
+  }
+  let target = null, best = range;
+  for (const enemy of near(game, game.player.x, game.player.y, range + 100)) {
+    if (enemy.dead || distance(enemy, game.player) > range + 100 || distance(unit, game.player) > weapon.roam) continue;
+    const gap = distance(enemy, unit);
+    if (gap < best) { best = gap; target = enemy; }
+  }
+  const center = target ?? game.player;
+  const phase = game.time * (target ? 1.4 : 0.9) + unit.id;
+  const radius = target ? weapon.circleRadius : weapon.circleRadius * 1.4;
+  const goal = { x: center.x + Math.cos(phase) * radius, y: center.y + Math.sin(phase) * radius };
+  const desired = Math.atan2(goal.y - unit.y, goal.x - unit.x);
+  const turn = Math.atan2(Math.sin(desired - unit.angle), Math.cos(desired - unit.angle));
+  // 고공속에도 선회 반경이 커져 화면 밖으로 날아가지 않도록 회전도 이동 속도에 맞춘다.
+  const turnSpeed = Math.max(weapon.turnSpeed, speed / (weapon.circleRadius * 0.65));
+  unit.angle += clamp(turn, -turnSpeed * dt, turnSpeed * dt);
+  const previous = [{ x: unit.x, y: unit.y }, ...unit.spine.map(point => ({ ...point }))];
+  const x = unit.x + Math.cos(unit.angle) * speed * dt, y = unit.y + Math.sin(unit.angle) * speed * dt;
+  unit.x = clamp(x, PLAYER.radius, ARENA.width - PLAYER.radius);
+  unit.y = clamp(y, PLAYER.radius, ARENA.height - PLAYER.radius);
+  if (x !== unit.x || y !== unit.y) unit.angle += Math.PI / 2;
+  let ahead = unit;
+  for (const point of unit.spine) {
+    const gap = distance(ahead, point);
+    if (gap > spacing) {
+      point.x = ahead.x + (point.x - ahead.x) / gap * spacing;
+      point.y = ahead.y + (point.y - ahead.y) / gap * spacing;
+    }
+    ahead = point;
+  }
+  const hitEvery = weapon.hitEverySec / attackTempoOf(game) / stats.summonHaste;
+  const hitRadius = weapon.radius * stats.area * (evolved?.size ?? 1);
+  // 마디마다 때리는 대신 용 전체가 같은 적을 주기당 한 번만 때린다.
+  [unit, ...unit.spine].forEach((point, index) => {
+    for (const { enemy } of sweepHits(game, previous[index], point, hitRadius)) {
+      if (game.time - (enemy.dragonHitAt ?? -Infinity) < hitEvery) continue;
+      enemy.dragonHitAt = game.time;
+      damageWeaponHit(game, enemy, damage, true, unit);
+      unit.muzzleUntil = game.time + 0.1;
+    }
+  });
+}
+
 function updateSummons(game, dt) {
   const stats = statsOf(game), player = game.player;
   const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot');
   game.summons = game.summons.filter(unit => ids.includes(unit.weapon));
   for (const id of ids) {
     const weapon = WEAPONS[id], evolved = evolution(game, id);
-    const count = (evolved?.count ?? weaponValue(game, id, 'count')) + stats.summonCount;
+    const lengthCount = (evolved?.count ?? weaponValue(game, id, 'count')) + stats.summonCount;
+    const count = weapon.summon === 'dragon' ? 1 : lengthCount;
     const units = game.summons.filter(unit => unit.weapon === id).slice(0, count);
     game.summons = game.summons.filter(unit => unit.weapon !== id).concat(units);
     while (units.length < count) {
@@ -1351,6 +1411,7 @@ function updateSummons(game, dt) {
     const range = weaponValue(game, id, 'range') * stats.summonRange;
     const speed = weaponValue(game, id, 'speed') * attackTempoOf(game) * stats.summonSpeed;
     const damage = weaponValue(game, id, 'damage');
+    if (weapon.summon === 'dragon') { updateDragon(game, units[0], lengthCount, range, speed, damage, dt); continue; }
     const cooldown = weaponValue(game, id, 'cooldown') * stats.cooldownScale / stats.summonHaste;
     const move = (unit, goal, pace) => {
       const gap = distance(unit, goal);
@@ -1812,23 +1873,43 @@ function fireWeapons(game, dt) {
     const damage = weaponValue(game, 'robot', 'damage') * (sanitizer?.damage ?? 1);
     const reach = WEAPONS.robot.radius * area;
     game.robots.forEach((robot, index) => {
+      const tether = distance(robot, player);
+      if (tether > (squad?.recall ?? 620)) { robot.x = player.x; robot.y = player.y; robot.regrouping = false; }
+      else if (squad && tether > squad.leash) robot.regrouping = true;
+      if (squad && distance(robot, player) < squad.regroup) robot.regrouping = false;
       let target = null;
       let best = Infinity;
       const range = (squad?.range ?? 300) * summonStats.summonRange;
-      for (const enemy of near(game, player.x, player.y, range)) {
-        if (enemy.dead || distance(enemy, player) > range) continue;
+      const origin = squad ? robot : player;
+      const seek = squad ? range * squad.seekScale : range;
+      for (const enemy of near(game, origin.x, origin.y, seek)) {
+        if (enemy.dead || distance(enemy, origin) > seek
+          || (squad && distance(enemy, player) > squad.leash + range)) continue;
         const gap = distance(enemy, robot) + ((enemy.id + index) % count) * 60;
         if (gap < best) { best = gap; target = enemy; }
       }
       const idle = game.time * 1.6 + (index / count) * Math.PI * 2;
       const formation = { x: player.x + Math.cos(idle) * 56, y: player.y + Math.sin(idle) * 56 };
-      const goal = squad ? formation : target ?? formation;
+      let goal = target ?? formation;
+      if (squad) {
+        goal = formation;
+        if (target && !robot.regrouping) {
+          // 적과 사거리의 절반을 유지하며 좌우로 돌아 사격한다.
+          const side = index % 2 ? -1 : 1;
+          const angle = Math.atan2(robot.y - target.y, robot.x - target.x) + side * squad.strafeAngle;
+          goal = { x: target.x + Math.cos(angle) * range * squad.keepRange,
+            y: target.y + Math.sin(angle) * range * squad.keepRange };
+          const away = distance(goal, player), roam = squad.leash - 40;
+          if (away > roam) goal = { x: player.x + (goal.x - player.x) / away * roam,
+            y: player.y + (goal.y - player.y) / away * roam };
+        }
+      }
       const gap = distance(goal, robot);
-      if (distance(robot, player) > 620) { robot.x = player.x; robot.y = player.y; }
-      else if (gap > 2) {
-        const step = Math.min(gap, speed * dt);
-        robot.x += ((goal.x - robot.x) / gap) * step;
-        robot.y += ((goal.y - robot.y) / gap) * step;
+      if (gap > 2) {
+        const pace = squad && robot.regrouping ? Math.max(speed, summonStats.speed * 1.35) : speed;
+        const step = Math.min(gap, pace * dt);
+        robot.x = clamp(robot.x + ((goal.x - robot.x) / gap) * step, PLAYER.radius, ARENA.width - PLAYER.radius);
+        robot.y = clamp(robot.y + ((goal.y - robot.y) / gap) * step, PLAYER.radius, ARENA.height - PLAYER.radius);
         robot.angle = Math.atan2(goal.y - robot.y, goal.x - robot.x);
       }
       robot.busy = Boolean(target);
@@ -1836,17 +1917,27 @@ function fireWeapons(game, dt) {
       robot.acid = Boolean(sanitizer);
       if (squad) {
         robot.fireIn = Math.max(0, (robot.fireIn ?? 0) - dt);
-        if (target) {
+        robot.grenadeIn = Math.max(0, (robot.grenadeIn ?? squad.grenadeStartSec + index * 0.2) - dt);
+        if (target && distance(target, robot) <= range + target.radius) {
           robot.angle = Math.atan2(target.y - robot.y, target.x - robot.x);
+          const acid = sanitizer ? { everySec: sanitizer.impactEverySec, radius: sanitizer.radius * area,
+            dps: weaponValue(game, 'bleach', 'dps') * sanitizer.dps * summonStats.summonPower, life: sanitizer.lifeSec, slow: sanitizer.slow } : null;
+          if (robot.grenadeIn <= 0 && !game.shots.some(shot => shot.kind === 'grenade' && shot.owner === robot.id && shot.life > 0)) {
+            robot.grenadeIn = squad.grenadeEverySec * summonStats.cooldownScale / summonStats.summonHaste;
+            game.shots.push({ weapon: 'robot', kind: 'grenade', owner: robot.id, x: robot.x, y: robot.y,
+              fromX: robot.x, fromY: robot.y, toX: target.x, toY: target.y, age: 0,
+              flightSec: squad.grenadeFlightSec, life: squad.grenadeFlightSec + squad.grenadeFuseSec,
+              arcHeight: squad.grenadeArc, blast: squad.grenadeRadius * area, damage: damage * squad.grenadePower,
+              acid, sound: 'roll' });
+          }
           if (robot.fireIn <= 0) {
             robot.fireIn = squad.fireEverySec * summonStats.cooldownScale / summonStats.summonHaste;
             for (let shot = 0; shot < squad.shots; shot += 1) {
               const angle = robot.angle + (shot - (squad.shots - 1) / 2) * 0.06;
               game.shots.push({ weapon: 'robot', x: robot.x, y: robot.y, vx: Math.cos(angle) * squad.bulletSpeed, vy: Math.sin(angle) * squad.bulletSpeed,
-                speed: squad.bulletSpeed, damage, life: squad.bulletLifeSec, radius: 4 * projectile, scale: projectile,
+                speed: squad.bulletSpeed, damage, life: Math.max(squad.bulletLifeSec, (range + target.radius) / squad.bulletSpeed), radius: 4 * projectile, scale: projectile,
                 pierce: squad.pierce, hit: new Set(), kind: 'marine', slows: true,
-                acid: sanitizer ? { everySec: sanitizer.impactEverySec, radius: sanitizer.radius * area,
-                  dps: weaponValue(game, 'bleach', 'dps') * sanitizer.dps * summonStats.summonPower, life: sanitizer.lifeSec, slow: sanitizer.slow } : null });
+                acid });
             }
             robot.muzzleUntil = game.time + 0.08;
           }
@@ -2031,6 +2122,23 @@ function fireWeapons(game, dt) {
 
 function updateProjectiles(game, dt) {
   for (const shot of game.shots) {
+    if (shot.kind === 'grenade') {
+      shot.age += dt;
+      shot.life -= dt;
+      const progress = Math.min(1, shot.age / shot.flightSec);
+      shot.x = shot.fromX + (shot.toX - shot.fromX) * progress;
+      shot.y = shot.fromY + (shot.toY - shot.fromY) * progress;
+      if (shot.life <= 0) {
+        for (const enemy of near(game, shot.toX, shot.toY, shot.blast)) {
+          if (!enemy.dead && distance(enemy, shot) <= shot.blast + enemy.radius) damageWeaponHit(game, enemy, shot.damage, true, shot);
+        }
+        if (shot.acid) game.puddles.push({ x: shot.toX, y: shot.toY, radius: shot.acid.radius, dps: shot.acid.dps,
+          life: shot.acid.life, maxLife: shot.acid.life, slow: shot.acid.slow });
+        addEffect(game, { weapon: 'robot', type: 'bomb', x: shot.toX, y: shot.toY, radius: shot.blast, life: 0.35, sound: 'impact' });
+        addEffect(game, { weapon: 'robot', type: 'burst', x: shot.toX, y: shot.toY, color: shot.acid ? 'teal' : 'gold', count: 12, life: 0.4, big: true });
+      }
+      continue;
+    }
     if (shot.homing) {
       // 종이비행기: 가장 가까운 적 쪽으로 조금씩 방향을 튼다.
       let target = null;

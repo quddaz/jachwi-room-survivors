@@ -1278,6 +1278,19 @@ function sockPuppet(body, fx, frame, knight = false) {
 }
 ITEMS.sockpuppet = item([], (body, fx, f) => sockPuppet(body, fx, f));
 ITEMS.sockknight = item([], (body, fx, f) => sockPuppet(body, fx, f, true));
+function toyDragon(body, fx, frame, azure = false) {
+  const color = azure ? 'B' : 'G', light = azure ? 'b' : 'g';
+  body.rect(2, 5, 10, 8, 'h').rect(3, 4, 8, 8, color).rect(4, 5, 6, 5, light);
+  body.rect(9, 7, 6, 5, 'h').rect(9, 7, 6, 4, color).rect(10, 10, 5, 1, 's');
+  body.rect(3, 1, 2, 5, 'Y').rect(8, 0, 2, 5, 'Y').set(2, 1, 'y').set(10, 0, 'y');
+  body.rect(7, 5, 3, 3, 'W').rect(9, 6, 1, 2, 'h').rect(11, 8, 3, 1, 'h');
+  body.rect(2, 7, 3, 1, 's').rect(1, 9, 3, 1, 'Y').rect(3, 12, 6, 2, 's');
+  body.rect(5, 3, 2, 2, azure ? 'Y' : 'R');
+  if (frame % 2) fx.set(15, 10, 'Y').set(14, 12, 'W');
+  if (azure) twinkle(fx, 1, 3, frame, 'W');
+}
+ITEMS.toydragon = item([], (body, fx, f) => toyDragon(body, fx, f));
+ITEMS.azuredragon = item([], (body, fx, f) => toyDragon(body, fx, f, true));
 function toyKnight(body, fx, frame, guardian = false) {
   const armor = guardian ? 'q' : 'B', step = frame % 2;
   // 짧은 망토, 닫힌 투구, 오른손의 긴 검.

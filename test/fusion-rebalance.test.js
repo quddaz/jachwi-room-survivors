@@ -67,7 +67,7 @@ describe('공속에 따른 자율 무기 이동', () => {
 });
 
 describe('스페이스 마린', () => {
-  it('세 명이 플레이어 곁에서 원거리 사격하고 몸통 박치기는 하지 않는다', () => {
+  it('세 명이 자율 이동하며 원거리 사격하고 몸통 박치기는 하지 않는다', () => {
     const game = quiet();
     game.weapons.robot = 5;
     game.evolved.robot = true;
@@ -79,7 +79,8 @@ describe('스페이스 마린', () => {
     run(game, 120);
     assert.ok(enemy.hp < enemy.maxHp);
     assert.equal(enemy.robotHitAt, undefined);
-    assert.ok(game.robots.every(robot => Math.hypot(robot.x - game.player.x, robot.y - game.player.y) <= 58));
+    assert.ok(game.robots.some(robot => Math.hypot(robot.x - game.player.x, robot.y - game.player.y) > 58));
+    assert.ok(game.robots.every(robot => Math.hypot(robot.x - enemy.x, robot.y - enemy.y) > 90));
   });
   it('완성형 선택지에서도 새 마린 아이콘을 쓴다', () => {
     const game = quiet();

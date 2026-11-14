@@ -4,8 +4,8 @@ const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, icon, sprite } from './sprites.js';
 
-// 저해상도 버퍼에 그리고 화면에서 정수 배로 키워 도트 느낌을 낸다. 버퍼 1픽셀이 월드 2칸이다.
-export const PIXEL = 3;
+// 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
+export const PIXEL = 2.4;
 const WORLD_PER_PIXEL = 2;
 const FROZEN = 'rgba(190, 225, 255, 0.75)';
 const FLASH = 'rgba(255, 255, 255, 0.85)';
@@ -1113,6 +1113,19 @@ export function render(ctx, game, width, height, time) {
   }
   for (const shot of game.shots) {
     const [x, y] = toBuffer(shot);
+    if (shot.kind === 'grenade') {
+      const [tx, ty] = toBuffer({ x: shot.toX, y: shot.toY });
+      const progress = Math.min(1, shot.age / shot.flightSec);
+      const lift = Math.sin(progress * Math.PI) * shot.arcHeight / WORLD_PER_PIXEL;
+      ring(ctx, tx, ty, shot.blast / WORLD_PER_PIXEL, shot.acid ? 'rgba(100,210,160,0.35)' : 'rgba(255,210,100,0.35)', 5, Math.floor(time * 12));
+      disc(ctx, x, y + 2, 3, 'rgba(40,50,40,0.2)');
+      const gy = Math.round(y - lift);
+      ctx.fillStyle = '#2a3326';ctx.fillRect(x - 3, gy - 3, 6, 7);
+      ctx.fillStyle = shot.acid ? '#62c984' : '#81914f';ctx.fillRect(x - 2, gy - 2, 4, 5);
+      ctx.fillStyle = '#ffe08a';ctx.fillRect(x - 1, gy - 5, 2, 2);
+      if (progress >= 1 && Math.floor(time * 16) % 2) { ctx.fillStyle = '#ffffff';ctx.fillRect(x - 2, gy - 2, 4, 2); }
+      continue;
+    }
     // 날아가는 것마다 제 빛깔로 은은하게 빛난다.
     const halo = SHOT_GLOW[shot.kind ?? (shot.mega ? 'megaSpray' : 'spray')] ?? null;
     const haloSize = shot.kind === 'roller' ? shot.radius / WORLD_PER_PIXEL + 3 : shot.kind === 'staple' ? 3 : 5;
@@ -1371,6 +1384,27 @@ export function render(ctx, game, width, height, time) {
   }
   for (const unit of game.summons ?? []) {
     const [x, y] = toBuffer(unit);
+    if (unit.weapon === 'toydragon') {
+      const spine = unit.spine ?? [], size = unit.evolved ? 1.2 : 1;
+      for (let index = spine.length - 1; index >= 0; index--) {
+        const [sx, sy] = toBuffer(spine[index]);
+        const next = spine[index - 1] ?? unit;
+        const angle = Math.atan2(next.y - spine[index].y, next.x - spine[index].x);
+        const tail = index === spine.length - 1, half = (tail ? 3 : 5) * size;
+        ctx.save();ctx.translate(sx, sy);ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(40,60,60,0.2)';ctx.fillRect(-half, 4, half * 2, 3);
+        disc(ctx, 0, 0, half + 1, '#253b41');
+        disc(ctx, 0, 0, half, unit.evolved ? '#427bd4' : '#4f9b79');
+        disc(ctx, -1, -2, half * 0.65, unit.evolved ? '#9cd7ff' : '#a9dca2');
+        ctx.fillStyle = '#fff0bf';ctx.fillRect(-half, half - 3, half * 2, 2);
+        ctx.fillStyle = '#ffcf3f';ctx.fillRect(-2, -half - 3, 3, 4);
+        if (!tail && index % 3 === 1) { ctx.fillRect(-2, half - 1, 4, 4);ctx.fillRect(-2, -half - 2, 4, 2); }
+        ctx.restore();
+      }
+      const image = icon(unit.evolved ? 'azuredragon' : 'toydragon', Math.floor(time * 8) % ITEM_FRAMES);
+      ctx.save();ctx.translate(x, y);ctx.rotate(unit.angle);ctx.scale(size, size);ctx.drawImage(image, -8, -8);ctx.restore();
+      continue;
+    }
     const drone = unit.weapon === 'toydrone';
     const bob = drone ? Math.sin(time * 8 + unit.id) * 1.5 - 3 : Math.sin(time * 6 + unit.id) * 0.5;
     ring(ctx, x, y + 5, 6, 'rgba(95,134,207,0.5)', 3, 0);

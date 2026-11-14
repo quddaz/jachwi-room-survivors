@@ -295,6 +295,13 @@ export const WEAPONS = {
     damage: [24, 32, 42, 54, 68], count: [1, 1, 1, 2, 2], cooldown: [2, 1.85, 1.7, 1.5, 1.3],
     speed: [240, 270, 300, 330, 360], range: [280, 315, 350, 390, 430], radius: 18,
   },
+  toydragon: {
+    label: '장난감 용', summon: 'dragon', description: '한 마리의 긴 용이 적을 휘감는다. 소환 수가 늘면 몸통이 길어진다',
+    damage: [18, 24, 31, 40, 52], count: [1, 1, 2, 2, 3],
+    speed: [145, 160, 175, 195, 215], range: [340, 370, 410, 450, 500],
+    segments: 6, segmentsPerCount: 2, spacing: 20, radius: 12, hitEverySec: 0.4,
+    turnSpeed: 3.5, circleRadius: 100, roam: 560, recall: 850,
+  },
   toyknight: {
     label: '장난감 검사', summon: 'sword', description: '검사가 적을 추격해 넓게 베고 바닥에 푸른 검흔을 남긴다',
     damage: [24, 32, 42, 54, 68], count: [1, 1, 1, 2, 2], cooldown: [1.5, 1.4, 1.3, 1.15, 1.05],
@@ -360,7 +367,9 @@ export const EVOLUTIONS = {
   laser: { label: '레이저 쇼', description: '여섯 줄기가 여러 적을 나눠 조준한다. 같은 적에게는 발사당 최대 두 줄기 적중', damage: 1.3, count: 6, maxHitsPerTarget: 2 },
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
-  robot: { label: '스페이스 마린', icon: 'marine', description: '장갑병 셋이 오리를 호위하며 적을 조준해 관통탄 두 발씩 쏜다', damage: 1.4, count: 3, speed: 1.2, fireEverySec: 0.55, shots: 2, range: 520, bulletSpeed: 540, bulletLifeSec: 1.2, pierce: 1 },
+  robot: { label: '스페이스 마린', icon: 'marine', description: '장갑병 셋이 자율 이동하며 관통탄을 쏘고 수류탄을 던진다', damage: 1.4, count: 3, speed: 1.2, fireEverySec: 0.55, shots: 2, range: 520, bulletSpeed: 540, bulletLifeSec: 1.2, pierce: 1,
+    keepRange: 0.5, strafeAngle: 0.35, seekScale: 1.35, leash: 560, regroup: 180, recall: 900,
+    grenadeEverySec: 4, grenadePower: 2.4, grenadeRadius: 90, grenadeFlightSec: 0.65, grenadeFuseSec: 0.2, grenadeArc: 52, grenadeStartSec: 1 },
   towel: { label: '비치 타월', description: '양쪽을 한꺼번에, 더 넓고 세게 후려친다', damage: 1.5, size: 1.6 },
   paperplane: { label: '종이학 편대', description: '네 마리가 날아가 적을 꿰뚫는다', damage: 1.3, count: 4, pierce: 2 },
   mousetrap: { label: '대형 끈끈이', description: '덫이 커지고 훨씬 아프게 문다', damage: 1.6, radius: 1.5 },
@@ -369,6 +378,7 @@ export const EVOLUTIONS = {
   sockpuppet: { label: '양말 기사단', icon: 'sockknight', description: '투구를 쓴 인형 셋이 주먹으로 주변 적을 함께 때린다', damage: 1.7, count: 3, speed: 1.15, cleave: 64 },
   toydrone: { label: '쌍포 드론', icon: 'dronemk2', description: '드론 셋이 두 발씩 관통탄을 발사한다', damage: 1.6, count: 3, shots: 2, pierce: 2 },
   windcar: { label: '태엽 전차', icon: 'windtank', description: '전차 셋이 돌진하고 끝에서 충격파를 터뜨린다', damage: 1.7, count: 3, size: 1.25, blast: 90 },
+  toydragon: { label: '청룡', icon: 'azuredragon', description: '한 마리의 청룡으로 자라 몸통이 더 굵고 길어진다. 증원은 머리 수 대신 몸통 마디를 늘린다', damage: 1.6, count: 4, size: 1.2, speed: 1.1 },
   toyknight: { label: '검흔 수호자', icon: 'bladeguardian', description: '대검을 든 검사 셋이 더 넓게 베고 겹친 검흔을 남긴다', damage: 1.65, count: 3, range: 1.2, arc: 3.5, scarSec: 1 },
   plantspirit: { label: '숲의 수호자', icon: 'plantguardian', description: '정령 셋이 씨앗 두 발씩 던지고 폭발 범위가 커진다', damage: 1.6, count: 3, shots: 2, radius: 1.35 },
 };

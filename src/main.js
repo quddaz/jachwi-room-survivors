@@ -405,13 +405,15 @@ const CODEX_TABS = [
   ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 지속 피해 전용은 관련 무기·합체나 성냥이 있어야 나와요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. 로봇청소기·양말 인형·장난감 드론·태엽 자동차·화분 정령·장난감 검사는 소환 능력치를 받아요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
+  ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. 로봇청소기·양말 인형·장난감 드론·태엽 자동차·화분 정령·장난감 검사·장난감 용은 소환 능력치를 받아요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,
         weapon.dps && `초당 피해 ${statLine(id, 'dps')}`,
         weapon.cooldown && `쿨타임 ${statLine(id, 'cooldown', '초')}`,
-        Array.isArray(weapon.count) && `개수 ${statLine(id, 'count')}`,
+        Array.isArray(weapon.count) && (weapon.summon === 'dragon'
+          ? `몸통 마디 ${weapon.segments} → ${weapon.segments + (weapon.count.at(-1) - 1) * weapon.segmentsPerCount} · 소환 수 +1마다 ${weapon.segmentsPerCount}마디 추가`
+          : `개수 ${statLine(id, 'count')}`),
       ].filter(Boolean);
       return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)}</b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
         <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;
