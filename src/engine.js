@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -922,7 +922,18 @@ function damageWeaponHit(game, enemy, amount, slows = false, from = game.player)
   damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
 }
 
-export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, showHit = true) {
+// 지속 피해도 치명타 피해는 받지만 타격 기절·빙결·성냥은 발동시키지 않는다.
+function damageOverTime(game, enemy, amount, from = game.player) {
+  damageEnemy(game, enemy, amount, false, from, 0, { hitEffects: false, showHit: false });
+}
+
+function freezeOnHit(game, enemy, duration) {
+  if (!duration || enemy.boss || game.time < (enemy.hitFreezeReadyAt ?? -Infinity)) return;
+  enemy.chillUntil = game.time + duration;
+  enemy.hitFreezeReadyAt = enemy.chillUntil + HIT_FREEZE.recoverySec;
+}
+
+export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true } = {}) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
@@ -931,15 +942,16 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   const crit = chance > 0 && game.random() < chance;
   if (crit) amount *= critDamageOf(game);
   amount += flatBonus;
-  if (crit && !enemy.boss && perk(game, 'crit', 20)) enemy.chillUntil = game.time + BUILD.crit.perks[20].stun;
+  let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
   if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
   enemy.hp -= amount;
   // 얼음틀: 한 대씩 때리는 공격만 얼린다(매 순간 조금씩 닿는 공격은 빼고).
   const ice = relic(game, 'icetray');
-  if (ice && !enemy.boss && amount >= 3 && game.random() < ice.chance) enemy.chillUntil = game.time + ice.freezeSec;
+  if (hitEffects && ice && !enemy.boss && amount >= 3 && game.random() < ice.chance) freezeSec = Math.max(freezeSec, ice.freezeSec);
+  freezeOnHit(game, enemy, freezeSec);
   // 성냥: 한 대씩 때리는 공격에 가끔 불이 붙는다.
   const match = relic(game, 'match');
-  if (match && amount >= 3 && game.random() < match.chance) {
+  if (hitEffects && match && amount >= 3 && game.random() < match.chance) {
     enemy.burnUntil = game.time + match.burnSec;
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps));
   }
@@ -1195,7 +1207,7 @@ function updateSaws(game, dt) {
   });
   for (const enemy of game.enemies) {
     if (enemy.dead || (enemy.bleedUntil ?? 0) <= game.time) continue;
-    damageEnemy(game, enemy, enemy.bleedDps * dt);
+    damageOverTime(game, enemy, enemy.bleedDps * dt);
   }
 }
 
@@ -1222,7 +1234,7 @@ function updateMegaLaser(game, dt) {
       if (along < 16 - enemy.radius || along > beam.length + enemy.radius
         || Math.abs(rx * dy - ry * dx) > beam.width / 2 + enemy.radius) continue;
       if (impact) damageWeaponHit(game, enemy, amount, true, beam);
-      else damageEnemy(game, enemy, amount, false, beam, 0, false);
+      else damageOverTime(game, enemy, amount, beam);
     }
   };
   let beam = game.megaLaser ??= makeCharge();
@@ -1310,7 +1322,7 @@ function fireWeapons(game, dt) {
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
     for (const enemy of near(game, player.x, player.y, radius)) {
       if (distance(enemy, player) > radius + enemy.radius) continue;
-      damageEnemy(game, enemy, damage);
+      damageOverTime(game, enemy, damage);
       slow(game, enemy, evolution(game, 'dehumidifier')?.slow);
     }
   }
@@ -1437,7 +1449,7 @@ function fireWeapons(game, dt) {
         if (enemy.dead || distance(enemy, player) > range + enemy.radius) continue;
         const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
         const diff = Math.abs(Math.atan2(Math.sin(toEnemy - game.dryerAngle), Math.cos(toEnemy - game.dryerAngle)));
-        if (diff < spread) damageEnemy(game, enemy, damage);
+        if (diff < spread) damageOverTime(game, enemy, damage);
       }
     }
   }
@@ -1508,13 +1520,13 @@ function fireWeapons(game, dt) {
   if (game.fusions.dryoven || game.relics.match) {
     for (const enemy of game.enemies) {
       enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
-      if (enemy.burning) damageEnemy(game, enemy, enemy.burnDps * dt);
+      if (enemy.burning) damageOverTime(game, enemy, enemy.burnDps * dt);
     }
   }
   if (game.fusions.poisongun) {
     for (const enemy of game.enemies) {
       enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
-      if (enemy.poisoned) damageEnemy(game, enemy, enemy.poisonDps * dt);
+      if (enemy.poisoned) damageOverTime(game, enemy, enemy.poisonDps * dt);
     }
   }
   if (activeWeapon(game, 'ball')) {
@@ -1913,7 +1925,7 @@ function updateProjectiles(game, dt) {
     }
   }
   for (const [enemy, hits] of puddleHits) {
-    for (const puddle of hits) damageEnemy(game, enemy, puddle.dps * dt);
+    for (const puddle of hits) damageOverTime(game, enemy, puddle.dps * dt, puddle);
     const factor = Math.min(...hits.map(puddle => puddle.slow ?? 1));
     if (factor < 1) slow(game, enemy, factor);
   }

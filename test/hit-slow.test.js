@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyBuild, createGame, damageEnemy, update } from '../src/engine.js';
+import { applyBuild, createGame, damageEnemy, statsOf, update } from '../src/engine.js';
 
 function quiet() {
   const game = createGame(() => 0.99);
@@ -109,4 +109,147 @@ describe('밀어내기 대신 타격 둔화', () => {
     assert.equal(enemy.ky, 0);
     assert.ok(enemy.hitSlowUntil > game.time);
   });
+});
+
+describe('연타 기절·빙결의 무한 정지 방지', () => {
+  function criticalGame() {
+    const game = quiet();
+    applyBuild(game, { crit: 20 });
+    game.passives.clover = 10;
+    game.random = () => 0;
+    return game;
+  }
+
+  it('치명타를 계속 맞아도 첫 기절이 연장되지 않고 해제 뒤 1.2초간 움직인다', () => {
+    const game = criticalGame();
+    const enemy = target(game, { x: game.player.x + 700, hp: 1e9, maxHp: 1e9 });
+    const start = enemy.x;
+    damageEnemy(game, enemy, 10, true);
+    near(enemy.chillUntil, 0.8);
+    near(enemy.hitFreezeReadyAt, 2);
+    for (let frame = 0; frame < 120; frame++) {
+      damageEnemy(game, enemy, 10, true);
+      update(game, 1 / 60);
+      near(enemy.chillUntil, 0.8);
+    }
+    assert.ok(start - enemy.x >= 89);
+    assert.equal(enemy.frozen, false);
+    game.time = enemy.hitFreezeReadyAt;
+    damageEnemy(game, enemy, 10, true);
+    near(enemy.chillUntil, game.time + 0.8);
+  });
+
+  it('얼음틀과 치명 기절이 함께 발동하면 긴 쪽을 쓰고 회복 시간도 공유한다', () => {
+    const game = criticalGame();
+    game.relics.icetray = true;
+    const enemy = target(game);
+    damageEnemy(game, enemy, 10);
+    near(enemy.chillUntil, 1.5);
+    near(enemy.hitFreezeReadyAt, 2.7);
+    game.time = 1.6;
+    damageEnemy(game, enemy, 10);
+    update(game, 0.1);
+    assert.equal(enemy.frozen, false);
+    near(enemy.chillUntil, 1.5);
+    game.time = 2.7;
+    damageEnemy(game, enemy, 10);
+    near(enemy.chillUntil, 4.2);
+  });
+
+  it('얼음틀이 매 타격 발동해도 1.5초 뒤 풀리고 연타 중 접근한다', () => {
+    const game = quiet();
+    game.relics.icetray = true;
+    game.random = () => 0;
+    const enemy = target(game, { x: game.player.x + 700, hp: 1e9, maxHp: 1e9 });
+    const start = enemy.x;
+    for (let frame = 0; frame < 360; frame++) {
+      damageEnemy(game, enemy, 10, true);
+      update(game, 1 / 60);
+    }
+    assert.ok(start - enemy.x > 150);
+  });
+
+  it('고치명 메가 레이저에 계속 닿아도 빔 안에서 몬스터가 다시 움직인다', () => {
+    const game = criticalGame();
+    game.weapons = { laser: 5, fan: 5 };
+    game.evolved = { laser: true, fan: true };
+    game.fusions.spinlaser = true;
+    const enemy = target(game, { x: game.player.x + 500, hp: 1e9, maxHp: 1e9 });
+    const start = enemy.x;
+    for (let frame = 0; frame < 222; frame++) update(game, 1 / 60);
+    assert.ok(enemy.hp < enemy.maxHp);
+    assert.ok(start - enemy.x > 130);
+  });
+
+  it('알람시계·얼음팩의 전체 빙결은 타격 면역 중에도 정상 작동한다', () => {
+    const game = criticalGame();
+    const enemy = target(game);
+    damageEnemy(game, enemy, 10);
+    game.time = 1;
+    game.freezeUntil = 5;
+    update(game, 0.1);
+    assert.equal(enemy.frozen, true);
+    game.time = 5;
+    update(game, 0.1);
+    assert.equal(enemy.frozen, false);
+  });
+
+  it('보스는 치명 기절과 얼음틀 빙결에 면역이다', () => {
+    const game = criticalGame();
+    game.relics.icetray = true;
+    const enemy = target(game, { boss: true });
+    const start = enemy.x;
+    damageEnemy(game, enemy, 10, true);
+    update(game, 0.1);
+    assert.equal(enemy.chillUntil, undefined);
+    assert.equal(enemy.hitFreezeReadyAt, undefined);
+    near(start - enemy.x, 10);
+  });
+});
+
+describe('지속 피해의 치명타와 타격 효과 분리', () => {
+  const sources = {
+    제습기: game => { game.weapons.dehumidifier = 5; game.evolved.dehumidifier = true; },
+    드라이기: game => { game.weapons.dryer = 5; game.evolved.dryer = true; },
+    장판: (game, enemy) => { game.puddles.push({ x: enemy.x, y: enemy.y, dps: 100, radius: 80, life: 10 }); },
+    독: (game, enemy) => { game.fusions.poisongun = true; enemy.poisonUntil = 10; enemy.poisonDps = 100; },
+    화상: (game, enemy) => { enemy.burnUntil = 10; enemy.burnDps = 100; },
+    출혈: (game, enemy) => {
+      game.weapons = { roller: 5, slipper: 5 };
+      game.fusions.sawblade = true;
+      enemy.x = game.player.x + 1000;
+      enemy.bleedUntil = 10;
+      enemy.bleedDps = 100;
+    },
+    '메가 레이저 지속 빔': game => {
+      game.weapons = { laser: 5, fan: 5 };
+      game.evolved = { laser: true, fan: true };
+      game.fusions.spinlaser = true;
+      game.megaLaser = { phase: 'fire', remaining: 3, x: game.player.x, y: game.player.y, angle: 0, width: 240, length: 1100 };
+    },
+  };
+  for (const [name, configure] of Object.entries(sources)) {
+    it(`${name}: 치명타 피해는 늘지만 기절·빙결·성냥을 발동하지 않는다`, () => {
+      const sample = critical => {
+        const game = quiet();
+        applyBuild(game, { crit: 20 });
+        game.passives.clover = 10;
+        game.relics = { icetray: true, match: true };
+        game.random = () => critical ? 0 : 0.99;
+        const enemy = target(game, { x: game.player.x + 100, hp: 1e8, maxHp: 1e8 });
+        configure(game, enemy);
+        const start = enemy.x;
+        for (let frame = 0; frame < 12; frame++) update(game, 1 / 60);
+        assert.equal(enemy.chillUntil, undefined);
+        assert.equal(enemy.hitFreezeReadyAt, undefined);
+        assert.equal(enemy.frozen, false);
+        assert.equal(enemy.burnUntil, name === '화상' ? 10 : undefined);
+        assert.ok(start - enemy.x > 10);
+        return { damage: enemy.maxHp - enemy.hp, critDamage: statsOf(game).critDamage };
+      };
+      const normal = sample(false), critical = sample(true);
+      assert.ok(normal.damage > 0);
+      assert.ok(Math.abs(critical.damage - normal.damage * critical.critDamage) < 0.0001);
+    });
+  }
 });

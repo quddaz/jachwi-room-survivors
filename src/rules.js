@@ -12,7 +12,7 @@ export const BUILD = {
     perks: {
       5: { name: '약점 포착', text: '보스·정예에게 치명타 확률 +10%', eliteCrit: 0.1 },
       10: { name: '치명 폭발', text: '치명타로 쓰러뜨린 적이 터져 주변에 그 피해의 40%', blastShare: 0.4, blastRadius: 70 },
-      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타 맞은 적 0.8초 기절(보스 제외)', critDamage: 0.5, stun: 0.8 },
+      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타 맞은 적 0.8초 기절(보스 제외). 기절·빙결 해제 후 1.2초 재발동 면역', critDamage: 0.5, stun: 0.8 },
     } },
   haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.005 },
     perks: {
@@ -67,6 +67,9 @@ export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radiu
 
 // 밀어내기 대신 짧은 타격 둔화. 연타로 감소율이 중첩되지 않고 보스는 면역이다.
 export const HIT_SLOW = { speed: 0.75, eliteSpeed: 0.85, durationSec: 0.35 };
+
+// 타격 기절·빙결은 연타로 연장하지 않고 해제 후 회복 시간을 공유한다.
+export const HIT_FREEZE = { recoverySec: 1.2 };
 
 // 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
 export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
@@ -398,7 +401,7 @@ export const RELICS = {
   dice: { label: '주사위', description: '한 방을 노린다', stats: ['치명타 확률 +5%', '치명타 피해 +75%'], critChance: 0.05, critDamage: 0.75 },
   popcorn: { label: '팝콘 기계', description: '쓰러진 적이 펑 터진다', stats: ['적이 쓰러지면 25% 확률로 폭발', '폭발 피해 25(레벨·보물 피해 비례)'],
     chance: 0.25, radius: 70, damage: 25 },
-  icetray: { label: '얼음틀', description: '때릴 때마다 차갑다', stats: ['맞은 적 8% 확률로 1.5초 얼림(보스 제외)'], chance: 0.08, freezeSec: 1.5 },
+  icetray: { label: '얼음틀', description: '때릴 때마다 차갑다', stats: ['맞은 적 8% 확률로 1.5초 얼림(보스 제외)', '기절·빙결 해제 후 1.2초 재발동 면역'], chance: 0.08, freezeSec: 1.5 },
   umbrella: { label: '우산', description: '날아오는 것을 막아 준다', stats: ['탄막·떨어지는 쓰레기 피해 -60%'], guard: 0.6 },
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
