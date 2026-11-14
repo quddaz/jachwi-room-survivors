@@ -83,8 +83,8 @@ export const HIT_SLOW = { speed: 0.75, eliteSpeed: 0.85, durationSec: 0.35 };
 // 타격 기절·빙결은 연타로 연장하지 않고 해제 후 회복 시간을 공유한다.
 export const HIT_FREEZE = { recoverySec: 1.2 };
 
-// 8분에 체력을 30% 올린 뒤 기존 난이도에 분당 8%를 추가로 곱한다.
-export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 1.3, growthPerMinute: 0.08 };
+// 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
+export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
 
 export function hpSurgeAt(time) {
   if (time < HP_SURGE.from) return 1;
@@ -155,7 +155,7 @@ export const ELITE = {
   from: 480, step: 30,
   order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth', 'ant', 'slug', 'sock', 'dustbunny', 'pigeon'],
   chance: 0.15, chancePerMin: 0.03, maxChance: 0.4,
-  hp: 4, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
+  hp: 6, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
 };
 
 export function eliteFrom(kind) {
