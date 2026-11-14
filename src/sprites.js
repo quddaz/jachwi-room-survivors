@@ -1848,14 +1848,13 @@ ITEMS.thunderball = item([], (body, fx, f) => {
   twinkle(fx, 2, 2, f + 2, 'E');
 });
 ITEMS.spinlaser = item([], (body, fx, f) => {
-  for (let beam = 0; beam < 4; beam += 1) {
-    const angle = (beam / 4) * Math.PI * 2 + (f / ITEM_FRAMES) * (Math.PI / 2);
-    for (let reach = 2; reach <= 8; reach += 1) {
-      fx.set(7.5 + Math.cos(angle) * reach, 7.5 + Math.sin(angle) * reach, reach % 2 === 0 ? 'E' : 'W');
-      if (reach < 7) fx.set(7.5 + Math.cos(angle + 0.18) * reach, 7.5 + Math.sin(angle + 0.18) * reach, 'j');
-    }
-  }
-  body.ellipse(7, 7, 3, 3, 'h').ellipse(7, 7, 2, 2, 'z').set(7, 7, f % 2 === 0 ? 'R' : 'e').set(6, 6, 'W');
+  body.rect(1, 5, 8, 7, 'h').rect(2, 6, 6, 5, 'q').rect(2, 6, 6, 1, 'b');
+  body.rect(5, 3, 4, 11, 'h').rect(6, 4, 2, 9, 'z');
+  body.rect(7, 5, 3, 7, 'E').rect(8, 6, 2, 5, 'W');
+  body.rect(2, 11, 3, 4, 'h').rect(3, 12, 1, 2, 'D');
+  const half = 1 + f;
+  fx.rect(10, 8 - half, 6, half * 2 + 1, 'E').rect(10, 7, 6, 3, 'W');
+  twinkle(fx, 13, 3, f, 'E');
 });
 ITEMS.poisongun = item([], (body, fx, f) => {
   const pressed = f % 2;

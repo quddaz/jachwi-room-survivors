@@ -922,7 +922,7 @@ function damageWeaponHit(game, enemy, amount, slows = false, from = game.player)
   damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
 }
 
-export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0) {
+export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, showHit = true) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
@@ -944,7 +944,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps));
   }
   enemy.hitFlash = 0.1;
-  if (amount >= 6) {
+  if (showHit && amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
       life: crit ? 0.8 : 0.6, crit });
     if (crit) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'crit', count: 6, life: 0.35 });
@@ -1199,6 +1199,59 @@ function updateSaws(game, dt) {
   }
 }
 
+// 회전 대신 한 지점에 방향을 고정해 충전 → 3초 발사 → 대기를 반복한다.
+function updateMegaLaser(game, dt) {
+  const mega = fusion(game, 'spinlaser');
+  const { area, projectile } = statsOf(game);
+  const makeCharge = () => {
+    const target = nearestEnemies(game, 1, mega.length)[0];
+    const angle = target ? Math.atan2(target.y - game.player.y, target.x - game.player.x)
+      : game.player.heading ?? (game.player.facing > 0 ? 0 : Math.PI);
+    const beam = { x: game.player.x, y: game.player.y, angle, length: mega.length,
+      width: Math.min(mega.maxWidth, mega.width * area * projectile), phase: 'charge', remaining: mega.chargeSec };
+    addEffect(game, { type: 'ring', x: beam.x, y: beam.y, radius: 32, color: 'spark', life: 0.35, sound: 'laserCharge' });
+    return beam;
+  };
+  const strike = (beam, amount, impact) => {
+    const dx = Math.cos(beam.angle), dy = Math.sin(beam.angle);
+    for (const enemy of game.enemies) {
+      if (enemy.dead) continue;
+      const rx = enemy.x - beam.x, ry = enemy.y - beam.y;
+      const along = rx * dx + ry * dy;
+      // 빔의 그림과 같은 시작점/너비로 판정한다. 오리 뒤쪽에는 닿지 않는다.
+      if (along < 16 - enemy.radius || along > beam.length + enemy.radius
+        || Math.abs(rx * dy - ry * dx) > beam.width / 2 + enemy.radius) continue;
+      if (impact) damageWeaponHit(game, enemy, amount, true, beam);
+      else damageEnemy(game, enemy, amount, false, beam, 0, false);
+    }
+  };
+  let beam = game.megaLaser ??= makeCharge();
+  let left = dt;
+  while (left > 1e-9) {
+    const spent = Math.min(left, beam.remaining);
+    if (beam.phase === 'fire') {
+      // 지속 피해를 dt로 적분한다. 매 프레임 피해 숫자·파편을 만들거나 고정 피해를 반복 가산하지 않는다.
+      strike(beam, weaponValue(game, 'laser', 'damage') * mega.dps * spent, false);
+    }
+    beam.remaining -= spent;
+    left -= spent;
+    if (beam.remaining > 1e-9) break;
+    if (beam.phase === 'charge') {
+      beam.phase = 'fire';
+      beam.remaining = mega.durationSec;
+      strike(beam, weaponValue(game, 'laser', 'damage') * mega.impact, true);
+      addEffect(game, { type: 'ring', x: beam.x, y: beam.y, radius: beam.width * 0.7, color: 'spark', life: 0.4, sound: 'laserBlast' });
+      addEffect(game, { type: 'flash', life: 0.16 });
+      game.shake = Math.max(game.shake, 0.55);
+    } else if (beam.phase === 'fire') {
+      beam.phase = 'cooldown';
+      beam.remaining = mega.restSec * statsOf(game).cooldownScale;
+    } else {
+      beam = game.megaLaser = makeCharge();
+    }
+  }
+}
+
 function fireWeapons(game, dt) {
   buildGrid(game);
   const { player } = game;
@@ -1404,29 +1457,8 @@ function fireWeapons(game, dt) {
     addEffect(game, { weapon: 'fan', type: 'gust', x: player.x, y: player.y, angle, range, cone, life: 0.35,
       mega: Boolean(evolution(game, 'fan')) });
   }
-  const spin = fusion(game, 'spinlaser');
-  if (activeWeapon(game, 'laser') && spin) {
-    // 합체하면 쏘고 꺼지는 대신 줄기가 켜진 채로 돈다.
-    const width = weaponValue(game, 'laser', 'width') * area * projectile;
-    const damage = weaponValue(game, 'laser', 'damage') * spin.damage;
-    game.spinAngle = (game.spinAngle ?? 0) + spin.turn * attackTempoOf(game) * dt;
-    game.spinLaser = { count: spin.count, length: spin.length, width };
-    for (let index = 0; index < spin.count; index += 1) {
-      const angle = game.spinAngle + (index / spin.count) * Math.PI * 2;
-      const dx = Math.cos(angle);
-      const dy = Math.sin(angle);
-      for (const enemy of game.enemies) {
-        if (enemy.dead || game.time - (enemy.spinHitAt ?? -9) < spin.hitEverySec) continue;
-        const rx = enemy.x - player.x;
-        const ry = enemy.y - player.y;
-        const along = rx * dx + ry * dy;
-        if (along < -enemy.radius || along > spin.length) continue;
-        if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) {
-          enemy.spinHitAt = game.time;
-          damageWeaponHit(game, enemy, damage);
-        }
-      }
-    }
+  if (activeWeapon(game, 'laser') && fusion(game, 'spinlaser')) {
+    updateMegaLaser(game, dt);
   } else if (activeWeapon(game, 'laser') && ready(game, 'laser', dt)) {
     const show = evolution(game, 'laser');
     const count = show ? show.count : weaponValue(game, 'laser', 'count');

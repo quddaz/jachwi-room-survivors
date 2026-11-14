@@ -1,7 +1,7 @@
 import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
-import { ARENA, EVOLUTIONS, RELICS, WEAPONS } from './rules.js';
+import { ARENA, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼에 그리고 화면에서 정수 배로 키워 도트 느낌을 낸다. 버퍼 1픽셀이 월드 2칸이다.
@@ -296,7 +296,7 @@ function drawDrop(ctx, drop, x, y, time) {
 const BEAM = {
   green: ['rgba(62,220,120,0.45)', '#8dffb0', '#ffffff'],
   show: ['rgba(240,96,138,0.45)', '#ffb3d0', '#ffffff'],
-  spin: ['rgba(127,233,255,0.5)', '#b9f3ff', '#ffffff'],
+  mega: ['rgba(127,233,255,0.5)', '#b9f3ff', '#ffffff'],
   steam: ['rgba(255, 90, 60, 0.35)', '#f4f6fa', '#ffffff'],
 };
 
@@ -1150,12 +1150,42 @@ export function render(ctx, game, width, height, time) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x - 1, y - 1, 1, 1);
   }
-  if (game.fusions.spinlaser && game.spinLaser) {
-    const { count, length, width } = game.spinLaser;
-    const pulse = 1 + Math.sin(time * 22) * 0.15;
-    for (let index = 0; index < count; index += 1) {
-      drawBeam(ctx, duckX, duckY, game.spinAngle + (index / count) * Math.PI * 2, length / WORLD_PER_PIXEL,
-        (width / WORLD_PER_PIXEL / 2) * 0.7 * pulse, BEAM.spin, index * 31 + Math.floor(time * 20), 0.3);
+  if (game.fusions.spinlaser && game.megaLaser && game.megaLaser.phase !== 'cooldown') {
+    const beam = game.megaLaser;
+    const [x, y] = toBuffer(beam);
+    const reach = beam.length / WORLD_PER_PIXEL;
+    const mega = FUSIONS.spinlaser;
+    if (beam.phase === 'charge') {
+      const charged = 1 - beam.remaining / mega.chargeSec;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(beam.angle);
+      ctx.fillStyle = 'rgba(127,233,255,0.12)';
+      ctx.fillRect(8, -beam.width / WORLD_PER_PIXEL / 2, reach, beam.width / WORLD_PER_PIXEL);
+      ctx.fillStyle = '#7fe9ff';
+      for (let dash = 0; dash < 32; dash++) ctx.fillRect(8 + dash * reach / 32, -1, reach / 48, 2);
+      ctx.restore();
+      glow(ctx, x, y, 12 + charged * 16, [127, 233, 255], 0.45 + charged * 0.35);
+      ring(ctx, x, y, 24 - charged * 15, '#b9f3ff', 2, Math.floor(time * 30));
+      disc(ctx, x, y, 2 + charged * 5, '#ffffff');
+    } else {
+      const age = mega.durationSec - beam.remaining;
+      const pulse = 1 + Math.sin(time * 45) * 0.035;
+      const half = beam.width / WORLD_PER_PIXEL / 2 * pulse;
+      drawBeam(ctx, x, y, beam.angle, reach, half, BEAM.mega, Math.floor(time * 24), 0.2);
+      // 빔 안에 흐르는 띠만 그려서 추가 투사체나 파편을 만들지 않는다.
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(beam.angle);
+      ctx.fillStyle = 'rgba(127,233,255,0.5)';
+      for (let band = 0; band < 8; band++) {
+        const along = 8 + ((time * 520 + band * reach / 8) % Math.max(1, reach - 8));
+        ctx.fillRect(along, -half, 3, half * 2);
+      }
+      ctx.restore();
+      glow(ctx, x, y, half * 0.8 + 10, [127, 233, 255], 0.8);
+      disc(ctx, x, y, 6, '#ffffff');
+      if (age < 0.35) ring(ctx, x, y, 12 + age * 180, '#ffffff', 3, Math.floor(time * 30));
     }
   }
   for (const spinner of topSpinners(game)) {

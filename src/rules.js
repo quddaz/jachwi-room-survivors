@@ -344,8 +344,8 @@ export const MAX_FUSIONS = 2;
 export const FUSIONS = {
   thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', primary: 'ball', power: 1, from: ['ball', 'zapper'],
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
-  spinlaser: { label: '회전 레이저', description: '레이저 네 줄기가 회전하며 0.12초 간격으로 강하게 지진다', primary: 'laser', power: 1, from: ['laser', 'fan'],
-    count: 4, length: 620, turn: 1.5, damage: 1.6, hitEverySec: 0.12 },
+  spinlaser: { label: '메가 레이저', description: '0.7초 충전 후 한 방향에 초대형 빔을 터뜨려 3초간 지진다. 공속은 발사 후 대기 시간을 줄인다', primary: 'laser', power: 1, from: ['laser', 'fan'],
+    chargeSec: 0.7, durationSec: 3, restSec: 1.8, length: 1100, width: 240, maxWidth: 400, impact: 28, dps: 34 },
   // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 앞쪽으로 다섯 발씩 쏜다.
   poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 앞쪽으로 쏘아 중독시킨다. 한 적에게는 한 번에 최대 두 발이 적중한다. 기본 발사 속도 -20%. 살충제는 따로 뿌리지 않는다', primary: 'stapler', power: 4, from: ['stapler', 'spray'],
     shots: 5, maxHitsPerTarget: 2, spread: 0.2, cooldownScale: 1.25, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },

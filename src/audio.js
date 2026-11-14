@@ -20,7 +20,7 @@ const MELODY = [
 ];
 const CHORDS = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
 const EFFECT_COOLDOWN = { kill: 100, hurt: 160, levelup: 400, boss: 800, gameover: 500, select: 80,
-  shoot: 120, slash: 180, impact: 180, zap: 180, pickup: 160, xp: 110, chest: 500, evolve: 500 };
+  shoot: 120, slash: 180, impact: 180, zap: 180, pickup: 160, xp: 110, chest: 500, evolve: 500, laserCharge: 200, laserBlast: 350 };
 const minor = (note) => note - ([4, 9, 11].includes(note % 12) ? 1 : 0);
 
 export function createMusic() {
@@ -168,6 +168,17 @@ export function createMusic() {
       if (destroyed || muted || effectsMuted || generation !== effectGeneration || context.state !== 'running') return;
       if ([...voices].filter((voice) => voice.group === 'effect').length >= 12) return;
       const start = context.currentTime + 0.01;
+      if (name === 'laserCharge') {
+        [60, 72, 84].forEach((note, index) => tone(note, start + index * 0.14, 0.18, 'square', 0.045, 'effect'));
+        return;
+      }
+      if (name === 'laserBlast') {
+        noise(start, 0.18, 0.14, 'effect');
+        tone(38, start, 0.5, 'sawtooth', 0.12, 'effect');
+        tone(50, start, 0.28, 'square', 0.09, 'effect');
+        tone(62, start + 0.05, 2.85, 'sawtooth', 0.018, 'effect');
+        return;
+      }
       const notes = {
         kill: [79, 84], hurt: [48, 42], levelup: [72, 76, 79, 84],
         boss: [48, 43, 36], gameover: [67, 63, 60, 55], select: [76, 83],
