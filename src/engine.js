@@ -1,11 +1,12 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
 export function createGame(random = Math.random) {
   return {
     random,
+    character: null,
     time: 0,
     over: false,
     kills: 0,
@@ -58,6 +59,13 @@ export function createGame(random = Math.random) {
     rerollLeft: 1,
   };
 }
+
+// 게임 시작 설정에서 캐릭터를 고른 뒤 능력치 배분을 적용한다.
+export function applyCharacter(game, id) {
+  game.character = Object.hasOwn(CHARACTERS, id) ? id : 'normal';
+  return game.character;
+}
+const characterBonus = (game, key) => CHARACTERS[game.character]?.[key] ?? 0;
 
 function passiveValue(game, id, key) {
   const level = game.passives[id] ?? 0;
@@ -139,7 +147,7 @@ export function maxWeaponsOf(game) {
 
 // 가질 수 있는 보물 수
 export function maxRelicsOf(game) {
-  return MAX_RELICS + (perk(game, 'treasure', 20)?.maxRelics ?? 0);
+  return MAX_RELICS + (perk(game, 'treasure', 20)?.maxRelics ?? 0) + characterBonus(game, 'maxRelics');
 }
 
 // 공속 20점 과충전: 8초마다 3초 동안 공격 속도가 1.5배다.
@@ -161,7 +169,7 @@ function maxHpOf(game) {
 // 모은 치명타 확률. 고무망치가 있으면 치명타는 안 터지고 이 값이 고정 피해로 바뀐다.
 function rawCritChance(game) {
   return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0)
-    + buildValue(game, 'critChance') - passiveValue(game, 'precision', 'critPenalty');
+    + buildValue(game, 'critChance') + characterBonus(game, 'critChance') - passiveValue(game, 'precision', 'critPenalty');
 }
 
 function critChanceOf(game, bonus = 0) {
@@ -178,7 +186,7 @@ function malletDamageOf(game) {
 // 독·화상·장판처럼 프레임마다 계산하는 지속 피해와 공격 보물에는 붙이지 않는다.
 function onHitDamageOf(game) {
   return (passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
-    + passiveValue(game, 'counterweight', 'hitDamage') + (relic(game, 'precisionscale')?.hitDamage ?? 0)) * fixedPowerOf(game);
+    + passiveValue(game, 'counterweight', 'hitDamage') + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage')) * fixedPowerOf(game);
 }
 
 function flatDamageOf(game) {
@@ -187,7 +195,7 @@ function flatDamageOf(game) {
 
 function critDamageOf(game) {
   return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0) + buildValue(game, 'critDamage')
-    + (perk(game, 'crit', 20)?.critDamage ?? 0);
+    + (perk(game, 'crit', 20)?.critDamage ?? 0) + characterBonus(game, 'critDamage');
 }
 
 function cornered(game) {
@@ -219,7 +227,7 @@ export function statsOf(game) {
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
       * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
       / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1)
-      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1),
+      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1) / (1 + characterBonus(game, 'attackSpeed')),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
     area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
@@ -235,7 +243,7 @@ export function statsOf(game) {
     summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
     summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
     summonRange: (1 + (perk(game, 'summon', 5)?.range ?? 0)) * (1 + (relic(game, 'baton')?.range ?? 0)),
-    summonCount: passiveValue(game, 'summonwhistle', 'summonCount'),
+    summonCount: passiveValue(game, 'summonwhistle', 'summonCount') + characterBonus(game, 'summonCount'),
   };
 }
 
@@ -258,6 +266,7 @@ export function attackTempoOf(game) {
 export function statSheet(game) {
   const stats = statsOf(game);
   return [
+    ...(game.character ? [['캐릭터', CHARACTERS[game.character].label]] : []),
     ['최대 체력', number(stats.maxHp)],
     ['초당 회복', number(stats.regen)],
     ['공격력', percent(stats.might - 1)],
@@ -1343,7 +1352,7 @@ function updateDragon(game, unit, lengthCount, range, speed, damage, dt) {
   const parts = weapon.segments + (lengthCount - 1) * weapon.segmentsPerCount;
   const spacing = weapon.spacing * (evolved?.size ?? 1);
   if (distance(unit, game.player) > weapon.recall) {
-    unit.x = game.player.x; unit.y = game.player.y; unit.spine = [];
+    unit.x = game.player.x; unit.y = game.player.y; unit.spine = []; unit.passUntil = -Infinity;
   }
   unit.spine ??= [];
   unit.spine.length = Math.min(unit.spine.length, parts);
@@ -1358,13 +1367,17 @@ function updateDragon(game, unit, lengthCount, range, speed, damage, dt) {
     const gap = distance(enemy, unit);
     if (gap < best) { best = gap; target = enemy; }
   }
-  const center = target ?? game.player;
-  const phase = game.time * (target ? 1.4 : 0.9) + unit.id;
-  const radius = target ? weapon.circleRadius : weapon.circleRadius * 1.4;
-  const goal = { x: center.x + Math.cos(phase) * radius, y: center.y + Math.sin(phase) * radius };
-  const desired = Math.atan2(goal.y - unit.y, goal.x - unit.x);
+  const phase = game.time * 0.9 + unit.id;
+  const goal = target ?? { x: game.player.x + Math.cos(phase) * weapon.circleRadius * 1.4,
+    y: game.player.y + Math.sin(phase) * weapon.circleRadius * 1.4 };
+  if (target && game.time >= (unit.passUntil ?? -Infinity) && distance(unit, target) <= weapon.passRange) {
+    unit.passAngle = Math.atan2(target.y - unit.y, target.x - unit.x);
+    unit.passUntil = game.time + (distance(unit, target) + weapon.passDistance) / speed;
+    unit.angle = unit.passAngle;
+  }
+  const desired = game.time < (unit.passUntil ?? -Infinity) ? unit.passAngle : Math.atan2(goal.y - unit.y, goal.x - unit.x);
   const turn = Math.atan2(Math.sin(desired - unit.angle), Math.cos(desired - unit.angle));
-  // 고공속에도 선회 반경이 커져 화면 밖으로 날아가지 않도록 회전도 이동 속도에 맞춘다.
+  // 적 근처에 오면 중심을 관통한다. 적 바깥의 궤도만 돌며 빗나가지 않게 한다.
   const turnSpeed = Math.max(weapon.turnSpeed, speed / (weapon.circleRadius * 0.65));
   unit.angle += clamp(turn, -turnSpeed * dt, turnSpeed * dt);
   const previous = [{ x: unit.x, y: unit.y }, ...unit.spine.map(point => ({ ...point }))];

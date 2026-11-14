@@ -1,6 +1,18 @@
 // 숫자는 모두 여기서 바꾼다. 시간 단위는 초, 거리는 월드 픽셀이다.
 export const ARENA = { width: 3000, height: 3000 };
 
+// 캐릭터 보너스는 30점 능력치 투자와 별도로 적용한다.
+export const CHARACTERS = {
+  normal: { label: '일반 오리', description: '치명타로 한 방을 노리는 기본 오리',
+    stats: ['치명타 확률 +20%p', '치명타 피해 +35%p'], critChance: 0.2, critDamage: 0.35 },
+  summoner: { label: '소환사 오리', description: '동료를 한 명씩 더 부르는 지휘자',
+    stats: ['각 소환 무기의 소환 수 +1', '용은 머리 대신 몸통 +2마디'], summonCount: 1 },
+  hunter: { label: '트레저헌터 오리', description: '보물을 더 많이 챙기는 탐험가',
+    stats: ['보물 슬롯 +1', '보물 20점이면 최대 7칸'], maxRelics: 1 },
+  gunner: { label: '총잡이 오리', description: '빠른 연사와 고정 피해를 사용하는 사수',
+    stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8'], attackSpeed: 0.15, hitDamage: 8 },
+};
+
 // 능력치 투자. 게임을 시작할 때 모두 같은 30점을 네 파트에 나눈다(파트당 최대 20).
 // 포인트마다 오르는 기본 수치는 작고, 핵심은 5·10·20점에 열리는 능력이다.
 // 같은 점수에 효율도 조금씩 올라 20점이면 기본 수치가 1.4배가 된다.
@@ -300,7 +312,7 @@ export const WEAPONS = {
     damage: [18, 24, 31, 40, 52], count: [1, 1, 2, 2, 3],
     speed: [145, 160, 175, 195, 215], range: [340, 370, 410, 450, 500],
     segments: 6, segmentsPerCount: 2, spacing: 20, radius: 12, hitEverySec: 0.4,
-    turnSpeed: 3.5, circleRadius: 100, roam: 560, recall: 850,
+    turnSpeed: 3.5, circleRadius: 100, passRange: 100, passDistance: 100, roam: 560, recall: 850,
   },
   toyknight: {
     label: '장난감 검사', summon: 'sword', description: '검사가 적을 추격해 넓게 베고 바닥에 푸른 검흔을 남긴다',

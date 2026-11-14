@@ -2,7 +2,7 @@ import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engin
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
-import { DIGITS, ITEM_FRAMES, icon, sprite } from './sprites.js';
+import { DIGITS, ITEM_FRAMES, duckSprite, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
 export const PIXEL = 2.4;
@@ -459,12 +459,12 @@ function drawDuck(ctx, game, x, y, time) {
   if (player.moving) name = Math.floor(time * 9) % 2 === 0 ? 'duckA' : 'duckB';
   else if (Math.floor(time * 2) % 5 === 0) name = 'duckBlink';
   const tint = player.hurtFlash > 0 ? 'rgba(255, 120, 110, 0.7)' : null;
-  const image = sprite(name, { flip: player.facing < 0, tint });
+  const image = duckSprite(game.character, name, { flip: player.facing < 0, tint });
   ctx.fillStyle = 'rgba(120, 80, 40, 0.28)';
   ctx.fillRect(Math.round(x) - 6, Math.round(y) + 7, 12, 2);
   if (blink) ctx.globalAlpha = 0.4;
   // 흰 테두리를 한 겹 둘러 어떤 배경 위에서도 오리가 보이게 한다.
-  const rim = sprite(name, { flip: player.facing < 0, tint: '#ffffff' });
+  const rim = duckSprite(game.character, name, { flip: player.facing < 0, tint: '#ffffff' });
   for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawCentered(ctx, rim, x + ox, y + oy);
   if (game.time < game.coffeeUntil && player.moving) {
     ctx.globalAlpha = 0.3;

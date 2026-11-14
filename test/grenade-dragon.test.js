@@ -63,6 +63,17 @@ describe('마린 수류탄', () => {
 });
 
 describe('소환 수에 따라 길어지는 용', () => {
+  it('정지한 적의 바깥을 맴돌지 않고 낮은 공속과 높은 공속 모두 직접 관통해 피해를 준다', () => {
+    for (const fast of [false, true]) {
+      const game = quiet({ toydragon: fast ? 5 : 1 });
+      if (fast) { applyBuild(game, { summon:20, haste:10 });game.evolved.toydragon = true;game.passives = { battery:5, summonwhistle:3 };game.relics.marchdrum = true; }
+      const enemy = target(game, 240);
+      run(game, 240);
+      assert.ok(enemy.hp < enemy.maxHp, fast ? '고공속 관통' : '기본 관통');
+      assert.ok(enemy.dragonHitAt > 0);
+    }
+  });
+
   it('증원은 머리를 늘리지 않고 기존 용의 꼬리에 마디를 붙인다', () => {
     const game = quiet({ toydragon: 1 });update(game, DT);
     const head = game.summons[0];assert.equal(head.spine.length, 6);

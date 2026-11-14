@@ -3,9 +3,9 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config.js';
 const LIMIT = 50;
 
 // 지금 기록을 모으는 시즌. 새 시즌을 열려면 이 숫자만 올리고 SEASONS 맨 앞에 넣는다.
-export const SEASON = 3;
+export const SEASON = 4;
 // 순위 화면에 보여 줄 시즌, 최신 순
-export const SEASONS = [3, 2, 1];
+export const SEASONS = [4, 3, 2, 1];
 
 // 시즌 1은 시즌을 나누기 전 이름 그대로 둔다.
 const localKey = (season) => (season === 1 ? 'room-survivors:records' : `room-survivors:records:s${season}`);

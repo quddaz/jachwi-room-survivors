@@ -1,11 +1,11 @@
 import { createMusic } from './audio.js';
-import { inFusion, applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { inFusion, applyCharacter, applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
+  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
-import { iconSheetUrl, iconUrl } from './sprites.js';
+import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
 const EFFECTS_KEY = 'room-survivors:effects';
 const SOUND_KEY = 'room-survivors:sound';
@@ -13,6 +13,7 @@ const music = createMusic();
 const NAME_KEY = 'room-survivors:crew-name';
 const MAP_KEY = 'room-survivors:map';
 const BUILD_KEY = 'room-survivors:build';
+const CHARACTER_KEY = 'room-survivors:character';
 const STEP = 1 / 60;
 const JOYSTICK_RADIUS = 50;
 
@@ -306,6 +307,7 @@ function start() {
   cancelAnimationFrame(frameId);
   game = createGame();
   game.map = selectedMap;
+  applyCharacter(game, selectedCharacter);
   applyBuild(game, selectedBuild);
   paused = false;
   carry = 0;
@@ -347,7 +349,8 @@ function drawResultItems() {
     ['패시브', Object.entries(game.passives).map(([id, level]) => ({ id, name: PASSIVES[id].label, badge: `Lv ${level}`, kind: 'passive' }))],
     ['보물', Object.keys(game.relics).map((id) => ({ id, name: RELICS[id].label, badge: '보물', kind: 'relic' }))],
   ];
-  document.querySelector('.result-items').innerHTML = groups.filter(([, items]) => items.length).map(([title, items]) => `
+  const character = CHARACTERS[game.character] ?? CHARACTERS.normal;
+  document.querySelector('.result-items').innerHTML = `<div class="result-character"><img src="${duckIconUrl(game.character)}" alt=""><span><b>${escapeHtml(character.label)}</b><small>${character.stats.map(escapeHtml).join(' · ')}</small></span></div>` + groups.filter(([, items]) => items.length).map(([title, items]) => `
     <section class="result-item-group"><h3>${title}<small>${items.length}</small></h3><ul>
     ${items.map((item) => `<li class="result-item is-${item.kind}">${itemIcon(item.icon ?? item.id)}<span>${escapeHtml(item.name)}<small>${item.badge}</small></span></li>`).join('')}
     </ul></section>`).join('');
@@ -432,6 +435,9 @@ const CODEX_TABS = [
   ['item', '아이템', () => `<p class="ranking-note">적이 가끔 떨어뜨려요. 같은 종류는 맵에 ${DROP_LIMIT}개까지만 떨어져 있어요.</p>
     <ul class="evolve-list">${Object.entries(DROPS).map(([id, drop]) => `
       <li>${itemIcon(id)}<span><b>${escapeHtml(drop.label)}</b><em>${escapeHtml(drop.description)}</em></span></li>`).join('')}</ul>`],
+  ['character', '캐릭터', () => `<p class="ranking-note">캐릭터 보너스는 능력치 30점과 별도로 적용돼요. 시작 전에 하나를 고르고, 다음 판에도 같은 캐릭터로 시작해요.</p>
+    <ul class="evolve-list">${Object.entries(CHARACTERS).map(([id, character]) => `
+      <li><img class="px codex-sprite" src="${duckIconUrl(id)}" alt=""><span><b>${escapeHtml(character.label)}</b><em>${escapeHtml(character.description)}</em>${character.stats.map(line => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
   ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 네 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 포인트마다 기본 수치가 조금 오르고, <b>5·10·20점</b>에 그 파트만의 능력이 열려요.</p>
     <ul class="evolve-list">${Object.entries(BUILD).map(([tree, def]) => `
       <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점당: ${escapeHtml(buildEffect(tree, 1))}</em>
@@ -516,6 +522,15 @@ function changeBuild(tree, delta) {
   selectedBuild = next;
   remember(BUILD_KEY, JSON.stringify(selectedBuild));
   drawBuild();
+}
+
+let selectedCharacter = 'normal';
+function drawCharacterPicker() {
+  document.querySelector('.character-picker').innerHTML = Object.entries(CHARACTERS).map(([id, character]) => `
+    <button class="character-choice${id === selectedCharacter ? ' is-active' : ''}" type="button" data-character="${id}" aria-pressed="${id === selectedCharacter}">
+      <img src="${duckIconUrl(id)}" alt=""><b>${escapeHtml(character.label)}</b>
+      <small>${character.stats.map(line => `<span>${escapeHtml(line)}</span>`).join('')}</small>
+    </button>`).join('');
 }
 
 // 시작 화면의 맵 고르기. 바닥 타일만 달라서 순위는 함께 매긴다.
@@ -687,6 +702,12 @@ app.addEventListener('click', (event) => {
     remember(BUILD_KEY, JSON.stringify(selectedBuild));
     drawBuild();
   }
+  const character = event.target.closest('[data-character]')?.dataset.character;
+  if (character && Object.hasOwn(CHARACTERS, character)) {
+    selectedCharacter = character;
+    remember(CHARACTER_KEY, character);
+    drawCharacterPicker();
+  }
   const map = event.target.closest('[data-map]')?.dataset.map;
   if (map && MAPS[map]) {
     selectedMap = map;
@@ -713,6 +734,8 @@ document.querySelector('.kills-icon').src = iconUrl('roachA');
 crewName = recall(NAME_KEY);
 selectedMap = MAPS[recall(MAP_KEY)] ? recall(MAP_KEY) : 'room';
 drawMapPicker();
+selectedCharacter = Object.hasOwn(CHARACTERS, recall(CHARACTER_KEY)) ? recall(CHARACTER_KEY) : 'normal';
+drawCharacterPicker();
 selectedBuild = normalizeBuildSafe();
 drawBuild();
 nameInput.value = crewName;

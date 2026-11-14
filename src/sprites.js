@@ -2665,6 +2665,35 @@ function tinted(source, color) {
   return canvas;
 }
 
+// 원래 오리의 얼굴·몸통을 유지하고 직업별 장비만 덧그린다.
+for (const role of ['normal', 'summoner', 'hunter', 'gunner']) {
+  for (const frame of ['duckA', 'duckB', 'duckBlink']) {
+    const rows = Array.from({ length: 22 }, () => Array(22).fill('.'));
+    ART[frame].forEach((row, y) => [...row].forEach((pixel, x) => { rows[y + 4][x + 4] = pixel; }));
+    const rect = (x, y, width, height, color) => {
+      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) rows[y + dy][x + dx] = color;
+    };
+    const bob = frame === 'duckB' ? 1 : 0;
+    if (role === 'summoner') {
+      for (let layer = 0; layer < 5; layer++) rect(10 - Math.floor(layer / 2), layer + bob, 1 + layer, 1, layer % 2 ? 'V' : 'v');
+      rect(6, 5 + bob, 10, 1, 'v');rect(10, 3 + bob, 2, 1, 'Y');
+      rect(4, 12, 3, 5, 'v');rect(5, 12, 2, 3, 'V');
+      rect(19, 10, 1, 9, 'N');rect(18, 7, 3, 3, 'E');rect(19, 7, 1, 1, 'W');
+    } else if (role === 'hunter') {
+      rect(7, 2 + bob, 7, 3, 'N');rect(8, 2 + bob, 5, 2, 'n');rect(7, 4 + bob, 7, 1, 'Y');rect(5, 5 + bob, 12, 1, 'N');
+      rect(3, 11, 3, 6, 'N');rect(3, 12, 2, 4, 'n');rect(7, 15, 8, 1, 'N');rect(11, 15, 2, 1, 'Y');
+    } else if (role === 'gunner') {
+      rect(6, 5 + bob, 9, 1, 'R');rect(4, 6 + bob, 3, 1, 'r');rect(4, 7 + bob, 1, 2, 'R');
+      rect(7, 15, 8, 1, 'N');rect(10, 15, 2, 1, 'Y');rect(15, 12, 2, 4, 'D');rect(16, 11, 3, 2, 'z');
+      rect(7, 12, 1, 2, 'Y');rect(8, 13, 1, 2, 'Y');rect(9, 14, 1, 2, 'Y');
+    }
+    ART[`character_${role}_${frame}`] = rows.map(row => row.join(''));
+  }
+}
+const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner'].includes(role) ? role : 'normal'}_${frame}`;
+export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
+export const duckIconUrl = role => iconUrl(characterFrame(role, 'duckA'));
+
 const cache = new Map();
 
 // name: ART 이름, flip: 좌우 반전, tint: 덮어씌울 색(맞았을 때 흰색, 얼었을 때 하늘색), scale: 정수 배율
