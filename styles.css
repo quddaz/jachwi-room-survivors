@@ -424,32 +424,9 @@ img { display: block; max-width: 100%; }
   .screen-start.is-active { align-content: start; }
 }
 
-/* 시즌 4 기록에 사용한 캐릭터와 조합 */
 .ranking-list li { min-width: 0; }
-.ranking-build, .ranking-build-missing { grid-column: 2 / -1; min-width: 0; }
-.ranking-build-heading { display: flex; align-items: center; gap: 8px; }
-.ranking-build-heading img { width: 36px; height: 36px; flex: none; image-rendering: pixelated; }
-.ranking-build-heading > div { display: grid; gap: 3px; min-width: 0; }
-.ranking-build-heading b { font-size: 13px; }
-.ranking-build-heading > div > span { color: var(--color-ink-soft); font-size: 12px; }
-.ranking-build-summary { margin: 5px 0 7px; color: var(--color-sky-ink); font-size: 12px; line-height: 1.5; word-break: keep-all; }
-.ranking-build-details summary { width: fit-content; color: var(--color-ink-soft); font-size: 12px; font-weight: 700; cursor: pointer; }
-.ranking-build-details[open] { padding-top: 5px; }
-.ranking-character-bonus, .ranking-build-missing { margin: 0; color: var(--color-muted); font-size: 11px; line-height: 1.5; }
-.ranking-character-bonus { margin-top: 9px; }
-.ranking-kit-group { display: grid; gap: 6px; margin-top: 12px; }
-.ranking-kit-group > b { font-size: 12px; }
-.ranking-kit-items { display: flex; flex-wrap: wrap; gap: 5px; }
-.ranking-kit-items > span { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 8px; background: var(--color-cream); font-size: 11px; line-height: 1.35; }
-.ranking-kit-items .item { --size: 24px; flex: none; }
-.ranking-kit-items small { display: block; color: var(--color-muted); font-size: 10px; }
-.ranking-snapshot-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin: 0; padding: 8px; border-radius: 10px; background: #f3f6fb; font-size: 11px; }
-.ranking-snapshot-stats > div { display: flex; justify-content: space-between; gap: 4px; }
-.ranking-snapshot-stats dt { color: var(--color-ink-soft); }
-.ranking-snapshot-stats dd { margin: 0; font-weight: 700; }
 @media (max-width: 360px) {
   .ranking-list li { grid-template-columns: 30px minmax(0, 1fr) auto; padding: 10px; gap: 6px; }
-  .ranking-snapshot-stats { grid-template-columns: 1fr; }
 }
 
 /* 시작은 오리 → 추천 배분 → 공간 순서로 짧게 설정한다. */
@@ -496,14 +473,6 @@ img { display: block; max-width: 100%; }
 .season-tab { white-space: nowrap; }
 @media(max-width:420px){.season-tabs{gap:4px;}.season-tabs .season-tab{padding-left:9px;padding-right:9px;font-size:12px;}}
 
-.ranking-list li.is-expandable { display: block; }
-.ranking-card { position: relative; display: grid; grid-template-columns: 36px minmax(0,1fr) auto; align-items: center; gap: 7px 8px; list-style: none; cursor: pointer; }
-.ranking-card::-webkit-details-marker { display: none; }
-.ranking-card:focus-visible { outline: 2px solid var(--color-sky-ink); outline-offset: 5px; border-radius: 6px; }
-.ranking-preview { grid-column: 2 / -1; padding-right: 20px; color: var(--color-ink-soft); font-size: 11px; line-height: 1.5; word-break: keep-all; }
-.ranking-expand-indicator { position: absolute; right: 0; bottom: 1px; color: var(--color-sky-ink); font-size: 18px; transition: transform .15s; }
-.ranking-entry[open] .ranking-expand-indicator { transform: rotate(180deg); }
-.ranking-entry .ranking-build, .ranking-entry .ranking-build-missing { margin: 12px 0 0 44px; padding-top: 12px; border-top: 1px solid #eee7df; }
 .start-character-preview { display: none; }
 @media(min-width:960px){
   .start-character-preview { display: flex; align-items: center; gap: 16px; margin: 18px 0; padding: 12px; border-radius: 18px; background: #edf3ff; }

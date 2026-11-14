@@ -6,7 +6,6 @@ create table if not exists public.room_survivors_records (
   kills integer not null check (kills between 0 and 1000000),
   level integer not null check (level between 1 and 500),
   season smallint not null default 1 check (season between 1 and 99),
-  loadout jsonb check (loadout is null or (jsonb_typeof(loadout) = 'object' and octet_length(loadout::text) <= 16384)),
   created_at timestamptz not null default now()
 );
 
@@ -47,9 +46,8 @@ select distinct on (season, crew_name)
   survived_ms as best_survived_ms,
   kills,
   level,
-  created_at,
-  loadout
+  created_at
 from public.room_survivors_records
-order by season, crew_name, survived_ms desc, kills desc, created_at asc, id asc;
+order by season, crew_name, survived_ms desc, kills desc, created_at asc;
 
 grant select on public.room_survivors_season_best to anon;

@@ -6,7 +6,6 @@ import {
   BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
-import { captureRunBuild, runBuildWeapons } from './run-build.js';
 
 const EFFECTS_KEY = 'room-survivors:effects';
 const SOUND_KEY = 'room-survivors:sound';
@@ -376,7 +375,7 @@ async function finish() {
   drawResultItems();
   show('result');
   try {
-    await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level, loadout: captureRunBuild(game, statsOf(game)) });
+    await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level });
     const ranking = await fetchRanking();
     const index = ranking.findIndex((entry) => entry.crewName === crewName);
     const best = ranking[index];
@@ -558,52 +557,6 @@ function drawMapPicker() {
     </button>`).join('');
 }
 
-const rankingStat = {
-  maxHp: ['체력', value => Math.round(value)],
-  speed: ['이동 속도', value => Math.round(value)],
-  might: ['공격력', value => `${Math.round((value - 1) * 100)}%`],
-  cooldownScale: ['공격 속도', value => `${Math.round((1 / Math.max(value, 0.0001) - 1) * 100)}%`],
-  critChance: ['치명타 확률', value => `${Math.round(value * 100)}%`],
-  critDamage: ['치명타 피해', value => `${Math.round(value * 100)}%`],
-  flatDamage: ['고정 피해', value => `+${Math.round(value * 10) / 10}`],
-  area: ['공격 범위', value => `${Math.round((value - 1) * 100)}%`],
-  summonPower: ['소환 피해', value => `${Math.round((value - 1) * 100)}%`],
-  summonCount: ['추가 소환 수', value => `+${Math.round(value)}`],
-  relicPower: ['보물 피해', value => `${Math.round((value-1)*100)}%`],
-  relicRepeats: ['보물 발동', value => `${Math.round(value)}회`],
-  dropBonus: ['추가 드랍', value => `+${Math.round(value*100)}%p`],
-  dotPower: ['지속 피해', value => `${Math.round((value - 1) * 100)}%`],
-};
-function rankingBuild(entry) {
-  const loadout = entry.loadout;
-  if (!loadout) return '<div class="ranking-build-missing">조합 정보가 없는 기록이에요.</div>';
-  const character = CHARACTERS[loadout.character];
-  const points = Object.entries(loadout.build).filter(([, value]) => value > 0)
-    .map(([key, value]) => `${BUILD[key].label} ${value}`).join(' · ') || '능력치 미투자';
-  const weapons = runBuildWeapons(loadout);
-  const mainItems = weapons.length ? weapons : loadout.relics.map(id=>({label:RELICS[id].label}));
-  const group = (label, items) => items.length ? `<div class="ranking-kit-group"><b>${label}</b><div class="ranking-kit-items">${items.map(item => `<span>${itemIcon(item.icon ?? item.id)}<span>${escapeHtml(item.label)}${item.badge ? `<small>${escapeHtml(item.badge)}</small>` : ''}</span></span>`).join('')}</div></div>` : '';
-  return `<div class="ranking-build">
-    <div class="ranking-build-heading"><img src="${duckIconUrl(loadout.character)}" alt=""><div><b>${escapeHtml(character.label)}</b><span>${escapeHtml(points)}</span></div></div>
-    <p class="ranking-build-summary">${mainItems.length ? mainItems.slice(0,3).map(item=>escapeHtml(item.label)).join(' · ')+(mainItems.length>3?` 외 ${mainItems.length-3}개`:'') : '장비 없음'}</p>
-    <div class="ranking-build-details">
-      <p class="ranking-character-bonus">${character.stats.map(escapeHtml).join(' · ')}</p>
-      ${group('무기·합체', weapons)}
-      ${group('패시브', loadout.passives.map(item => ({ id:item.id, label:PASSIVES[item.id].label, badge:`Lv ${item.level}` })))}
-      ${group('보물', loadout.relics.map(id => ({ id, label:RELICS[id].label })))}
-      ${Object.keys(loadout.stats).length ? `<div class="ranking-kit-group"><b>종료 시점 능력치</b><dl class="ranking-snapshot-stats">${Object.entries(loadout.stats).map(([key, value]) => `<div><dt>${rankingStat[key][0]}</dt><dd>${escapeHtml(String(rankingStat[key][1](value)))}</dd></div>`).join('')}</dl></div>` : ''}
-    </div>
-  </div>`;
-}
-
-function rankingRow(entry,index,season) {
-  const top=`<span class="rank${index<3?' is-top':''}">${['🥇','🥈','🥉'][index]??index+1}</span><span class="crew">${escapeHtml(entry.crewName)}<small>${entry.kills.toLocaleString('ko-KR')}마리</small></span><span class="points">${formatTime(entry.survivedMs/1000)}</span>`;
-  if(season<4)return `<li class="${entry.crewName===crewName?'is-me':''}">${top}</li>`;
-  const points=entry.loadout?Object.entries(entry.loadout.build).filter(([,value])=>value>0).map(([key,value])=>`${BUILD[key].label} ${value}`).join(' · '):'';
-  const preview=entry.loadout?`${CHARACTERS[entry.loadout.character].label} · ${points||'능력치 미투자'}`:'조합 정보 없는 기록';
-  return `<li class="is-expandable${entry.crewName===crewName?' is-me':''}"><details class="ranking-entry"><summary class="ranking-card">${top}<span class="ranking-preview">${escapeHtml(preview)}</span><span class="ranking-expand-indicator" aria-hidden="true">⌄</span></summary>${rankingBuild(entry)}</details></li>`;
-}
-
 let rankingSeason = SEASON;
 
 async function openRanking(season = SEASON) {
@@ -617,7 +570,7 @@ async function openRanking(season = SEASON) {
   // 조합표 화면에도 .ranking-note가 있어서 순위 화면 것을 콕 집는다.
   document.querySelector('.screen-ranking .ranking-note').textContent = !isShared
     ? '공유 순위가 연결되지 않아 이 브라우저의 기록만 보여요.'
-    : season === SEASON ? '크루별 최고 기록과 그 판의 오리·능력치·조합을 보여요.'
+    : season === SEASON ? '크루마다 이번 시즌에 가장 오래 버틴 기록만 보여요.'
       : '지난 시즌 기록이에요. 이미 끝나서 더 이상 바뀌지 않아요.';
   list.innerHTML = '<li class="ranking-empty">불러오는 중</li>';
   try {
@@ -625,7 +578,12 @@ async function openRanking(season = SEASON) {
     if (season !== rankingSeason) return; // 탭을 빨리 바꾸면 늦게 온 응답은 버린다.
     list.innerHTML = ranking.length === 0
       ? `<li class="ranking-empty">${season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
-      : ranking.map((entry,index)=>rankingRow(entry,index,season)).join('');
+      : ranking.map((entry, index) => `
+          <li class="${entry.crewName === crewName ? 'is-me' : ''}">
+            <span class="rank${index < 3 ? ' is-top' : ''}">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
+            <span class="crew">${escapeHtml(entry.crewName)}<small>${entry.kills.toLocaleString('ko-KR')}마리</small></span>
+            <span class="points">${formatTime(entry.survivedMs / 1000)}</span>
+          </li>`).join('');
   } catch (error) {
     list.innerHTML = `<li class="ranking-empty">${escapeHtml(error.message)}</li>`;
   }
