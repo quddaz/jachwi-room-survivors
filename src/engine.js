@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -605,7 +605,9 @@ function moveEnemies(game, dt) {
     const dy = player.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
     let direction = 1;
-    let speed = enemy.speed * (game.time < (enemy.slowUntil ?? 0) ? enemy.slowBy : 1);
+    const hitSlow = game.time < (enemy.hitSlowUntil ?? 0) ? (enemy.elite ? HIT_SLOW.eliteSpeed : HIT_SLOW.speed) : 1;
+    const areaSlow = game.time < (enemy.slowUntil ?? 0) ? enemy.slowBy : 1;
+    let speed = enemy.speed * Math.min(hitSlow, areaSlow);
     let moveX = dx / gap;
     let moveY = dy / gap;
     enemy.timer += dt;
@@ -911,11 +913,11 @@ function critBlast(game, source, amount) {
   addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: blast.blastRadius, color: 'crit', life: 0.3 });
 }
 
-function damageWeaponHit(game, enemy, amount, knockback = 0, from = game.player) {
-  damageEnemy(game, enemy, amount, knockback, from, onHitDamageOf(game));
+function damageWeaponHit(game, enemy, amount, slows = false, from = game.player) {
+  damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
 }
 
-export function damageEnemy(game, enemy, amount, knockback = 0, from = game.player, flatBonus = 0) {
+export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
@@ -943,12 +945,8 @@ export function damageEnemy(game, enemy, amount, knockback = 0, from = game.play
     if (crit) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'crit', count: 6, life: 0.35 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: 3, life: 0.3 });
   }
-  if (knockback > 0 && !enemy.boss) {
-    const gap = distance(enemy, from) || 1;
-    // 정예는 무거워서 절반만 밀린다.
-    const push = knockback * 8 * (enemy.elite ? 0.5 : 1);
-    enemy.kx += ((enemy.x - from.x) / gap) * push;
-    enemy.ky += ((enemy.y - from.y) / gap) * push;
+  if (slows && !enemy.boss) {
+    enemy.hitSlowUntil = Math.max(enemy.hitSlowUntil ?? 0, game.time + HIT_SLOW.durationSec);
   }
   if (enemy.hp <= 0) {
     killEnemy(game, enemy);
@@ -986,7 +984,7 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popReach, color: 'gold', life: 0.3 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
     for (const other of near(game, enemy.x, enemy.y, popReach)) {
-      if (other !== enemy && !other.dead && distance(other, enemy) < popReach + other.radius) damageEnemy(game, other, damage, 10, enemy);
+      if (other !== enemy && !other.dead && distance(other, enemy) < popReach + other.radius) damageEnemy(game, other, damage, true, enemy);
     }
     game.popDepth -= 1;
   }
@@ -1167,7 +1165,7 @@ function updateSaws(game, dt) {
     if (!blade.target || distance(blade, blade.target) > radius + blade.target.radius) return;
     // 베고, 피를 흘리게 하고, 다음 적에게 튕긴다.
     const victim = blade.target;
-    damageWeaponHit(game, victim, damage, 8, blade);
+    damageWeaponHit(game, victim, damage, true, blade);
     victim.bleedUntil = game.time + saw.bleedSec;
     victim.bleedDps = Math.max(victim.bleedDps ?? 0, damage * saw.bleed);
     addEffect(game, { type: 'slash', x: blade.x, y: blade.y, angle: Math.atan2(blade.vy, blade.vx), life: 0.22 });
@@ -1212,7 +1210,7 @@ function fireWeapons(game, dt) {
     const radius = weaponValue(game, 'broom', 'radius') * area;
     const damage = weaponValue(game, 'broom', 'damage');
     for (const enemy of near(game, player.x, player.y, radius)) {
-      if (distance(enemy, player) < radius + enemy.radius) damageWeaponHit(game, enemy, damage, WEAPONS.broom.knockback);
+      if (distance(enemy, player) < radius + enemy.radius) damageWeaponHit(game, enemy, damage, WEAPONS.broom.slows);
     }
     addEffect(game, { type: 'sweep', x: player.x, y: player.y, radius, life: 0.28, facing: player.facing,
       mega: Boolean(evolution(game, 'broom')) });
@@ -1255,7 +1253,7 @@ function fireWeapons(game, dt) {
     for (const target of targets) {
       const center = { x: target.x, y: target.y };
       for (const enemy of near(game, center.x, center.y, radius)) {
-        if (distance(enemy, center) < radius + enemy.radius) damageWeaponHit(game, enemy, damage, 20, center);
+        if (distance(enemy, center) < radius + enemy.radius) damageWeaponHit(game, enemy, damage, true, center);
       }
       addEffect(game, { type: 'swat', x: center.x, y: center.y, radius, life: 0.35, mega: Boolean(evolution(game, 'swatter')) });
     }
@@ -1285,7 +1283,7 @@ function fireWeapons(game, dt) {
         const radius = fire.novaRadius * area;
         const burn = weaponValue(game, 'dryer', 'dps') * fire.nova;
         for (const enemy of game.enemies) {
-          if (!enemy.dead && distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, burn, 30);
+          if (!enemy.dead && distance(enemy, player) < radius + enemy.radius) damageEnemy(game, enemy, burn, true);
         }
         addEffect(game, { type: 'nova', x: player.x, y: player.y, radius, life: 0.55 });
         game.shake = Math.max(game.shake, 0.15);
@@ -1296,7 +1294,7 @@ function fireWeapons(game, dt) {
         if (enemy.dead || distance(enemy, orb) > 11 * projectile + enemy.radius) continue;
         if (game.time - (enemy.coilHitAt ?? -9) < WEAPONS.coil.hitEverySec) continue;
         enemy.coilHitAt = game.time;
-        damageWeaponHit(game, enemy, damage, 8, orb);
+        damageWeaponHit(game, enemy, damage, true, orb);
       }
     }
   }
@@ -1346,7 +1344,7 @@ function fireWeapons(game, dt) {
     for (const angle of evolution(game, 'roller') ? [forward, forward + Math.PI] : [forward]) {
       game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'roller', 'damage'), pierce: 999, life: lifeSec, radius: weaponValue(game, 'roller', 'size') * area * projectile,
-        hit: new Set(), kind: 'roller', knockback: 14, mega: Boolean(evolution(game, 'roller')) });
+        hit: new Set(), kind: 'roller', slows: true, mega: Boolean(evolution(game, 'roller')) });
     }
   }
   if (game.weapons.dryer) {
@@ -1382,7 +1380,7 @@ function fireWeapons(game, dt) {
       if (enemy.dead || gap > range + enemy.radius) continue;
       const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
       const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
-      if (diff < cone || evolution(game, 'fan')) damageWeaponHit(game, enemy, damage, WEAPONS.fan.knockback);
+      if (diff < cone || evolution(game, 'fan')) damageWeaponHit(game, enemy, damage, WEAPONS.fan.slows);
     }
     addEffect(game, { type: 'gust', x: player.x, y: player.y, angle, range, cone, life: 0.35,
       mega: Boolean(evolution(game, 'fan')) });
@@ -1425,7 +1423,7 @@ function fireWeapons(game, dt) {
         const ry = enemy.y - player.y;
         const along = rx * dx + ry * dy;
         if (along < -enemy.radius || along > length) continue;
-        if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) damageWeaponHit(game, enemy, damage, 4);
+        if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) damageWeaponHit(game, enemy, damage, true);
       }
       addEffect(game, { type: 'laser', x: player.x, y: player.y, angle, length, width, life: 0.34, mega: Boolean(show) });
     }
@@ -1446,7 +1444,7 @@ function fireWeapons(game, dt) {
         pierce: venom ? venom.pierce : nailer ? nailer.pierce : 0, life: lifeSec * (venom?.lifeScale ?? 1), radius: 5 * projectile, scale: projectile,
         homing: venom?.homing, speed,
         poison: venom ? weaponValue(game, 'spray', 'damage') * venom.poison : 0,
-        hit: new Set(), kind: 'staple', knockback: 3,
+        hit: new Set(), kind: 'staple', slows: true,
         mega: Boolean(nailer),
       });
     }
@@ -1518,7 +1516,7 @@ function fireWeapons(game, dt) {
         enemy.ballHitAt ??= {};
         if (game.time - (enemy.ballHitAt[ball.id] ?? -9) < WEAPONS.ball.hitEverySec) continue;
         enemy.ballHitAt[ball.id] = game.time;
-        damageWeaponHit(game, enemy, damage, 12, ball);
+        damageWeaponHit(game, enemy, damage, true, ball);
       }
     }
   }
@@ -1572,7 +1570,7 @@ function fireWeapons(game, dt) {
         if (enemy.dead || distance(enemy, robot) > reach + enemy.radius) continue;
         if (game.time - (enemy.robotHitAt ?? -9) < WEAPONS.robot.hitEverySec) continue;
         enemy.robotHitAt = game.time;
-        damageWeaponHit(game, enemy, damage, 3, robot);
+        damageWeaponHit(game, enemy, damage, true, robot);
       }
     });
   }
@@ -1588,7 +1586,7 @@ function fireWeapons(game, dt) {
         if (enemy.dead) continue;
         const along = (enemy.x - player.x) * dir;
         if (along > -10 && along < length + enemy.radius && Math.abs(enemy.y - player.y) < height / 2 + enemy.radius) {
-          damageWeaponHit(game, enemy, damage, WEAPONS.towel.knockback);
+          damageWeaponHit(game, enemy, damage, WEAPONS.towel.slows);
           if (!enemy.boss) {
             enemy.slowUntil = Math.max(enemy.slowUntil ?? 0, game.time + WEAPONS.towel.slowSec);
             enemy.slowBy = WEAPONS.towel.slow;
@@ -1608,7 +1606,7 @@ function fireWeapons(game, dt) {
       game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'paperplane', 'damage'), pierce: crane ? crane.pierce : 0, life: lifeSec, radius: 8 * projectile,
         bomb: fusion(game, 'bomber') ? { damage: weaponValue(game, 'swatter', 'damage') * FUSIONS.bomber.damage, radius: FUSIONS.bomber.radius * area } : null,
-        scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, knockback: 4, mega: Boolean(crane) });
+        scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, slows: true, mega: Boolean(crane) });
     }
   }
   if (game.weapons.mousetrap) {
@@ -1630,7 +1628,7 @@ function fireWeapons(game, dt) {
       if (!near(game, trap.x, trap.y, trap.radius).some((enemy) => !enemy.dead && distance(enemy, trap) < trap.radius + enemy.radius * 0.6)) continue;
       // 탁! 덫 둘레의 적을 모두 문다.
       for (const enemy of near(game, trap.x, trap.y, trap.radius * 1.5)) {
-        if (!enemy.dead && distance(enemy, trap) < trap.radius * 1.5 + enemy.radius) damageWeaponHit(game, enemy, trap.damage, 4, trap);
+        if (!enemy.dead && distance(enemy, trap) < trap.radius * 1.5 + enemy.radius) damageWeaponHit(game, enemy, trap.damage, true, trap);
       }
       addEffect(game, { type: 'slam', x: trap.x, y: trap.y, radius: trap.radius * 1.5, life: 0.3 });
       const foam = fusion(game, 'foammine');
@@ -1665,7 +1663,7 @@ function fireWeapons(game, dt) {
         const gap = distance(enemy, wave);
         if (gap - enemy.radius < wave.r && gap + enemy.radius > wave.r - 20) {
           wave.hit.add(enemy.id);
-          damageWeaponHit(game, enemy, wave.damage, 6, wave);
+          damageWeaponHit(game, enemy, wave.damage, true, wave);
           if (wave.oven && !enemy.boss) {
             enemy.slowUntil = game.time + FUSIONS.dryoven.burnSec;
             enemy.slowBy = FUSIONS.dryoven.slow;
@@ -1696,7 +1694,7 @@ function fireWeapons(game, dt) {
       splash.delay -= dt;
       if (splash.delay > 0) continue;
       for (const enemy of near(game, splash.x, splash.y, splash.radius)) {
-        if (!enemy.dead && distance(enemy, splash) < splash.radius + enemy.radius) damageWeaponHit(game, enemy, splash.damage, 4, splash);
+        if (!enemy.dead && distance(enemy, splash) < splash.radius + enemy.radius) damageWeaponHit(game, enemy, splash.damage, true, splash);
       }
       addEffect(game, { type: 'ring', x: splash.x, y: splash.y, radius: splash.radius, color: 'water', life: 0.3 });
       const shock = fusion(game, 'shockshower');
@@ -1770,21 +1768,21 @@ function updateProjectiles(game, dt) {
       shot.hit.add(enemy.id);
       if (shot.pop) {
         for (const other of near(game, shot.x, shot.y, shot.pop)) {
-          if (!other.dead && distance(other, shot) < shot.pop + other.radius) damageWeaponHit(game, other, shot.damage, 4, shot);
+          if (!other.dead && distance(other, shot) < shot.pop + other.radius) damageWeaponHit(game, other, shot.damage, true, shot);
         }
         addEffect(game, { type: 'ring', x: shot.x, y: shot.y, radius: shot.pop, color: 'bubble', life: 0.3 });
         addEffect(game, { type: 'burst', x: shot.x, y: shot.y, color: 'bubble', count: 6, life: 0.35 });
         shot.life = 0;
         break;
       }
-      if (shot.kind === 'ice') damageEnemy(game, enemy, shot.damage, shot.knockback ?? 6, shot);
-      else damageWeaponHit(game, enemy, shot.damage, shot.knockback ?? 6, shot);
+      if (shot.kind === 'ice') damageEnemy(game, enemy, shot.damage, shot.slows ?? true, shot);
+      else damageWeaponHit(game, enemy, shot.damage, shot.slows ?? true, shot);
       if (shot.bomb) {
         // 파리채 폭격기: 비행기가 맞힌 자리를 파리채가 함께 내려친다.
         for (const other of near(game, enemy.x, enemy.y, shot.bomb.radius)) {
-          if (other !== enemy && !other.dead && distance(other, enemy) < shot.bomb.radius + other.radius) damageWeaponHit(game, other, shot.bomb.damage, 10, enemy);
+          if (other !== enemy && !other.dead && distance(other, enemy) < shot.bomb.radius + other.radius) damageWeaponHit(game, other, shot.bomb.damage, true, enemy);
         }
-        damageWeaponHit(game, enemy, shot.bomb.damage, 10, shot);
+        damageWeaponHit(game, enemy, shot.bomb.damage, true, shot);
         addEffect(game, { type: 'swat', x: enemy.x, y: enemy.y, radius: shot.bomb.radius, life: 0.3, mega: true });
       }
       if (shot.poison) {
@@ -1816,7 +1814,7 @@ function updateProjectiles(game, dt) {
     for (const enemy of near(game, slipper.x, slipper.y, slipper.radius)) {
       if (enemy.dead || slipper.hit.has(enemy.id) || distance(slipper, enemy) > slipper.radius + enemy.radius) continue;
       slipper.hit.add(enemy.id);
-      damageWeaponHit(game, enemy, slipper.damage, 10, slipper);
+      damageWeaponHit(game, enemy, slipper.damage, true, slipper);
     }
   }
   game.slippers = game.slippers.filter((slipper) => !slipper.done);
@@ -1884,7 +1882,7 @@ function contactDamage(game) {
       const scrubReach = relicReach(game, scrubber.radius);
       for (const enemy of near(game, game.player.x, game.player.y, scrubReach)) {
         if (!enemy.dead && distance(enemy, game.player) < scrubReach + enemy.radius) {
-          damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), 30);
+          damageEnemy(game, enemy, strongest * scrubber.reflect * relicPowerOf(game), true);
         }
       }
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: scrubReach, color: 'spark', life: 0.3 });
@@ -2190,7 +2188,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
       game.fireIn = relicEvery(game, firecracker.everySec);
       const damage = relicDamage(game, firecracker.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, game.player) < relicReach(game, firecracker.radius) + enemy.radius) damageEnemy(game, enemy, damage, 40);
+        if (!enemy.dead && distance(enemy, game.player) < relicReach(game, firecracker.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
       }
       addEffect(game, { type: 'nova', x: game.player.x, y: game.player.y, radius: relicReach(game, firecracker.radius), life: 0.6 });
       addEffect(game, { type: 'burst', x: game.player.x, y: game.player.y, color: 'gold', count: 40, life: 0.8, big: true });
@@ -2256,7 +2254,7 @@ function updateTops(game, dt) {
       enemy.topHits ??= {};
       if (game.time - (enemy.topHits[spinner.id] ?? -9) < top.hitEverySec) continue;
       enemy.topHits[spinner.id] = game.time;
-      damageEnemy(game, enemy, damage, 12, spinner);
+      damageEnemy(game, enemy, damage, true, spinner);
     }
   }
   game.tops = game.tops.filter((spinner) => spinner.life > 0);
@@ -2272,7 +2270,7 @@ function updateDamageRelics(game, dt) {
       game.pasIn = relicEvery(game, pas.everySec);
       const damage = relicDamage(game, pas.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, player) < relicReach(game, pas.radius) + enemy.radius) damageEnemy(game, enemy, damage, 20);
+        if (!enemy.dead && distance(enemy, player) < relicReach(game, pas.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
       }
       addEffect(game, { type: 'nova', x: player.x, y: player.y, radius: relicReach(game, pas.radius), life: 0.45, color: 'mint' });
       addEffect(game, { type: 'burst', x: player.x, y: player.y, color: 'teal', count: 16, life: 0.5 });
@@ -2314,7 +2312,7 @@ function updateDamageRelics(game, dt) {
       spot.life = 0;
       const damage = relicDamage(game, pin.damage);
       for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, spot) < pinReach + enemy.radius) damageEnemy(game, enemy, damage, 6, spot);
+        if (!enemy.dead && distance(enemy, spot) < pinReach + enemy.radius) damageEnemy(game, enemy, damage, true, spot);
       }
       addEffect(game, { type: 'snap', x: spot.x, y: spot.y, radius: pinReach, life: 0.3 });
     }
@@ -2334,7 +2332,7 @@ function updateDamageRelics(game, dt) {
       for (const target of targets) {
         const spot = { x: target.x, y: target.y };
         for (const enemy of near(game, spot.x, spot.y, blast)) {
-          if (!enemy.dead && distance(enemy, spot) < blast + enemy.radius) damageEnemy(game, enemy, damage, 10, spot);
+          if (!enemy.dead && distance(enemy, spot) < blast + enemy.radius) damageEnemy(game, enemy, damage, true, spot);
         }
         addEffect(game, { type: 'bolt', points: [{ x: spot.x + 30, y: spot.y - 260 }, { x: spot.x - 10, y: spot.y - 120 }, { x: spot.x + 8, y: spot.y - 50 }, spot],
           life: 0.25, mega: true });
@@ -2346,7 +2344,7 @@ function updateDamageRelics(game, dt) {
   if (glove) {
     game.gloveIn = (game.gloveIn ?? glove.everySec) - dt;
     if (game.gloveIn <= 0) {
-      // 고무장갑: 바라보는 쪽으로 길게 충격파를 날려 밀어낸다.
+      // 고무장갑: 바라보는 쪽으로 길게 충격파를 날리고 적을 둔화시킨다.
       game.gloveIn = relicEvery(game, glove.everySec);
       const angle = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
       const length = relicReach(game, glove.length);
@@ -2358,7 +2356,7 @@ function updateDamageRelics(game, dt) {
         if (enemy.dead) continue;
         const along = (enemy.x - player.x) * dx + (enemy.y - player.y) * dy;
         const across = Math.abs(-(enemy.x - player.x) * dy + (enemy.y - player.y) * dx);
-        if (along > -10 && along < length + enemy.radius && across < half + enemy.radius) damageEnemy(game, enemy, damage, glove.knockback);
+        if (along > -10 && along < length + enemy.radius && across < half + enemy.radius) damageEnemy(game, enemy, damage, glove.slows);
       }
       addEffect(game, { type: 'punch', x: player.x, y: player.y, angle, length, width: half * 2, life: 0.35 });
     }
@@ -2376,7 +2374,7 @@ function updateDamageRelics(game, dt) {
       for (let shard = 0; shard < purifier.shards; shard += 1) {
         const angle = turn + (shard / purifier.shards) * Math.PI * 2;
         game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * purifier.speed, vy: Math.sin(angle) * purifier.speed,
-          damage, pierce: purifier.pierce, life: purifier.lifeSec * reach, radius: 7, scale: 1, hit: new Set(), kind: 'ice', knockback: 6 });
+          damage, pierce: purifier.pierce, life: purifier.lifeSec * reach, radius: 7, scale: 1, hit: new Set(), kind: 'ice', slows: true });
       }
       addEffect(game, { type: 'ring', x: player.x, y: player.y, radius: 50, color: 'water', life: 0.3 });
     }

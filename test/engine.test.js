@@ -209,14 +209,16 @@ describe('추가 아이템', () => {
     assert.ok(targets.every((enemy) => enemy.hp < 1000));
   });
 
-  it('선풍기는 앞쪽 적만 멀리 밀어낸다', () => {
+  it('선풍기는 앞쪽 적만 때리고 밀어내는 대신 둔화시킨다', () => {
     const game = createGame(seeded(4));
     game.spawnCarry = -1000;
     game.weapons = { fan: 1 };
     const front = placeEnemy(game, 'trash', 80, 0, { hp: 1000 });
     const behind = placeEnemy(game, 'trash', -120, 0, { hp: 1000 });
     update(game, 1 / 60);
-    assert.ok(front.kx > 0);
+    assert.equal(front.kx, 0);
+    assert.ok(front.hitSlowUntil > game.time);
+    assert.equal(behind.hitSlowUntil, undefined);
     assert.equal(behind.hp, 1000);
   });
 

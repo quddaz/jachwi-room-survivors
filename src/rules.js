@@ -65,6 +65,9 @@ export const MAPS = {
 export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.6,
   maxHitShare: 0.4 };
 
+// 밀어내기 대신 짧은 타격 둔화. 연타로 감소율이 중첩되지 않고 보스는 면역이다.
+export const HIT_SLOW = { speed: 0.75, eliteSpeed: 0.85, durationSec: 0.35 };
+
 // 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
 export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
 
@@ -189,7 +192,7 @@ export const WEAPONS = {
   },
   broom: {
     label: '빗자루', description: '주변을 크게 쓸어 버린다',
-    cooldown: [1.4, 1.25, 1.1, 1.0, 0.85], damage: [20, 26, 33, 41, 50], radius: [76, 86, 96, 108, 122], knockback: 40,
+    cooldown: [1.4, 1.25, 1.1, 1.0, 0.85], damage: [20, 26, 33, 41, 50], radius: [76, 86, 96, 108, 122], slows: true,
   },
   bleach: {
     label: '락스', description: '적이 몰린 곳에 독한 웅덩이를 남긴다',
@@ -230,9 +233,9 @@ export const WEAPONS = {
     dps: [24, 31, 39, 48, 60], range: [135, 145, 157, 170, 185], spread: 0.45,
   },
   fan: {
-    label: '선풍기', description: '강풍으로 앞의 적을 멀리 날린다',
+    label: '선풍기', description: '강풍으로 앞의 적을 때리고 느리게 한다',
     // cone은 바라보는 쪽에서 양옆으로 바람이 닿는 각도(라디안)다.
-    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], knockback: 38, cone: 1.0,
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], slows: true, cone: 1.0,
   },
   laser: {
     label: '레이저 포인터', description: '아무 방향으로나 곧게 뻗는 레이저를 쏜다',
@@ -255,7 +258,7 @@ export const WEAPONS = {
     // 젖어서 맞은 적은 잠깐 느려진다(보스 제외).
     label: '젖은 수건', description: '앞을 넓고 길게 후려치고, 맞은 적을 적셔 느리게 한다. 2레벨부터 양쪽',
     cooldown: [1.0, 0.92, 0.84, 0.76, 0.68], damage: [26, 33, 41, 50, 62], length: [170, 185, 200, 220, 245], count: [1, 2, 2, 2, 2],
-    height: 64, knockback: 14, slow: 0.65, slowSec: 1,
+    height: 64, slows: true, slow: 0.65, slowSec: 1,
   },
   paperplane: {
     label: '종이비행기', description: '적을 쫓아가는 비행기를 날린다',
@@ -417,7 +420,7 @@ export const RELICS = {
   outlet: { label: '멀티탭', treasureOnly: true, description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 160(레벨·보물 피해 비례)'],
     everySec: 5, strikes: 4, range: 520, radius: 44, damage: 160 },
   glove: { label: '고무장갑', treasureOnly: true, description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 130(레벨·보물 피해 비례)'],
-    everySec: 4, length: 300, width: 80, damage: 130, knockback: 50 },
+    everySec: 4, length: 300, width: 80, damage: 130, slows: true },
   match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 32(레벨·보물 피해 비례)'],
     chance: 0.12, burnSec: 3, dps: 32 },
   // 쿨타임마다 팽이를 하나 날린다. 팽이는 화면 가장자리에서 튕기며 4초 동안 돈다. 쿨타임이 짧을수록 많이 돈다.
