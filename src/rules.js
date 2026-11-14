@@ -18,7 +18,7 @@ export const BUILD = {
     perks: {
       5: { name: '레벨업 질주', text: '레벨업하면 5초 동안 공격 속도 +40%', rushSec: 5, rush: 0.4 },
       10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
-      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
+      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배, 고정 피해 보물 해금', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
     } },
   survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
     perks: {
@@ -279,7 +279,7 @@ export const PASSIVES = {
   wipes: { label: '물티슈', description: '무기 범위가 넓어지고, 드라이기·선풍기 바람 폭도 넓어진다', area: [0.08, 0.16, 0.24, 0.32, 0.4] },
   protein: { label: '단백질 셰이크', description: '모든 무기의 공격력이 오른다', might: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] },
   magnifier: { label: '돋보기', description: '날아가는 것들이 커진다', size: [0.3, 0.6, 0.9, 1.2, 1.5] },
-  clover: { label: '네잎클로버', description: '가끔 치명타가 터진다', critChance: [0.05, 0.1, 0.15, 0.2, 0.25, 0.29, 0.33, 0.37, 0.41, 0.45] },
+  clover: { label: '네잎클로버', description: '레벨마다 치명타 확률 +6%, 최대 +60%', critChance: [0.06, 0.12, 0.18, 0.24, 0.3, 0.36, 0.42, 0.48, 0.54, 0.6] },
   // 치명타 확률이 없으면 쓸모가 없어서, 네잎클로버를 가진 뒤에만 나온다.
   hotsauce: { label: '핫소스', description: '치명타가 더 아프다', critDamage: [0.25, 0.5, 0.75, 1.0, 1.25], requires: 'clover' },
   // 보물 패시브: 보물 파트 20점이어야 나온다. 보물이 직접 주는 피해와 발동 주기만 바꾼다.
@@ -390,6 +390,11 @@ export const RELICS = {
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
+  // 공속 20점 전용: 공격력과 치명타로 늘어나지 않는 타격당 고정 피해.
+  precision: { label: '정밀 스프링', hasteOnly: true, description: '치명타 확률을 낮추고 매 타격을 묵직하게 만든다',
+    stats: ['치명타 확률 -20%p(고무망치 전환에도 적용)', '무기 타격마다 고정 피해 +75', '추가 피해는 치명타·공격력으로 증가하지 않음, 지속 피해 제외'], critPenalty: 0.2, hitDamage: 75 },
+  lightgear: { label: '경량 기어', hasteOnly: true, description: '공격력을 낮추는 대신 빠른 연타에 힘을 싣는다',
+    stats: ['공격력 ×0.75', '무기 타격마다 고정 피해 +45', '추가 피해는 치명타·공격력으로 증가하지 않음, 지속 피해 제외'], mightScale: 0.75, hitDamage: 45 },
   // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
   pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 80(레벨·보물 피해 비례)'],
     everySec: 8, radius: 170, damage: 80 },

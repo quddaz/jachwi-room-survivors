@@ -623,7 +623,7 @@ describe('레벨업 다시 뽑기와 수치 표시', () => {
     const sheet = Object.fromEntries(statSheet(game));
     assert.equal(sheet['공격력'], '+30%');
     assert.equal(sheet['이동 속도'], '+10%');
-    assert.equal(sheet['치명타 확률'], '10%');
+    assert.equal(sheet['치명타 확률'], '12%');
     assert.equal(sheet['치명타 피해'], '175%');
   });
 });

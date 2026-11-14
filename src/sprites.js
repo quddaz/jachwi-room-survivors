@@ -1786,6 +1786,26 @@ ITEMS.mallet = item([], (body, fx, f) => {
   }
   twinkle(fx, 13, 2, f, 'Y');
 });
+// 공속 20점 전용 보물: 금속 스프링과 가벼운 기어.
+ITEMS.precision = item([], (body, fx, f) => {
+  const shift = f === 1 || f === 2 ? 1 : 0;
+  body.rect(4, 2, 8, 2, 'D').rect(5, 2, 6, 1, 'i');
+  for (let y = 4; y < 12; y += 3) {
+    body.line(4, y, 11, y + 1 + shift, 'z').line(11, y + 1 + shift, 4, y + 3, 'B');
+  }
+  body.rect(4, 13, 8, 2, 'D').rect(5, 13, 6, 1, 'i');
+  twinkle(fx, 13, 3, f, 'E');
+});
+ITEMS.lightgear = item([], (body, fx, f) => {
+  body.ellipse(8, 8, 5, 5, 'O').ellipse(8, 8, 4, 4, 'Y').ellipse(8, 8, 2, 2, 'q');
+  const diagonal = f % 2;
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index + diagonal / 2) * Math.PI / 4;
+    body.rect(Math.round(7 + Math.cos(angle) * 6), Math.round(7 + Math.sin(angle) * 6), 2, 2, 'O');
+  }
+  body.set(7, 7, 'i');
+  twinkle(fx, 1, 2, f, 'Y');
+});
 // 합체 무기
 ITEMS.thunderball = item([], (body, fx, f) => {
   const cy = [8, 7, 8, 9][f];
