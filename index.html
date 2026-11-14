@@ -52,7 +52,9 @@
           </div>
           <button class="button button-primary" type="submit">시작하기</button>
         </form>
+
         <div class="start-links">
+          <button class="sound-toggle" type="button" data-action="sound" aria-label="소리 끄기" aria-pressed="true"><span aria-hidden="true">♪</span><span data-sound-status>소리 켜짐</span></button>
           <button class="button button-ghost" type="button" data-action="recipes">📖 도감</button>
           <button class="button button-ghost" type="button" data-action="ranking">🏆 순위 보기</button>
         </div>
@@ -78,6 +80,7 @@
           <span class="time-value">0:00</span>
           <div class="hud-right">
             <span class="kills"><img class="px kills-icon" alt="" /><b class="kills-value">0</b></span>
+            <button class="sound-toggle sound-compact" type="button" data-action="sound" aria-label="소리 끄기" aria-pressed="true"><span aria-hidden="true">♪</span></button>
             <button class="pause" type="button" data-action="pause" aria-label="일시정지">Ⅱ</button>
           </div>
         </header>
@@ -115,6 +118,7 @@
         <p class="result-time"><b class="result-time-value">0:00</b> 버텼어요</p>
         <p class="result-rank"></p>
         <dl class="result-stats"></dl>
+        <div class="result-items" aria-label="이번 판의 아이템"></div>
         <button class="button button-primary" type="button" data-action="retry">다시 하기</button>
         <button class="button button-ghost" type="button" data-action="ranking">순위 보기</button>
       </section>

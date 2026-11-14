@@ -1,3 +1,4 @@
+import { createMusic } from './audio.js';
 import { applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
@@ -6,6 +7,8 @@ import {
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
+const SOUND_KEY = 'room-survivors:sound';
+const music = createMusic();
 const NAME_KEY = 'room-survivors:crew-name';
 const MAP_KEY = 'room-survivors:map';
 const BUILD_KEY = 'room-survivors:build';
@@ -36,9 +39,45 @@ const keys = new Set();
 let touch = null;
 let shownBannerAge = null;
 let shownChoices = null;
+let soundMuted = recall(SOUND_KEY) === 'off';
+let heardObjects = new WeakSet();
+const EFFECT_SOUNDS = { sweep: 'slash', towel: 'slash', punch: 'impact', swat: 'impact', slam: 'impact',
+  bolt: 'zap', laser: 'zap', nova: 'impact', bomb: 'impact', pickup: 'pickup' };
+
+function syncSound() {
+  music.setMuted(soundMuted || document.hidden || paused);
+  music.setPlaying(Boolean(game && !game.over && !game.choices && !paused && !document.hidden
+    && gameScreen.classList.contains('is-active')));
+}
+
+function drawSoundButtons() {
+  document.querySelectorAll('[data-action="sound"]').forEach((button) => {
+    button.setAttribute('aria-pressed', String(!soundMuted));
+    button.title = soundMuted ? '소리 켜기' : '소리 끄기';
+    button.setAttribute('aria-label', button.title);
+  });
+  document.querySelector('[data-sound-status]').textContent = soundMuted ? '소리 꺼짐' : '소리 켜짐';
+}
+
+function playCombatSounds() {
+  const bosses = game.enemies.some((enemy) => enemy.boss && !enemy.dead);
+  music.setBoss(bosses);
+  for (const effect of game.effects) {
+    if (heardObjects.has(effect)) continue;
+    heardObjects.add(effect);
+    const sound = effect.sound ?? EFFECT_SOUNDS[effect.type];
+    if (sound) music.playEffect(sound);
+  }
+  for (const shot of game.shots) {
+    if (heardObjects.has(shot)) continue;
+    heardObjects.add(shot);
+    music.playEffect('shoot');
+  }
+}
 
 function show(name) {
   screens.forEach((screen) => screen.classList.toggle('is-active', screen.dataset.screen === name));
+  syncSound();
 }
 
 function remember(key, value) {
@@ -160,8 +199,10 @@ function drawLoadout() {
 function drawChoices() {
   if (game.choices === shownChoices) return;
   shownChoices = game.choices;
+  syncSound();
   levelupOverlay.hidden = !game.choices;
   if (!game.choices) return;
+  music.playEffect(game.choices[0]?.kind.startsWith('relic') ? 'chest' : 'levelup');
   touch = null;
   joystick.hidden = true;
   const treasure = game.choices[0]?.kind.startsWith('relic');
@@ -197,7 +238,7 @@ function drawChoices() {
 }
 
 function rerollChoices() {
-  if (reroll(game)) drawChoices();
+  if (reroll(game)) { music.playEffect('select'); drawChoices(); }
 }
 
 let shownStats = '';
@@ -218,6 +259,10 @@ function frame(now) {
   const elapsed = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   if (!paused) {
+    const hp = game.player.hp;
+    const kills = game.kills;
+    const xp = game.xp;
+    const bossIndex = game.bossIndex;
     carry += elapsed;
     while (carry >= STEP) {
       update(game, STEP, currentInput());
@@ -227,6 +272,11 @@ function frame(now) {
         break;
       }
     }
+    if (game.player.hp < hp) music.playEffect('hurt');
+    if (game.kills > kills) music.playEffect('kill');
+    if (game.bossIndex > bossIndex) music.playEffect('boss');
+    if (game.xp > xp) music.playEffect('xp');
+    playCombatSounds();
   }
   render(ctx, game, viewport.width, viewport.height, now / 1000);
   drawHud();
@@ -240,6 +290,9 @@ function frame(now) {
 }
 
 function start() {
+  music.reset();
+  heardObjects = new WeakSet();
+  if (!soundMuted) music.unlock();
   cancelAnimationFrame(frameId);
   game = createGame();
   game.map = selectedMap;
@@ -268,13 +321,32 @@ function start() {
 function setPaused(value) {
   if (!game || game.over) return;
   paused = value;
+  if (!value && !soundMuted) music.unlock();
+  syncSound();
   pausedOverlay.hidden = !value;
   touch = null;
   joystick.hidden = true;
 }
 
+function drawResultItems() {
+  const groups = [
+    ['무기', Object.entries(game.weapons).map(([id, level]) => ({ id,
+      name: game.evolved[id] ? EVOLUTIONS[id].label : WEAPONS[id].label,
+      badge: game.evolved[id] ? '완성형' : `Lv ${level}`, kind: game.evolved[id] ? 'evolved' : 'weapon' }))],
+    ['합체', Object.keys(game.fusions).map((id) => ({ id, name: FUSIONS[id].label, badge: '합체', kind: 'fusion' }))],
+    ['패시브', Object.entries(game.passives).map(([id, level]) => ({ id, name: PASSIVES[id].label, badge: `Lv ${level}`, kind: 'passive' }))],
+    ['보물', Object.keys(game.relics).map((id) => ({ id, name: RELICS[id].label, badge: '보물', kind: 'relic' }))],
+  ];
+  document.querySelector('.result-items').innerHTML = groups.filter(([, items]) => items.length).map(([title, items]) => `
+    <section class="result-item-group"><h3>${title}<small>${items.length}</small></h3><ul>
+    ${items.map((item) => `<li class="result-item is-${item.kind}">${itemIcon(item.id)}<span>${escapeHtml(item.name)}<small>${item.badge}</small></span></li>`).join('')}
+    </ul></section>`).join('');
+}
+
 async function finish() {
   cancelAnimationFrame(frameId);
+  music.setPlaying(false);
+  music.playEffect('gameover');
   const survivedMs = Math.round(game.time * 1000);
   document.querySelector('.result-name').textContent = crewName;
   document.querySelector('.result-time-value').textContent = formatTime(game.time);
@@ -287,6 +359,7 @@ async function finish() {
     .map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('');
   const rankText = document.querySelector('.result-rank');
   rankText.textContent = '순위를 확인하고 있어요';
+  drawResultItems();
   show('result');
   try {
     await submitRecord({ crewName, survivedMs, kills: game.kills, level: game.level });
@@ -522,8 +595,7 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
   const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
-    choose(game, pick);
-    drawLoadout();
+    selectItem(pick);
   }
 });
 window.addEventListener('keyup', (event) => {
@@ -536,15 +608,26 @@ window.addEventListener('resize', () => {
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && game && !game.over && !game.choices) setPaused(true);
+  syncSound();
 });
+window.addEventListener('pagehide', () => { music.setMuted(true); music.setPlaying(false); });
+window.addEventListener('pageshow', syncSound);
 
 window.__drawLoadout = () => drawLoadout();
+
+function selectItem(index) {
+  if (paused) return;
+  const choice = choose(game, index);
+  if (!choice) return;
+  music.playEffect(['fusion', 'evolve'].includes(choice.kind) ? 'evolve' : 'select');
+  drawLoadout();
+  drawChoices();
+}
 
 document.querySelector('.choices').addEventListener('click', (event) => {
   const button = event.target.closest('[data-choice]');
   if (!button || !game?.choices) return;
-  choose(game, Number(button.dataset.choice));
-  drawLoadout();
+  selectItem(Number(button.dataset.choice));
 });
 
 document.querySelector('.start-form').addEventListener('submit', (event) => {
@@ -565,6 +648,13 @@ document.querySelector('.start-form').addEventListener('submit', (event) => {
 
 app.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'sound') {
+    soundMuted = !soundMuted;
+    if (!soundMuted) music.unlock();
+    remember(SOUND_KEY, soundMuted ? 'off' : 'on');
+    drawSoundButtons();
+    syncSound();
+  }
   if (action === 'ranking') openRanking();
   const season = event.target.closest('[data-season]')?.dataset.season;
   if (season) openRanking(Number(season));
@@ -607,3 +697,6 @@ drawBuild();
 nameInput.value = crewName;
 
 
+
+drawSoundButtons();
+syncSound();

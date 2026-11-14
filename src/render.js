@@ -981,21 +981,6 @@ export function render(ctx, game, width, height, time) {
     }
   }
 
-  for (const gem of game.gems) {
-    const point = toBuffer(gem);
-    if (!visible(point, 4)) continue;
-    const big = gem.value >= 5;
-    drawCentered(ctx, sprite(big ? 'gemBig' : 'gem'), point[0], point[1]);
-    // 먼지가 돌아가며 한 번씩 반짝인다.
-    const blink = Math.floor(time * 5 + gem.x * 0.31 + gem.y * 0.17) % (big ? 4 : 9);
-    if (blink === 0) sparkle(ctx, point[0] + (big ? 1 : 0), point[1] - 1, big ? '#fff4c2' : '#ffffff', true);
-    else if (blink === 1) sparkle(ctx, point[0] + 1, point[1] - 2, '#ffffff', false);
-  }
-  for (const drop of game.drops) {
-    const [x, y] = toBuffer(drop);
-    if (!visible([x, y])) continue;
-    drawDrop(ctx, drop, x, y, time);
-  }
 
   const enemies = game.enemies
     .map((enemy) => ({ enemy, point: toBuffer(enemy) }))
@@ -1321,6 +1306,22 @@ export function render(ctx, game, width, height, time) {
   }
   // 오리는 맨 위에. 무기와 적, 탄막이 아무리 많아도 가려지지 않는다.
   drawDuck(ctx, game, duckX, duckY, time);
+  // 경험치와 드롭 아이템은 투사체 위에 표시한다.
+  for (const gem of game.gems) {
+    const point = toBuffer(gem);
+    if (!visible(point, 4)) continue;
+    const big = gem.value >= 5;
+    drawCentered(ctx, sprite(big ? 'gemBig' : 'gem'), point[0], point[1]);
+    // 먼지가 돌아가며 한 번씩 반짝인다.
+    const blink = Math.floor(time * 5 + gem.x * 0.31 + gem.y * 0.17) % (big ? 4 : 9);
+    if (blink === 0) sparkle(ctx, point[0] + (big ? 1 : 0), point[1] - 1, big ? '#fff4c2' : '#ffffff', true);
+    else if (blink === 1) sparkle(ctx, point[0] + 1, point[1] - 2, '#ffffff', false);
+  }
+  for (const drop of game.drops) {
+    const [x, y] = toBuffer(drop);
+    if (!visible([x, y])) continue;
+    drawDrop(ctx, drop, x, y, time);
+  }
   drawBossArrows(ctx, game, toBuffer, width, height, time);
 
   if (game.time < game.freezeUntil) {

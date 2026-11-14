@@ -1875,7 +1875,7 @@ function applyDrop(game, drop) {
     game.pendingRelics += 1;
     addEffect(game, { type: 'banner', text: '보물 상자 발견!', life: 2 });
   }
-  addEffect(game, { type: 'pickup', x: drop.x, y: drop.y, life: 0.4 });
+  addEffect(game, { type: 'pickup', sound: drop.type === 'chest' ? 'chest' : 'pickup', x: drop.x, y: drop.y, life: 0.4 });
   if (drop.type !== 'chest') addEffect(game, { type: 'banner', text: `${DROPS[drop.type].label}!`, life: 1.1 });
 }
 
