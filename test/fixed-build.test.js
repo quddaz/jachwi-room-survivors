@@ -107,13 +107,8 @@ describe('공속 전용 고정 피해 패시브', () => {
     game.evolved = { spray: true, stapler: true };
     game.fusions = { poisongun: true };
     game.random = () => 0.5;
-    const enemies = Array.from({ length: 5 }, (_, index) => {
-      const enemy = target(game);
-      enemy.x = game.player.x + Math.cos(index * Math.PI * 2 / 5) * 60;
-      enemy.y = game.player.y + Math.sin(index * Math.PI * 2 / 5) * 60;
-      enemy.radius = 6;
-      return enemy;
-    });
+    const enemy = target(game, 60);
+    enemy.radius = 30;
     update(game, 1 / 60);
     game.weapons = {};
     game.shots.forEach((shot) => { shot.pierce = 0; });
@@ -125,19 +120,13 @@ describe('공속 전용 고정 피해 패시브', () => {
     plain.fusions = { poisongun: true };
     plain.passives = {};
     plain.random = () => 0.5;
-    const others = Array.from({ length: 5 }, (_, index) => {
-      const enemy = target(plain);
-      enemy.x = plain.player.x + Math.cos(index * Math.PI * 2 / 5) * 60;
-      enemy.y = plain.player.y + Math.sin(index * Math.PI * 2 / 5) * 60;
-      enemy.radius = 6;
-      return enemy;
-    });
+    const other = target(plain, 60);
+    other.radius = 30;
     update(plain, 1 / 60);
     plain.weapons = {};
     plain.shots.forEach((shot) => { shot.pierce = 0; });
     for (let frame = 0; frame < 60; frame += 1) update(plain, 1 / 60);
-    near(enemies.reduce((total, enemy) => total + 10000 - enemy.hp, 0),
-      others.reduce((total, enemy) => total + 10000 - enemy.hp, 0) * 0.25 + 5 * 30);
+    near(10000 - enemy.hp, (10000 - other.hp) * 0.25 + 5 * 30);
   });
 
   it('지속 피해에는 추가 피해를 붙이지 않고 프레임 간격에도 영향을 받지 않는다', () => {
@@ -234,7 +223,27 @@ describe('공속 전용 고정 피해 패시브', () => {
 
 });
 
-describe('독침 기관총 360도 발사', () => {
+describe('독침 기관총 전방 발사', () => {
+  it('독침 기관총만 전 레벨에서 기본 발사 주기가 1.25배가 되고 공속 보너스와 함께 적용된다', () => {
+    for (const build of [{}, { haste: 20 }]) {
+      for (let level = 1; level <= 5; level += 1) {
+        const cooldowns = [];
+        for (const fused of [false, true]) {
+          const game = quiet();
+          applyBuild(game, build);
+          game.time = 6;
+          game.passives = { battery: 5 };
+          game.relics = { stopwatch: true };
+          game.weapons = { stapler: level, spray: level };
+          if (fused) game.fusions = { poisongun: true };
+          update(game, 1 / 60);
+          cooldowns.push(game.cooldowns.stapler);
+        }
+        near(cooldowns[1], cooldowns[0] * 1.25);
+      }
+    }
+  });
+
   it('탄속은 유지하고 비행 시간과 최대 이동 거리만 일반 스테이플러의 두 배로 늘린다', () => {
     const distances = [];
     for (const fused of [false, true]) {
@@ -250,19 +259,22 @@ describe('독침 기관총 360도 발사', () => {
     near(distances[1], distances[0] * 2);
   });
 
-  it('바라보는 방향과 관계없이 유도 독침 다섯 발을 72도 간격으로 발사한다', () => {
+  it('바라보는 방향을 중심으로 유도 독침 다섯 발을 앞쪽에 펼쳐 발사한다', () => {
     for (const heading of [0, 0.8, Math.PI]) {
       const game = quiet();
       game.player.heading = heading;
+      game.random = () => 0.5;
       game.weapons = { spray: 5, stapler: 5 };
       game.evolved = { spray: true, stapler: true };
       game.fusions = { poisongun: true };
       update(game, 1 / 60);
       assert.equal(game.shots.length, 5);
       assert.ok(game.shots.every((shot) => shot.kind === 'staple' && shot.homing > 0 && shot.poison > 0));
-      const angles = game.shots.map((shot) => (Math.atan2(shot.vy, shot.vx) + Math.PI * 2) % (Math.PI * 2)).sort((a, b) => a - b);
-      for (let index = 0; index < angles.length; index += 1) {
-        near((angles[(index + 1) % angles.length] - angles[index] + Math.PI * 2) % (Math.PI * 2), Math.PI * 2 / 5);
+      for (let index = 0; index < game.shots.length; index += 1) {
+        const angle = Math.atan2(game.shots[index].vy, game.shots[index].vx);
+        const offset = Math.atan2(Math.sin(angle - heading), Math.cos(angle - heading));
+        near(offset, (index - 2) * 0.2);
+        assert.ok(Math.cos(offset) > 0);
       }
     }
   });

@@ -18,7 +18,7 @@ export const BUILD = {
     perks: {
       5: { name: '레벨업 질주', text: '레벨업하면 5초 동안 공격 속도 +40%', rushSec: 5, rush: 0.4 },
       10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
-      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배, 고정 피해 패시브 해금', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
+      20: { name: '과충전', text: '공격 속도 +10%, 8초마다 3초 동안 공격 속도 1.5배, 고정 피해 패시브 해금', attackSpeed: 0.1, everySec: 8, burstSec: 3, burst: 0.5 },
     } },
   survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
     perks: {
@@ -335,9 +335,9 @@ export const FUSIONS = {
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
   spinlaser: { label: '회전 레이저', description: '꺼지지 않는 레이저 네 줄기가 빙글빙글 돌며 훑는다', from: ['laser', 'fan'],
     count: 4, length: 620, turn: 1.5, dps: 1.6 },
-  // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 360도로 다섯 발씩 쏜다.
-  poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 360도로 쏘아 중독시킨다. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
-    shots: 5, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },
+  // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 앞쪽으로 다섯 발씩 쏜다.
+  poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 앞쪽으로 쏘아 중독시킨다. 기본 발사 속도 -20%. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
+    shots: 5, spread: 0.2, cooldownScale: 1.25, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },
   bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
     damage: 1.3, speed: 1.15, dropEverySec: 0.45, radius: 34, dps: 0.6, lifeSec: 2, slow: 0.4 },
   firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],

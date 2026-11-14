@@ -126,7 +126,7 @@ export function maxRelicsOf(game) {
   return MAX_RELICS + (perk(game, 'treasure', 20)?.maxRelics ?? 0);
 }
 
-// 공속 20점 과충전: 8초마다 3초 동안 공격 속도가 2배다.
+// 공속 20점 과충전: 8초마다 3초 동안 공격 속도가 1.5배다.
 function overcharged(game) {
   const charge = perk(game, 'haste', 20);
   return Boolean(charge) && game.time % charge.everySec >= charge.everySec - charge.burstSec;
@@ -1064,7 +1064,8 @@ function nearestEnemies(game, count, maxDistance = 560) {
 }
 
 function ready(game, id, dt) {
-  const cooldown = WEAPONS[id].cooldown[game.weapons[id] - 1] * statsOf(game).cooldownScale;
+  const fusionCooldown = id === 'stapler' ? fusion(game, 'poisongun')?.cooldownScale ?? 1 : 1;
+  const cooldown = WEAPONS[id].cooldown[game.weapons[id] - 1] * statsOf(game).cooldownScale * fusionCooldown;
   game.cooldowns[id] = (game.cooldowns[id] ?? 0) - dt;
   if (game.cooldowns[id] > 0) return false;
   const twin = relic(game, 'twin');
@@ -1434,12 +1435,11 @@ function fireWeapons(game, dt) {
     const { speed, lifeSec, spread } = WEAPONS.stapler;
     const venom = fusion(game, 'poisongun');
     const sides = venom ? Array.from({ length: venom.shots }, (_, index) => index - (venom.shots - 1) / 2) : nailer ? [-1, 1] : [0];
-    for (const [index, side] of sides.entries()) {
-      const angle = venom ? forward + index * Math.PI * 2 / sides.length
-        : forward + (game.random() - 0.5) * 2 * spread;
+    for (const side of sides) {
+      const angle = forward + (venom ? side * venom.spread : 0) + (game.random() - 0.5) * 2 * spread;
       game.shots.push({
-        x: venom ? player.x + Math.cos(angle) * 12 : player.x + Math.cos(forward) * 12 - Math.sin(forward) * side * 7,
-        y: venom ? player.y + Math.sin(angle) * 12 : player.y + Math.sin(forward) * 12 + Math.cos(forward) * side * 7,
+        x: player.x + Math.cos(forward) * 12 - Math.sin(forward) * side * 7,
+        y: player.y + Math.sin(forward) * 12 + Math.cos(forward) * side * 7,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: weaponValue(game, 'stapler', 'damage') * (venom?.damage ?? 1),
         pierce: venom ? venom.pierce : nailer ? nailer.pierce : 0, life: lifeSec * (venom?.lifeScale ?? 1), radius: 5 * projectile, scale: projectile,
         homing: venom?.homing, speed,

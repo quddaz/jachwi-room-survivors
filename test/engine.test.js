@@ -1325,14 +1325,14 @@ describe('능력치 투자', () => {
     near(statsOf(game).area, 1.1, 1e-9);
   });
 
-  it('공속 20점은 8초마다 3초 동안 공격 속도가 2배가 된다', () => {
+  it('공속 20점은 상시 공속 10%와 8초마다 3초 동안 공속 1.5배를 준다', () => {
     const game = createGame(seeded(97));
     applyBuild(game, { haste: 20 });
     game.time = 1;
     const calm = statsOf(game).cooldownScale;
     game.time = 6;
-    near(statsOf(game).cooldownScale, calm / 2, 1e-9);
-    near(calm, 1 / (1 + 20 * 0.005 * 1.4) / 1.2, 1e-9);
+    near(statsOf(game).cooldownScale, calm / 1.5, 1e-9);
+    near(calm, 1 / (1 + 20 * 0.005 * 1.4) / 1.1, 1e-9);
   });
 
   it('치명 5점은 정예에게만 치명타 확률을 더한다', () => {
