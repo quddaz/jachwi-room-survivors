@@ -145,7 +145,7 @@ function maxHpOf(game) {
 // 모은 치명타 확률. 고무망치가 있으면 치명타는 안 터지고 이 값이 고정 피해로 바뀐다.
 function rawCritChance(game) {
   return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0)
-    + buildValue(game, 'critChance') - (relic(game, 'precision')?.critPenalty ?? 0);
+    + buildValue(game, 'critChance') - passiveValue(game, 'precision', 'critPenalty');
 }
 
 function critChanceOf(game, bonus = 0) {
@@ -161,7 +161,8 @@ function malletDamageOf(game) {
 // 새 고정 피해는 공격력·진화·합체 배율과 치명타를 적용한 뒤 한 번 더한다.
 // 독·화상·장판처럼 프레임마다 계산하는 지속 피해와 공격 보물에는 붙이지 않는다.
 function onHitDamageOf(game) {
-  return (relic(game, 'precision')?.hitDamage ?? 0) + (relic(game, 'lightgear')?.hitDamage ?? 0);
+  return passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
+    + passiveValue(game, 'counterweight', 'hitDamage');
 }
 
 function flatDamageOf(game) {
@@ -182,7 +183,11 @@ function cornered(game) {
 function mightOf(game) {
   return (1 + passiveValue(game, 'protein', 'might')
     + (game.player.moving ? relic(game, 'energy')?.might ?? 0 : 0)
-    + (cornered(game) ? RELICS.lastcup.might : 0)) * (relic(game, 'lightgear')?.mightScale ?? 1);
+    + (cornered(game) ? RELICS.lastcup.might : 0)) * (1 - passiveValue(game, 'counterweight', 'attackPenalty'));
+}
+
+function weaponDamageScaleOf(game) {
+  return 1 - passiveValue(game, 'lightgear', 'weaponPenalty');
 }
 
 export function statsOf(game) {
@@ -204,6 +209,7 @@ export function statsOf(game) {
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
     area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
+    weaponDamageScale: weaponDamageScaleOf(game),
     projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0)
       + (perk(game, 'haste', 10)?.projectile ?? 0),
     critChance: critChanceOf(game),
@@ -230,6 +236,7 @@ export function statSheet(game) {
     ['최대 체력', number(stats.maxHp)],
     ['초당 회복', number(stats.regen)],
     ['공격력', percent(stats.might - 1)],
+    ...(stats.weaponDamageScale < 1 ? [['무기 기본 피해', percent(stats.weaponDamageScale - 1)]] : []),
     ['이동 속도', percent(stats.speed / PLAYER.speed - 1)],
     ['쿨타임', percent(stats.cooldownScale - 1)],
     ['무기 범위', percent(stats.area - 1)],
@@ -258,6 +265,10 @@ const PASSIVE_TEXT = {
   size: ['투사체 크기', percent],
   critChance: ['치명타 확률', percent],
   critDamage: ['치명타 피해', percent],
+  critPenalty: ['치명타 확률 감소', (value) => `${Math.round(value * 100)}%p`],
+  weaponPenalty: ['무기 기본 피해', (value) => percent(-value)],
+  attackPenalty: ['공격력 감소', (value) => percent(-value)],
+  hitDamage: ['타격당 고정 피해', (value) => `+${number(value)}`],
   relicPower: ['보물 피해', percent],
   relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
 };
@@ -284,6 +295,12 @@ export function describeChoice(game, choice) {
     const passive = PASSIVES[choice.id];
     return Object.entries(passive).filter(([, values]) => Array.isArray(values)).map(([key, values]) => {
       const [name, format] = PASSIVE_TEXT[key];
+      if (key === 'attackPenalty') {
+        const before = mightOf(game);
+        const currentScale = 1 - passiveValue(game, choice.id, key);
+        const after = before / currentScale * (1 - values[choice.level - 1]);
+        return `공격력 ${percent(before - 1)} → ${percent(after - 1)}`;
+      }
       const next = format(values[choice.level - 1]);
       return choice.level === 1 ? `${name} ${next}` : `${name} ${format(values[choice.level - 2])} → ${next}`;
     });
@@ -293,7 +310,7 @@ export function describeChoice(game, choice) {
     const might = statsOf(game).might;
     return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
       const text = WEAPON_TEXT[key];
-      const scale = text.might ? might : 1;
+      const scale = text.might ? might * weaponDamageScaleOf(game) : 1;
       const flat = key === 'damage' ? flatDamageOf(game) : 0;
       const value = (level) => values[level - 1] * scale + flat;
       const show = (amount) => `${number(amount)}${text.unit ?? ''}`;
@@ -1030,7 +1047,7 @@ function fusion(game, id) {
 
 function weaponValue(game, id, key) {
   const scale = evolution(game, id)?.[key];
-  const might = key === 'damage' || key === 'dps' ? mightOf(game) : 1;
+  const might = key === 'damage' || key === 'dps' ? mightOf(game) * weaponDamageScaleOf(game) : 1;
   const steady = 1;
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? malletDamageOf(game) : 0;
@@ -1417,13 +1434,14 @@ function fireWeapons(game, dt) {
     const { speed, lifeSec, spread } = WEAPONS.stapler;
     const venom = fusion(game, 'poisongun');
     const sides = venom ? Array.from({ length: venom.shots }, (_, index) => index - (venom.shots - 1) / 2) : nailer ? [-1, 1] : [0];
-    for (const side of sides) {
-      const angle = forward + (venom ? side * venom.spread : 0) + (game.random() - 0.5) * 2 * spread;
+    for (const [index, side] of sides.entries()) {
+      const angle = venom ? forward + index * Math.PI * 2 / sides.length
+        : forward + (game.random() - 0.5) * 2 * spread;
       game.shots.push({
-        x: player.x + Math.cos(forward) * 12 - Math.sin(forward) * side * 7,
-        y: player.y + Math.sin(forward) * 12 + Math.cos(forward) * side * 7,
+        x: venom ? player.x + Math.cos(angle) * 12 : player.x + Math.cos(forward) * 12 - Math.sin(forward) * side * 7,
+        y: venom ? player.y + Math.sin(angle) * 12 : player.y + Math.sin(forward) * 12 + Math.cos(forward) * side * 7,
         vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: weaponValue(game, 'stapler', 'damage') * (venom?.damage ?? 1),
-        pierce: venom ? venom.pierce : nailer ? nailer.pierce : 0, life: lifeSec, radius: 5 * projectile, scale: projectile,
+        pierce: venom ? venom.pierce : nailer ? nailer.pierce : 0, life: lifeSec * (venom?.lifeScale ?? 1), radius: 5 * projectile, scale: projectile,
         homing: venom?.homing, speed,
         poison: venom ? weaponValue(game, 'spray', 'damage') * venom.poison : 0,
         hit: new Set(), kind: 'staple', knockback: 3,

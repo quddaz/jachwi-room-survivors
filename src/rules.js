@@ -18,7 +18,7 @@ export const BUILD = {
     perks: {
       5: { name: '레벨업 질주', text: '레벨업하면 5초 동안 공격 속도 +40%', rushSec: 5, rush: 0.4 },
       10: { name: '큰 손', text: '투사체 크기 +20%, 공격 범위 +10%', projectile: 0.2, area: 0.1 },
-      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배, 고정 피해 보물 해금', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
+      20: { name: '과충전', text: '공격 속도 +20%, 8초마다 3초 동안 공격 속도 2배, 고정 피해 패시브 해금', attackSpeed: 0.2, everySec: 8, burstSec: 3, burst: 1 },
     } },
   survival: { label: '생존', icon: 'vitamin', per: { maxHp: 1, armor: 0.0025 },
     perks: {
@@ -285,6 +285,13 @@ export const PASSIVES = {
   // 보물 패시브: 보물 파트 20점이어야 나온다. 보물이 직접 주는 피해와 발동 주기만 바꾼다.
   polish: { label: '광택제', description: '보물을 반짝반짝 닦아 보물 피해가 오른다', relicPower: [0.15, 0.3, 0.45, 0.6, 0.75], treasureOnly: true },
   windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.08, 0.16, 0.24, 0.32, 0.4], treasureOnly: true },
+  // 공속 패시브: 패널티와 고정 피해가 함께 성장한다.
+  precision: { label: '정밀 스프링', hasteOnly: true, description: '치확을 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
+    critPenalty: [0.04, 0.08, 0.12, 0.16, 0.2], hitDamage: [12, 24, 36, 48, 60] },
+  lightgear: { label: '경량 기어', hasteOnly: true, description: '무기 기본 피해를 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
+    weaponPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [6, 12, 18, 24, 30] },
+  counterweight: { label: '균형추', hasteOnly: true, description: '현재 공격력을 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
+    attackPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [9, 18, 27, 36, 45] },
 };
 
 export const MAX_LEVEL = 5;
@@ -328,9 +335,9 @@ export const FUSIONS = {
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
   spinlaser: { label: '회전 레이저', description: '꺼지지 않는 레이저 네 줄기가 빙글빙글 돌며 훑는다', from: ['laser', 'fan'],
     count: 4, length: 620, turn: 1.5, dps: 1.6 },
-  // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 다섯 발씩 쏜다.
-  poisongun: { label: '독침 기관총', description: '적을 쫓아가는 독침을 다섯 발씩 쏘아 중독시킨다. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
-    shots: 5, spread: 0.2, damage: 0.75, pierce: 1, homing: 6, poison: 0.6, poisonSec: 3 },
+  // 살충제는 따로 뿌리지 않고, 스테이플러가 적을 쫓아가는 독침을 360도로 다섯 발씩 쏜다.
+  poisongun: { label: '독침 기관총', description: '비행 거리가 2배인 유도 독침 다섯 발을 360도로 쏘아 중독시킨다. 살충제는 따로 뿌리지 않는다', from: ['stapler', 'spray'],
+    shots: 5, damage: 0.75, pierce: 1, homing: 6, lifeScale: 2, poison: 0.6, poisonSec: 3 },
   bleachbot: { label: '소독 로봇', description: '로봇이 더 빠르게 달리며 지나간 자리에 락스를 남긴다', from: ['robot', 'bleach'],
     damage: 1.3, speed: 1.15, dropEverySec: 0.45, radius: 34, dps: 0.6, lifeSec: 2, slow: 0.4 },
   firering: { label: '화염 고리', description: '불씨 고리가 한 겹 더 돌고, 주기적으로 화염이 사방을 휩쓴다', from: ['coil', 'dryer'],
@@ -390,11 +397,6 @@ export const RELICS = {
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
-  // 공속 20점 전용: 공격력과 치명타로 늘어나지 않는 타격당 고정 피해.
-  precision: { label: '정밀 스프링', hasteOnly: true, description: '치명타 확률을 낮추고 매 타격을 묵직하게 만든다',
-    stats: ['치명타 확률 -20%p(고무망치 전환에도 적용)', '무기 타격마다 고정 피해 +75', '추가 피해는 치명타·공격력으로 증가하지 않음, 지속 피해 제외'], critPenalty: 0.2, hitDamage: 75 },
-  lightgear: { label: '경량 기어', hasteOnly: true, description: '공격력을 낮추는 대신 빠른 연타에 힘을 싣는다',
-    stats: ['공격력 ×0.75', '무기 타격마다 고정 피해 +45', '추가 피해는 치명타·공격력으로 증가하지 않음, 지속 피해 제외'], mightScale: 0.75, hitDamage: 45 },
   // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
   pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 80(레벨·보물 피해 비례)'],
     everySec: 8, radius: 170, damage: 80 },

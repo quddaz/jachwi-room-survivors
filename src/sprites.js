@@ -1786,7 +1786,7 @@ ITEMS.mallet = item([], (body, fx, f) => {
   }
   twinkle(fx, 13, 2, f, 'Y');
 });
-// 공속 20점 전용 보물: 금속 스프링과 가벼운 기어.
+// 공속 20점 전용 패시브: 금속 스프링과 가벼운 기어.
 ITEMS.precision = item([], (body, fx, f) => {
   const shift = f === 1 || f === 2 ? 1 : 0;
   body.rect(4, 2, 8, 2, 'D').rect(5, 2, 6, 1, 'i');
@@ -1805,6 +1805,15 @@ ITEMS.lightgear = item([], (body, fx, f) => {
   }
   body.set(7, 7, 'i');
   twinkle(fx, 1, 2, f, 'Y');
+});
+ITEMS.counterweight = item([], (body, fx, f) => {
+  const lean = [0, 1, 0, -1][f];
+  body.rect(7, 3, 2, 11, 'z').rect(4, 13, 8, 2, 'D');
+  body.line(2, 5 - lean, 13, 5 + lean, 'O');
+  body.line(3, 5 - lean, 3, 9 - lean, 'z').line(12, 5 + lean, 12, 9 + lean, 'z');
+  body.rect(1, 9 - lean, 5, 3, 'B').rect(10, 9 + lean, 5, 3, 'B');
+  body.line(1, 9 - lean, 5, 9 - lean, 'i').line(10, 9 + lean, 14, 9 + lean, 'i');
+  twinkle(fx, 12, 1, f, 'Y');
 });
 // 합체 무기
 ITEMS.thunderball = item([], (body, fx, f) => {
