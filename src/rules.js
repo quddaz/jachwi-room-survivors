@@ -176,7 +176,7 @@ export function bossStatsOf(index, time) {
 export const WEAPONS = {
   spray: {
     label: '살충제', description: '가까운 적에게 약을 뿌린다',
-    cooldown: [0.7, 0.62, 0.55, 0.48, 0.42], damage: [12, 15, 18, 22, 26], count: [1, 1, 2, 2, 3],
+    cooldown: [0.9, 0.8, 0.7, 0.6, 0.55], damage: [12, 15, 18, 22, 26], count: [1, 1, 2, 2, 3],
     pierce: [0, 1, 1, 2, 3], speed: 430, lifeSec: 1.1,
   },
   broom: {
@@ -210,7 +210,7 @@ export const WEAPONS = {
   },
   detergent: {
     label: '세제 거품', description: '둥둥 떠다니다 닿으면 터지는 거품',
-    cooldown: [1.9, 1.75, 1.6, 1.45, 1.3], damage: [20, 25, 31, 38, 46], count: [4, 5, 6, 7, 8], radius: [38, 42, 46, 50, 56],
+    cooldown: [2.5, 2.3, 2.1, 1.9, 1.7], damage: [20, 25, 31, 38, 46], count: [4, 5, 6, 7, 8], radius: [38, 42, 46, 50, 56],
     speed: 120, lifeSec: 3.2,
   },
   roller: {
