@@ -402,3 +402,5 @@ img { display: block; max-width: 100%; }
 .result-item.is-evolved { border-color: #e6ba55; background: #fff7dc; }
 .result-item.is-fusion { border-color: #c3b1eb; background: #f2ecff; }
 .result-item.is-relic { border-color: #f0d796; background: #fffaf0; }
+
+.sound-effects { font-size: 12px; }

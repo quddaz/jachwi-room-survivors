@@ -181,3 +181,55 @@ test('전투와 획득 효과음은 배경음악 없이도 각자 재생된다',
     music.destroy();
   }
 });
+
+test('배경음악을 꺼도 재생 중인 효과음과 새 효과음은 유지된다', async (t) => {
+  const { instances, timers } = audioEnvironment(t);
+  const music = createMusic();
+  t.after(() => music.destroy());
+  await music.unlock();
+  music.setPlaying(true);
+  await settle();
+  const context = instances[0];
+  const before = context.sources.length;
+  music.playEffect('hurt');
+  await settle();
+  const effect = context.sources[before];
+  const stopCount = effect.stops.length;
+  music.setPlaying(false);
+  assert.equal(timers.size, 0);
+  assert.equal(effect.stops.length, stopCount);
+  const count = context.sources.length;
+  music.playEffect('pickup');
+  await settle();
+  assert.ok(context.sources.length > count);
+});
+
+test('효과음을 꺼도 배경음악은 계속 재생하고 대기 효과음은 취소한다', async (t) => {
+  const { instances, timers } = audioEnvironment(t);
+  const music = createMusic();
+  t.after(() => music.destroy());
+  music.setPlaying(true);
+  await music.unlock();
+  await settle();
+  const context = instances[0];
+  const track = context.sources[0];
+  const stops = track.stops.length;
+  const count = context.sources.length;
+  music.playEffect('select');
+  music.setEffectsMuted(true);
+  music.setEffectsMuted(false);
+  await settle();
+  assert.equal(context.sources.length, count);
+  music.setEffectsMuted(true);
+  music.playEffect('hurt');
+  await settle();
+  assert.equal(context.sources.length, count);
+  assert.equal(track.stops.length, stops);
+  assert.equal(timers.size, 1);
+  music.setPlaying(false);
+  music.setEffectsMuted(false);
+  music.playEffect('pickup');
+  await settle();
+  assert.ok(context.sources.length > count);
+  assert.equal(timers.size, 0);
+});

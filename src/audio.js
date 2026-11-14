@@ -30,6 +30,7 @@ export function createMusic() {
   let unlocked = false;
   let playing = false;
   let muted = false;
+  let effectsMuted = false;
   let destroyed = false;
   let timer = null;
   let step = 0;
@@ -156,7 +157,7 @@ export function createMusic() {
   }
 
   function playEffect(name) {
-    if (!unlocked || !context || muted || destroyed || !Object.hasOwn(EFFECT_COOLDOWN, name)) return;
+    if (!unlocked || !context || muted || effectsMuted || destroyed || !Object.hasOwn(EFFECT_COOLDOWN, name)) return;
     const now = Date.now();
     if (now - (lastEffect.get(name) ?? -Infinity) < EFFECT_COOLDOWN[name]) return;
     if ([...voices].filter((voice) => voice.group === 'effect').length >= 12) return;
@@ -164,7 +165,7 @@ export function createMusic() {
     const generation = effectGeneration;
     pendingEffects += 1;
     void context.resume().then(() => {
-      if (destroyed || muted || generation !== effectGeneration || context.state !== 'running') return;
+      if (destroyed || muted || effectsMuted || generation !== effectGeneration || context.state !== 'running') return;
       if ([...voices].filter((voice) => voice.group === 'effect').length >= 12) return;
       const start = context.currentTime + 0.01;
       const notes = {
@@ -194,6 +195,15 @@ export function createMusic() {
       muted = Boolean(value);
       if (muted) { effectGeneration += 1; silence(); }
       sync();
+    },
+    setEffectsMuted(value) {
+      if (effectsMuted === Boolean(value)) return;
+      effectsMuted = Boolean(value);
+      if (effectsMuted) {
+        effectGeneration += 1;
+        silence('effect');
+        idle();
+      }
     },
     playEffect,
     reset() {

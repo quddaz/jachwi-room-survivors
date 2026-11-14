@@ -7,6 +7,7 @@ import {
 } from './rules.js';
 import { iconSheetUrl, iconUrl } from './sprites.js';
 
+const EFFECTS_KEY = 'room-survivors:effects';
 const SOUND_KEY = 'room-survivors:sound';
 const music = createMusic();
 const NAME_KEY = 'room-survivors:crew-name';
@@ -39,24 +40,30 @@ const keys = new Set();
 let touch = null;
 let shownBannerAge = null;
 let shownChoices = null;
-let soundMuted = recall(SOUND_KEY) === 'off';
+let musicMuted = recall(SOUND_KEY) === 'off';
+let effectsMuted = recall(EFFECTS_KEY) === 'off';
 let heardObjects = new WeakSet();
 const EFFECT_SOUNDS = { sweep: 'slash', towel: 'slash', punch: 'impact', swat: 'impact', slam: 'impact',
   bolt: 'zap', laser: 'zap', nova: 'impact', bomb: 'impact', pickup: 'pickup' };
 
 function syncSound() {
-  music.setMuted(soundMuted || document.hidden || paused);
-  music.setPlaying(Boolean(game && !game.over && !game.choices && !paused && !document.hidden
+  music.setEffectsMuted(effectsMuted);
+  music.setMuted(document.hidden || paused);
+  music.setPlaying(Boolean(!musicMuted && game && !game.over && !game.choices && !paused && !document.hidden
     && gameScreen.classList.contains('is-active')));
 }
 
 function drawSoundButtons() {
-  document.querySelectorAll('[data-action="sound"]').forEach((button) => {
-    button.setAttribute('aria-pressed', String(!soundMuted));
-    button.title = soundMuted ? '소리 켜기' : '소리 끄기';
+  document.querySelectorAll('[data-action="sound"], [data-action="effects"]').forEach((button) => {
+    const effects = button.dataset.action === 'effects';
+    const muted = effects ? effectsMuted : musicMuted;
+    const label = effects ? '효과음' : '배경음악';
+    button.setAttribute('aria-pressed', String(!muted));
+    button.title = `${label} ${muted ? '켜기' : '끄기'}`;
     button.setAttribute('aria-label', button.title);
   });
-  document.querySelector('[data-sound-status]').textContent = soundMuted ? '소리 꺼짐' : '소리 켜짐';
+  document.querySelector('[data-sound-status]').textContent = musicMuted ? '배경음악 꺼짐' : '배경음악 켜짐';
+  document.querySelector('[data-effects-status]').textContent = effectsMuted ? '효과음 꺼짐' : '효과음 켜짐';
 }
 
 function playCombatSounds() {
@@ -292,7 +299,7 @@ function frame(now) {
 function start() {
   music.reset();
   heardObjects = new WeakSet();
-  if (!soundMuted) music.unlock();
+  music.unlock();
   cancelAnimationFrame(frameId);
   game = createGame();
   game.map = selectedMap;
@@ -321,7 +328,7 @@ function start() {
 function setPaused(value) {
   if (!game || game.over) return;
   paused = value;
-  if (!value && !soundMuted) music.unlock();
+  if (!value) music.unlock();
   syncSound();
   pausedOverlay.hidden = !value;
   touch = null;
@@ -649,9 +656,16 @@ document.querySelector('.start-form').addEventListener('submit', (event) => {
 app.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'sound') {
-    soundMuted = !soundMuted;
-    if (!soundMuted) music.unlock();
-    remember(SOUND_KEY, soundMuted ? 'off' : 'on');
+    musicMuted = !musicMuted;
+    if (!musicMuted) music.unlock();
+    remember(SOUND_KEY, musicMuted ? 'off' : 'on');
+    drawSoundButtons();
+    syncSound();
+  }
+  if (action === 'effects') {
+    effectsMuted = !effectsMuted;
+    if (!effectsMuted) music.unlock();
+    remember(EFFECTS_KEY, effectsMuted ? 'off' : 'on');
     drawSoundButtons();
     syncSound();
   }
