@@ -113,11 +113,23 @@ function relicReach(game, radius) {
   return radius * statsOf(game).area;
 }
 
+function hasDotSource(game) {
+  return ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
+    || ['poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser'].some(id => game.fusions[id])
+    || Boolean(game.relics.match);
+}
+
+function fixedPowerOf(game) {
+  return 1 + (relic(game, 'precisionscale')?.fixedPower ?? 0);
+}
+
 // 전용 보물과 패시브는 해당 파트 20점이어야 나온다.
 function buildUnlocked(game, def) {
   return (!def.treasureOnly || Boolean(perk(game, 'treasure', 20)))
     && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)))
-    && (!def.summonOnly || Boolean(perk(game, 'summon', 20)));
+    && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
+    && (!def.dotOnly || hasDotSource(game))
+    && (!def.requiresFixedDamage || flatDamageOf(game) > 0);
 }
 
 // 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 3칸이다.
@@ -159,14 +171,14 @@ function critChanceOf(game, bonus = 0) {
 // 고무망치 전환은 치명타 확률 감소까지 적용한 뒤 계산한다.
 function malletDamageOf(game) {
   const mallet = relic(game, 'mallet');
-  return mallet ? Math.floor(Math.max(0, rawCritChance(game)) / mallet.step + 1e-9) * mallet.flat : 0;
+  return mallet ? Math.floor(Math.max(0, rawCritChance(game)) / mallet.step + 1e-9) * mallet.flat * fixedPowerOf(game) : 0;
 }
 
 // 새 고정 피해는 공격력·진화·합체 배율과 치명타를 적용한 뒤 한 번 더한다.
 // 독·화상·장판처럼 프레임마다 계산하는 지속 피해와 공격 보물에는 붙이지 않는다.
 function onHitDamageOf(game) {
-  return passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
-    + passiveValue(game, 'counterweight', 'hitDamage');
+  return (passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
+    + passiveValue(game, 'counterweight', 'hitDamage') + (relic(game, 'precisionscale')?.hitDamage ?? 0)) * fixedPowerOf(game);
 }
 
 function flatDamageOf(game) {
@@ -218,10 +230,11 @@ export function statsOf(game) {
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
     relicPower: relicPowerOf(game),
-    summonPower: 1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower'),
-    summonSpeed: 1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0),
-    summonHaste: 1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0),
-    summonRange: 1 + (perk(game, 'summon', 5)?.range ?? 0),
+    dotPower: 1 + (relic(game, 'thermos')?.dotPower ?? 0),
+    summonPower: (1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower')) * (1 + (relic(game, 'baton')?.power ?? 0)),
+    summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
+    summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
+    summonRange: (1 + (perk(game, 'summon', 5)?.range ?? 0)) * (1 + (relic(game, 'baton')?.range ?? 0)),
     summonCount: passiveValue(game, 'summonwhistle', 'summonCount'),
   };
 }
@@ -261,6 +274,8 @@ export function statSheet(game) {
     ...(stats.summonPower > 1 ? [['소환 피해', percent(stats.summonPower - 1)], ['소환 이동 속도', percent(stats.summonSpeed - 1)]] : []),
     ...(stats.summonHaste > 1 ? [['소환 공격 속도', percent(stats.summonHaste - 1)]] : []),
     ...(stats.summonCount ? [['추가 소환수', `+${stats.summonCount}`]] : []),
+    ...(stats.dotPower > 1 ? [['지속 피해', percent(stats.dotPower - 1)]] : []),
+    ...(game.relics.concentrate ? [['농축 피해', `최대 ${percent(RELICS.concentrate.power)}`]] : []),
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
     ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
@@ -947,11 +962,32 @@ function critBlast(game, source, amount) {
 
 function damageWeaponHit(game, enemy, amount, slows = false, from = game.player) {
   damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
+  const resonator = relic(game, 'resonator');
+  if (!resonator) { enemy.resonatorHits = 0; return; }
+  if (enemy.dead) return;
+  enemy.resonatorHits = (enemy.resonatorHits ?? 0) + 1;
+  if (enemy.resonatorHits >= resonator.everyHits) {
+    enemy.resonatorHits = 0;
+    damageEnemy(game, enemy, 0, false, from, flatDamageOf(game) * resonator.flatPulse, { hitEffects: false, canCrit: false });
+    addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 32, color: 'spark', life: 0.2, sound: 'impact' });
+  }
 }
 
 // 지속 피해도 치명타 피해는 받지만 타격 기절·빙결·성냥은 발동시키지 않는다.
-function damageOverTime(game, enemy, amount, from = game.player) {
-  damageEnemy(game, enemy, amount, false, from, 0, { hitEffects: false, showHit: false });
+function damageOverTime(game, enemy, amount, from = game.player, span = game.stepDt ?? 1 / 60) {
+  if (enemy.dead || amount <= 0) return;
+  let power = 1 + (relic(game, 'thermos')?.dotPower ?? 0);
+  const amp = relic(game, 'concentrate');
+  if (amp) {
+    const start = game.time - span;
+    if (enemy.dotLastAt == null || start - enemy.dotLastAt > amp.resetSec) enemy.dotStartedAt = start;
+    enemy.dotLastAt = game.time;
+    // 프레임 구간의 평균 충전율을 써서 30·60·120 FPS에 같은 총 피해를 준다.
+    const rampArea = age => age <= 0 ? 0 : age < amp.rampSec ? age * age / (2 * amp.rampSec) : age - amp.rampSec / 2;
+    const average = span > 0 ? (rampArea(game.time - enemy.dotStartedAt) - rampArea(start - enemy.dotStartedAt)) / span : 0;
+    power *= 1 + amp.power * average;
+  }
+  damageEnemy(game, enemy, amount * power, false, from, 0, { hitEffects: false, showHit: false });
 }
 
 function freezeOnHit(game, enemy, duration) {
@@ -960,13 +996,13 @@ function freezeOnHit(game, enemy, duration) {
   enemy.hitFreezeReadyAt = enemy.chillUntil + HIT_FREEZE.recoverySec;
 }
 
-export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true } = {}) {
+export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true, canCrit = true } = {}) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
   const weakSpot = (enemy.boss || enemy.elite) && !relic(game, 'mallet') ? perk(game, 'crit', 5)?.eliteCrit ?? 0 : 0;
   const chance = critChanceOf(game, weakSpot);
-  const crit = chance > 0 && game.random() < chance;
+  const crit = canCrit && chance > 0 && game.random() < chance;
   if (crit) amount *= critDamageOf(game);
   amount += flatBonus;
   let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
@@ -1252,7 +1288,7 @@ function updateMegaLaser(game, dt) {
     addEffect(game, { type: 'ring', x: beam.x, y: beam.y, radius: 32, color: 'spark', life: 0.35, sound: 'laserCharge' });
     return beam;
   };
-  const strike = (beam, amount, impact) => {
+  const strike = (beam, amount, impact, span = game.stepDt) => {
     const dx = Math.cos(beam.angle), dy = Math.sin(beam.angle);
     for (const enemy of game.enemies) {
       if (enemy.dead) continue;
@@ -1262,7 +1298,7 @@ function updateMegaLaser(game, dt) {
       if (along < 16 - enemy.radius || along > beam.length + enemy.radius
         || Math.abs(rx * dy - ry * dx) > beam.width / 2 + enemy.radius) continue;
       if (impact) damageWeaponHit(game, enemy, amount, true, beam);
-      else damageOverTime(game, enemy, amount, beam);
+      else damageOverTime(game, enemy, amount, beam, span);
     }
   };
   let beam = game.megaLaser ??= makeCharge();
@@ -1271,7 +1307,7 @@ function updateMegaLaser(game, dt) {
     const spent = Math.min(left, beam.remaining);
     if (beam.phase === 'fire') {
       // 지속 피해를 dt로 적분한다. 매 프레임 피해 숫자·파편을 만들거나 고정 피해를 반복 가산하지 않는다.
-      strike(beam, weaponValue(game, 'laser', 'damage') * mega.dps * spent, false);
+      strike(beam, weaponValue(game, 'laser', 'damage') * mega.dps * spent, false, spent);
     }
     beam.remaining -= spent;
     left -= spent;
@@ -2318,6 +2354,8 @@ export function rollRelics(game) {
 
 function gainRelic(game, id) {
   game.relics[id] = true;
+  if (id === 'resonator') for (const enemy of game.enemies) enemy.resonatorHits = 0;
+  if (id === 'concentrate') for (const enemy of game.enemies) { delete enemy.dotLastAt; delete enemy.dotStartedAt; }
   if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
   if (id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
   if (id === 'pas') game.pasIn = RELICS.pas.everySec;
@@ -2466,6 +2504,7 @@ function updateHpSurge(game, previousTime) {
 export function update(game, dt, input = { x: 0, y: 0 }) {
   if (game.over || game.choices) return game;
   const previousTime = game.time;
+  game.stepDt = dt;
   game.time += dt;
   updateHpSurge(game, previousTime);
   movePlayer(game, dt, input);

@@ -1315,6 +1315,43 @@ function plantSpirit(body, fx, frame, guardian = false) {
 }
 ITEMS.plantspirit = item([], (body, fx, f) => plantSpirit(body, fx, f));
 ITEMS.plantguardian = item([], (body, fx, f) => plantSpirit(body, fx, f, true));
+ITEMS.precisionscale = item([], (body, fx, f) => {
+  body.rect(2, 12, 12, 3, 'h').rect(3, 12, 10, 2, 'B');
+  body.rect(7, 3, 2, 10, 'z').rect(2, 3, 12, 2, 'Y');
+  for (const x of [2, 10]) {
+    body.rect(x, 5, 1, 4, 'z').rect(x + 3, 5, 1, 4, 'z').rect(x, 9, 4, 2, 'F');
+  }
+  body.set(7, 1, 'Y').set(8, 1, 'Y');twinkle(fx, 12, 2, f, 'Y');
+});
+ITEMS.resonator = item([], (body, fx, f) => {
+  body.rect(7, 6, 2, 9, 'D').rect(6, 4, 4, 4, 'z');
+  body.rect(3, 1, 3, 5, 'B').rect(10, 1, 3, 5, 'B').rect(4, 5, 8, 2, 'b');
+  body.rect(7, 1, 2, 4, 'h');
+  if (f % 2) { fx.set(1, 3, 'E').set(14, 3, 'E').set(0, 2, 'W').set(15, 2, 'W'); }
+});
+ITEMS.thermos = item([], (body, fx, f) => {
+  body.rect(4, 3, 8, 12, 'h').rect(5, 4, 6, 10, 'R').rect(6, 4, 1, 9, 'a');
+  body.rect(4, 1, 8, 3, 'z').rect(5, 1, 6, 1, 'W').rect(6, 8, 4, 3, 's');
+  body.rect(11, 5, 3, 5, 'h').rect(12, 6, 1, 3, 'z');
+  if (f % 2) fx.set(7, 0, 'W').set(9, 0, 'p');
+});
+ITEMS.concentrate = item([], (body, fx, f) => {
+  body.rect(5, 0, 6, 3, 'z').rect(6, 3, 4, 3, 'i');
+  body.rect(3, 6, 10, 9, 'h').rect(4, 6, 8, 8, 'i').rect(4, 10, 8, 4, 'V');
+  body.rect(5, 7, 1, 5, 'W').rect(7, 8, 3, 3, 'v');
+  fx.set(9, 11 - f % 3, 'W');twinkle(fx, 13, 5, f, 'V');
+});
+ITEMS.baton = item([], (body, fx, f) => {
+  for (let n = 0; n < 11; n++) body.rect(3 + n, 13 - n, 2, 2, n < 4 ? 'N' : 'z');
+  body.rect(10, 0, 5, 5, 'Y').rect(11, 1, 3, 3, 'y');
+  twinkle(fx, 12, 2, f, 'E');
+});
+ITEMS.marchdrum = item([], (body, fx, f) => {
+  body.rect(2, 5, 12, 9, 'h').rect(3, 6, 10, 7, 'R').rect(4, 7, 2, 5, 'Y').rect(10, 7, 2, 5, 'Y');
+  body.ellipse(7, 5, 6, 2, 'z').ellipse(7, 4, 5, 2, 's').rect(3, 13, 10, 1, 'z');
+  body.rect(1, f % 2, 2, 5, 'N').rect(12, 1 - f % 2, 2, 5, 'N');
+  if (f % 2) fx.set(6, 1, 'E').set(9, 1, 'E');
+});
 ITEMS.summoncrest = item([], (body, fx, f) => {
   body.rect(3, 1, 10, 11, 'h').rect(4, 2, 8, 9, 'B').rect(5, 3, 6, 7, 'b');
   body.rect(6, 5, 4, 1, 'Y').rect(7, 4, 2, 4, 'Y');

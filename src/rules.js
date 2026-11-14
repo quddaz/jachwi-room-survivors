@@ -458,6 +458,18 @@ export const RELICS = {
     everySec: 2.5, lifeSec: 4, speed: 330, radius: 18, damage: 60, hitEverySec: 0.25, max: 8 },
   purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 80(레벨·보물 피해 비례), 셋까지 뚫음'],
     everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 80 },
+  precisionscale: { label: '정밀 저울', hasteOnly: true, category: 'fixed', description: '한 대의 고정 피해를 무겁게 만든다',
+    stats: ['공속 20점 전용', '타격당 고정 피해 +20', '전체 고정 피해 +25%(고무망치·패시브 포함)'], hitDamage: 20, fixedPower: 0.25 },
+  resonator: { label: '공진 못', hasteOnly: true, requiresFixedDamage: true, category: 'fixed', description: '같은 적을 연속 타격하면 고정 피해가 울려 퍼진다',
+    stats: ['공속 20점·고정 피해 보유 시 등장', '같은 적을 직접 6회 타격하면 현재 고정 피해의 2배 추가', '추가 피해는 치명타·공격력·진화·합체 배율 적용 제외'], everyHits: 6, flatPulse: 2 },
+  thermos: { label: '보온병', dotOnly: true, category: 'dot', description: '독과 열기, 장판의 지속 피해가 강해진다',
+    stats: ['지속 피해를 주는 무기·합체 또는 성냥 보유 시 등장', '지속 피해 +40%', '직접 타격 피해는 증가하지 않음'], dotPower: 0.4 },
+  concentrate: { label: '농축 앰플', dotOnly: true, category: 'dot', description: '같은 적에게 계속 닿는 지속 피해가 점점 독해진다',
+    stats: ['지속 피해 사용 시 등장', '같은 적에게 3초간 지속 피해를 주면 최대 +60%', '지속 피해가 0.5초 끊기면 초기화, 중첩 소스로 더 빨리 쌓이지 않음'], power: 0.6, rampSec: 3, resetSec: 0.5 },
+  baton: { label: '지휘봉', summonOnly: true, category: 'summon', description: '소환 군단을 더 멀리, 더 강하게 지휘한다',
+    stats: ['소환 20점 전용', '소환 최종 피해 +35%', '소환 탐색·사격 사거리 +20%'], power: 0.35, range: 0.2 },
+  marchdrum: { label: '행군 북', summonOnly: true, category: 'summon', description: '소환수들이 박자에 맞춰 빠르게 움직이고 공격한다',
+    stats: ['소환 20점 전용', '소환 공격 속도 +25%', '소환 이동 속도 +25%'], attackSpeed: 0.25, speed: 0.25 },
 };
 
 // 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).
