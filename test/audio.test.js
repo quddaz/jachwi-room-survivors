@@ -171,7 +171,7 @@ test('재생이 거절되면 타이머를 시작하지 않고 종료 후 재시�
 
 test('전투와 획득 효과음은 배경음악 없이도 각자 재생된다', async (t) => {
   const { instances } = audioEnvironment(t);
-  for (const name of ['shoot', 'slash', 'impact', 'zap', 'xp', 'pickup', 'chest', 'evolve', 'kill', 'hurt', 'levelup', 'boss', 'gameover', 'select', 'laserCharge', 'laserBlast']) {
+  for (const name of ['shoot', 'slash', 'impact', 'zap', 'xp', 'pickup', 'chest', 'evolve', 'kill', 'hurt', 'levelup', 'boss', 'gameover', 'select', 'laserCharge', 'laserBlast', 'bounce', 'roll', 'pulse']) {
     const music = createMusic();
     await music.unlock();
     await settle();

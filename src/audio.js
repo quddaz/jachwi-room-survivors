@@ -20,7 +20,7 @@ const MELODY = [
 ];
 const CHORDS = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
 const EFFECT_COOLDOWN = { kill: 100, hurt: 160, levelup: 400, boss: 800, gameover: 500, select: 80,
-  shoot: 120, slash: 180, impact: 180, zap: 180, pickup: 160, xp: 110, chest: 500, evolve: 500, laserCharge: 200, laserBlast: 350 };
+  shoot: 120, slash: 180, impact: 180, zap: 180, pickup: 160, xp: 110, chest: 500, evolve: 500, laserCharge: 200, laserBlast: 350, bounce: 140, roll: 180, pulse: 250 };
 const minor = (note) => note - ([4, 9, 11].includes(note % 12) ? 1 : 0);
 
 export function createMusic() {
@@ -182,14 +182,16 @@ export function createMusic() {
       const notes = {
         kill: [79, 84], hurt: [48, 42], levelup: [72, 76, 79, 84],
         boss: [48, 43, 36], gameover: [67, 63, 60, 55], select: [76, 83],
+        bounce: [60, 72], roll: [48, 43], pulse: [48, 60, 72],
         shoot: [88, 73], slash: [67, 55], impact: [43, 31], zap: [96, 67, 91],
         xp: [88], pickup: [72, 79], chest: [60, 67, 72, 79, 84], evolve: [60, 63, 67, 72, 79, 84],
       }[name];
       const spacing = { kill: 0.035, hurt: 0.055, levelup: 0.075, boss: 0.16, gameover: 0.14, select: 0.045,
+        bounce: 0.035, roll: 0.025, pulse: 0.04,
         shoot: 0.018, slash: 0.035, impact: 0.055, zap: 0.02, xp: 0.035, pickup: 0.06, chest: 0.09, evolve: 0.075 }[name];
-      const volume = ['kill', 'shoot', 'xp'].includes(name) ? 0.035 : 0.085;
+      const volume = ['kill', 'shoot', 'xp', 'bounce', 'roll'].includes(name) ? 0.035 : 0.085;
       notes.forEach((note, index) => tone(note, start + spacing * index, spacing * 1.25, name === 'boss' ? 'triangle' : 'square', volume, 'effect'));
-      if (['hurt', 'slash', 'impact'].includes(name)) noise(start, 0.055, 0.035, 'effect');
+      if (['hurt', 'slash', 'impact', 'roll'].includes(name)) noise(start, 0.055, 0.035, 'effect');
     }).catch(() => {}).finally(() => { pendingEffects -= 1; idle(); });
   }
 

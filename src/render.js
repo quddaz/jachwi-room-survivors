@@ -670,6 +670,10 @@ function drawEffects(ctx, game, toBuffer) {
     } else if (effect.type === 'laser') {
       const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
       drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.steam ? BEAM.steam : effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
+      if (effect.focus && progress < 0.45) {
+        const [tx, ty] = toBuffer(effect.focus);
+        ring(ctx, tx, ty, 3 + progress * 10, effect.mega ? '#ffb3d0' : '#8dffb0', 2, 0);
+      }
     } else if (effect.type === 'towel') {
       // 젖은 수건: 두꺼운 줄무늬 수건이 채찍처럼 앞으로 쫙 펴지며 물보라를 튀긴다.
       const unroll = Math.min(1, progress * 4);
@@ -749,7 +753,23 @@ function drawEffects(ctx, game, toBuffer) {
         }
       }
     } else if (effect.type === 'gust') {
+      disc(ctx, x, y, 5, '#3a5a9c');
+      for (let blade = 0; blade < 3; blade++) {
+        const angle = progress * 15 + blade * Math.PI * 2 / 3;
+        line(ctx, x, y, Math.round(x + Math.cos(angle) * 4), Math.round(y + Math.sin(angle) * 4), '#b9f3ff');
+      }
       const reach = (effect.range / WORLD_PER_PIXEL) * (0.3 + progress * 0.7);
+      const cone = effect.mega ? Math.PI : effect.cone;
+      for (let band = 0; band < 2; band++) {
+        const at = reach * (1 - band * 0.2);
+        const segments = effect.mega ? 20 : 10;
+        for (let segment = 0; segment < segments; segment++) {
+          const a = effect.angle - cone + segment * cone * 2 / segments;
+          const b = a + cone * 1.5 / segments;
+          line(ctx, Math.round(x + Math.cos(a) * at), Math.round(y + Math.sin(a) * at),
+            Math.round(x + Math.cos(b) * at), Math.round(y + Math.sin(b) * at), band ? '#dcebff' : '#8fb1e9');
+        }
+      }
       const lanes = effect.mega ? 22 : 11;
       for (let lane = 0; lane < lanes; lane += 1) {
         const spread = effect.mega ? (lane / lanes) * Math.PI * 2 : ((lane - 5) / 5) * (effect.cone ?? 0.6) * 0.95;
@@ -884,6 +904,11 @@ export function render(ctx, game, width, height, time) {
   for (const trap of game.traps) {
     // 쥐덫: 납작한 연한 나무판에 은색 쇠고리와 치즈. 준비되면 쇠고리가 반짝인다(보물 상자와 헷갈리지 않게 낮고 밝게).
     const [x, y] = toBuffer(trap);
+    const armed = trap.armIn <= 0;
+    const ready = 1 - Math.max(0, trap.armIn) / (trap.armSec ?? 0.4);
+    const trigger = trap.radius / WORLD_PER_PIXEL;
+    disc(ctx, x, y, trigger, armed ? 'rgba(255,207,63,0.08)' : 'rgba(95,134,207,0.05)');
+    ring(ctx, x, y, Math.max(2, trigger * ready), armed ? 'rgba(232,135,26,0.5)' : 'rgba(95,134,207,0.6)', 3, Math.floor(time * 10));
     const scale = trap.radius / 30;
     const w = Math.round(6 * scale);
     const h = Math.max(2, Math.round(2 * scale));
@@ -925,8 +950,14 @@ export function render(ctx, game, width, height, time) {
     const r = wave.r / WORLD_PER_PIXEL;
     const fade = 1 - wave.r / wave.max;
     ring(ctx, x, y, r, wave.mega ? `rgba(255, 106, 42, ${0.4 + fade * 0.6})` : `rgba(255, 207, 63, ${0.4 + fade * 0.6})`);
+    ring(ctx, x, y, Math.max(1, r - 1), wave.mega ? 'rgba(255,106,42,0.4)' : 'rgba(255,207,63,0.4)');
     ring(ctx, x, y, r - 2, `rgba(255, 255, 255, ${0.3 + fade * 0.5})`, 2, Math.floor(time * 20));
     ring(ctx, x, y, Math.max(1, r - 6), `rgba(255, 138, 61, ${fade * 0.5})`, 3, 0);
+    for (let spark = 0; spark < 8; spark++) {
+      const angle = spark * Math.PI / 4 + time * 1.5;
+      line(ctx, Math.round(x + Math.cos(angle) * (r - 5)), Math.round(y + Math.sin(angle) * (r - 5)),
+        Math.round(x + Math.cos(angle + 0.04) * r), Math.round(y + Math.sin(angle + 0.04) * r), '#fff4c2');
+    }
   }
   for (const splash of game.splashes) {
     // 샤워기: 떨어질 자리를 파란 원으로 보여 주고, 물줄기가 위에서 내려온다.
@@ -956,7 +987,16 @@ export function render(ctx, game, width, height, time) {
     const radius = (WEAPONS.dehumidifier.radius[game.weapons.dehumidifier - 1] * statsOf(game).area
       * (game.evolved.dehumidifier ? EVOLUTIONS.dehumidifier.radius : 1)) / WORLD_PER_PIXEL;
     const [x, y] = toBuffer(player);
-    disc(ctx, x, y, radius, 'rgba(143, 177, 233, 0.14)');
+    disc(ctx, x, y, radius, 'rgba(143, 177, 233, 0.12)');
+    if (game.evolved.dehumidifier) ring(ctx, x, y, radius * 0.78, 'rgba(127,233,255,0.5)', 3, Math.floor(-time * 14));
+    for (let ribbon = 0; ribbon < 8; ribbon++) {
+      const angle = ribbon * Math.PI / 4 + time * 0.7;
+      const at = radius * (1 - ((time * 0.6 + ribbon * 0.17) % 1));
+      const tip = Math.max(5, at - 5);
+      line(ctx, Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at),
+        Math.round(x + Math.cos(angle + 0.13) * tip), Math.round(y + Math.sin(angle + 0.13) * tip), '#a9cdf5');
+    }
+    ctx.drawImage(icon('dehumidifier', Math.floor(time * 6) % ITEM_FRAMES), Math.round(x - 17), Math.round(y + 5), 12, 12);
     ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.8)', 3, Math.floor(time * 14));
   }
 
@@ -997,6 +1037,12 @@ export function render(ctx, game, width, height, time) {
   const [duckX, duckY] = toBuffer(player);
 
   if (activeWeapon(game, 'dryer') && game.dryerOn) {
+    ctx.save(); ctx.translate(duckX, duckY); ctx.rotate(game.dryerAngle);
+    ctx.fillStyle = '#2a2a30'; ctx.fillRect(4, -3, 9, 6);
+    ctx.fillStyle = '#e6dccb'; ctx.fillRect(5, -2, 7, 4);
+    ctx.fillStyle = '#5f86cf'; ctx.fillRect(5, 1, 3, 5);
+    ctx.fillStyle = '#ffcf3f'; ctx.fillRect(11, -2, 3, 4);
+    ctx.restore();
     // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
     const reach = game.dryerRange / WORLD_PER_PIXEL;
     const spread = game.dryerSpread;
@@ -1064,23 +1110,25 @@ export function render(ctx, game, width, height, time) {
       continue;
     }
     if (shot.kind === 'roller') {
-      const half = Math.round(shot.radius / WORLD_PER_PIXEL);
+      const half = Math.max(4, Math.round(shot.radius / WORLD_PER_PIXEL));
       const along = Math.atan2(shot.vy, shot.vx);
-      const sideX = -Math.sin(along);
-      const sideY = Math.cos(along);
-      const stripe = Math.floor(time * 14) % 3;
-      for (let depth = -2; depth <= 2; depth += 1) {
-        const color = (depth + 2 + stripe) % 3 === 0 ? (shot.mega ? '#ffcf3f' : '#d9d2c4') : '#ffffff';
-        const cx = x + Math.cos(along) * depth;
-        const cy = y + Math.sin(along) * depth;
-        line(ctx, Math.round(cx - sideX * half), Math.round(cy - sideY * half), Math.round(cx + sideX * half),
-          Math.round(cy + sideY * half), color);
+      ctx.save();
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.rotate(along);
+      for (let ghost = 3; ghost >= 1; ghost--) {
+        ctx.fillStyle = `rgba(143,177,233,${0.18 - ghost * 0.035})`;
+        ctx.fillRect(-ghost * 10 - 3, -half, 5, half * 2);
       }
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      for (let dust = 1; dust <= 3; dust += 1) {
-        ctx.fillRect(Math.round(x - Math.cos(along) * dust * 4 + sideX * (hash(dust, Math.floor(time * 20)) - 0.5) * half * 2),
-          Math.round(y - Math.sin(along) * dust * 4 + sideY * (hash(dust + 9, Math.floor(time * 20)) - 0.5) * half * 2), 1, 1);
-      }
+      ctx.fillStyle = '#2a2a30'; ctx.fillRect(-5, -half - 1, 11, half * 2 + 2);
+      ctx.fillStyle = '#e6dccb'; ctx.fillRect(-4, -half, 9, half * 2);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-3, -half + 1, 6, half * 2 - 2);
+      ctx.fillStyle = shot.mega ? '#f6bd24' : '#5f86cf';
+      ctx.fillRect(-4, -half, 9, 2); ctx.fillRect(-4, half - 2, 9, 2);
+      const stripe = Math.floor(time * 24) % 5 - 2;
+      ctx.fillStyle = '#c4c9d1'; ctx.fillRect(stripe, -half + 2, 1, Math.max(1, half * 2 - 4));
+      ctx.fillStyle = '#3d3d42'; ctx.fillRect(-12, -1, 8, 2);
+      ctx.fillStyle = '#3a5a9c'; ctx.fillRect(-17, -2, 6, 4);
+      ctx.restore();
       continue;
     }
     if (shot.kind === 'plane') {
@@ -1330,6 +1378,12 @@ export function render(ctx, game, width, height, time) {
   }
   for (const slipper of game.slippers) {
     const [x, y] = toBuffer(slipper);
+    const trailColor = slipper.returning ? 'rgba(127,233,255,0.5)' : 'rgba(255,207,63,0.45)';
+    const pace = Math.hypot(slipper.vx, slipper.vy) || 1;
+    for (let ghost = 1; ghost <= 3; ghost++) {
+      ring(ctx, Math.round(x - slipper.vx / pace * ghost * 6), Math.round(y - slipper.vy / pace * ghost * 6),
+        Math.max(1, 4 - ghost), trailColor);
+    }
     const turn = Math.floor(slipper.spin / (Math.PI / 2)) % 4;
     ctx.save();
     ctx.translate(x, y);

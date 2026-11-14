@@ -204,15 +204,15 @@ export const WEAPONS = {
   },
   dehumidifier: {
     label: '제습기', description: '곁에 오는 적을 계속 말린다',
-    dps: [12, 16, 21, 27, 34], radius: [95, 108, 122, 138, 156],
+    dps: [18, 24, 31, 39, 48], radius: [95, 108, 122, 138, 156],
   },
   swatter: {
     label: '파리채', description: '가장 센 적을 세게 내려친다',
     cooldown: [2.0, 1.8, 1.6, 1.4, 1.2], damage: [60, 75, 90, 105, 120], radius: [42, 46, 52, 58, 66],
   },
   slipper: {
-    label: '슬리퍼', description: '던지면 돌아오는 슬리퍼',
-    cooldown: [1.9, 1.7, 1.5, 1.35, 1.2], damage: [16, 20, 25, 30, 36], count: [1, 1, 2, 2, 3], speed: 330, rangeSec: 0.75,
+    label: '슬리퍼', description: '가까운 적을 따라 날아가고, 돌아오며 한 번 더 때린다',
+    cooldown: [1.9, 1.7, 1.5, 1.35, 1.2], damage: [16, 20, 25, 30, 36], count: [1, 1, 2, 2, 3], speed: 390, rangeSec: 0.85, turn: 3.2,
   },
   coil: {
     label: '모기향', description: '불씨가 주위를 빙빙 돌며 태운다',
@@ -228,20 +228,20 @@ export const WEAPONS = {
     speed: 120, lifeSec: 3.2,
   },
   roller: {
-    label: '돌돌이', description: '바라보는 쪽으로 굴러가며 적을 모두 훑는다',
-    cooldown: [2.6, 2.4, 2.2, 2.0, 1.7], damage: [30, 38, 47, 57, 70], size: [18, 20, 22, 25, 28], speed: 260, lifeSec: 1.8,
+    label: '돌돌이', description: '가까운 적 쪽으로 굴러가며 경로의 적을 모두 훑는다',
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.7], damage: [30, 38, 47, 57, 70], size: [18, 20, 22, 25, 28], speed: 330, lifeSec: 1.8,
   },
   dryer: {
     label: '드라이기', description: '가까운 적 쪽으로 뜨거운 바람을 계속 쏜다',
-    dps: [24, 31, 39, 48, 60], range: [135, 145, 157, 170, 185], spread: 0.45,
+    dps: [30, 39, 49, 61, 76], range: [150, 165, 180, 200, 220], spread: 0.5, turn: 10,
   },
   fan: {
     label: '선풍기', description: '강풍으로 앞의 적을 때리고 느리게 한다',
     // cone은 바라보는 쪽에서 양옆으로 바람이 닿는 각도(라디안)다.
-    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [14, 19, 25, 32, 40], range: [220, 240, 260, 285, 310], slows: true, cone: 1.0,
+    cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [18, 25, 33, 42, 52], range: [220, 240, 260, 285, 310], slows: true, cone: 1.0,
   },
   laser: {
-    label: '레이저 포인터', description: '아무 방향으로나 곧게 뻗는 레이저를 쏜다',
+    label: '레이저 포인터', description: '가까운 적을 조준해 일직선의 적을 꿰뚫는다',
     cooldown: [2.2, 2.0, 1.8, 1.6, 1.4], damage: [28, 35, 43, 52, 64], width: [14, 16, 18, 20, 24], count: [1, 1, 2, 2, 3],
     length: 900,
   },
@@ -268,13 +268,13 @@ export const WEAPONS = {
     cooldown: [1.6, 1.45, 1.3, 1.15, 1.0], damage: [14, 17, 21, 25, 30], count: [1, 1, 2, 2, 2], speed: 260, turn: 4.5, lifeSec: 3,
   },
   mousetrap: {
-    label: '쥐덫', description: '주변에 덫을 놓는다. 적이 밟으면 탁 닫힌다',
+    label: '쥐덫', description: '다가오는 적의 경로에 덫을 놓고, 밟으면 탁 닫힌다',
     cooldown: [2.5, 2.3, 2.1, 1.9, 1.7], damage: [60, 75, 95, 115, 140], count: [1, 1, 2, 2, 3], radius: [30, 32, 34, 37, 40],
     lifeSec: 8, maxTraps: 12,
   },
   microwave: {
     label: '전자레인지', description: '퍼져 나가는 파동으로 주변을 데운다',
-    cooldown: [3, 2.8, 2.6, 2.4, 2.2], damage: [20, 25, 31, 38, 46], radius: [150, 165, 180, 200, 220], growSec: 0.55,
+    cooldown: [2.6, 2.4, 2.2, 2, 1.8], damage: [28, 35, 44, 54, 66], radius: [150, 165, 180, 200, 220], growSec: 0.55,
   },
   shower: {
     label: '샤워기', description: '적 머리 위로 물줄기를 떨어뜨린다',
@@ -326,10 +326,10 @@ export const EVOLUTIONS = {
   coil: { label: '불꽃 모기향', description: '바깥에 불씨 고리가 하나 더 돈다', damage: 1.5, outer: 1.75 },
   zapper: { label: '벼락 파리채', description: '전기가 훨씬 멀리, 더 많이 튄다', damage: 1.5, chains: 16, jump: 1.5 },
   detergent: { label: '거품 폭탄', description: '거품이 두 배로 나오고 훨씬 크게 터진다', damage: 1.3, radius: 1.5, double: true },
-  roller: { label: '대형 돌돌이', description: '앞뒤로 커다란 돌돌이를 굴린다', damage: 1.5, size: 1.5, both: true },
+  roller: { label: '대형 돌돌이', description: '표적 쪽과 반대쪽으로 커다란 돌돌이를 굴린다', damage: 1.5, size: 1.5, both: true },
   dryer: { label: '업소용 열풍기', description: '더 멀리, 더 넓게, 더 뜨겁게', dps: 1.6, range: 1.4, wide: 0.75 },
   fan: { label: '태풍 선풍기', description: '사방의 적을 한 번에 날려 버린다', damage: 2, range: 1.3 },
-  laser: { label: '레이저 쇼', description: '여섯 줄기가 사방으로 한꺼번에 뻗는다', damage: 1.3, count: 6 },
+  laser: { label: '레이저 쇼', description: '여섯 줄기가 여러 적을 나눠 조준한다. 같은 적에게는 발사당 최대 두 줄기 적중', damage: 1.3, count: 6, maxHitsPerTarget: 2 },
   stapler: { label: '전동 타카', description: '두 줄로 쏘고 못이 적을 뚫는다', damage: 1.4, pierce: 2 },
   ball: { label: '왕탱탱볼', description: '커다란 공 다섯 개가 튕겨 다닌다', damage: 1.5, count: 5, size: 1.8 },
   robot: { label: '스페이스 마린', icon: 'marine', description: '장갑병 셋이 오리를 호위하며 적을 조준해 관통탄 두 발씩 쏜다', damage: 1.4, count: 3, speed: 1.2, fireEverySec: 0.55, shots: 2, range: 520, bulletSpeed: 540, bulletLifeSec: 1.2, pierce: 1 },

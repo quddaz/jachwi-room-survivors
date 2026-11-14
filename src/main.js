@@ -78,7 +78,7 @@ function playCombatSounds() {
   for (const shot of game.shots) {
     if (heardObjects.has(shot)) continue;
     heardObjects.add(shot);
-    music.playEffect('shoot');
+    music.playEffect(shot.sound ?? 'shoot');
   }
 }
 

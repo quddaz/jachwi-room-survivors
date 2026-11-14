@@ -382,6 +382,30 @@ function near(game, x, y, reach) {
   return found;
 }
 
+// 두 프레임 사이의 이동 경로를 원과 교차 검사한다. 빠른 탄이 작은 적을 통과하지 않게 한다.
+function sweepHits(game, from, to, radius) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const lengthSq = dx * dx + dy * dy;
+  const hits = [];
+  for (const enemy of near(game, (from.x + to.x) / 2, (from.y + to.y) / 2, Math.sqrt(lengthSq) / 2 + radius)) {
+    if (enemy.dead) continue;
+    const x = from.x - enemy.x, y = from.y - enemy.y;
+    const r = radius + enemy.radius;
+    const c = x * x + y * y - r * r;
+    let t = 0;
+    if (c > 0) {
+      if (lengthSq === 0) continue;
+      const b = x * dx + y * dy;
+      const discriminant = b * b - lengthSq * c;
+      if (discriminant < 0) continue;
+      t = (-b - Math.sqrt(discriminant)) / lengthSq;
+      if (t < 0 || t > 1) continue;
+    }
+    hits.push({ enemy, t });
+  }
+  return hits.sort((a, b) => a.t - b.t || a.enemy.id - b.enemy.id);
+}
+
 function addEffect(game, effect) {
   if (game.effects.length > 240) {
     const index = game.effects.findIndex((candidate) => candidate.type !== 'banner');
@@ -1346,16 +1370,20 @@ function fireWeapons(game, dt) {
   if (activeWeapon(game, 'slipper') && ready(game, 'slipper', dt)) {
     const storm = evolution(game, 'slipper');
     const count = storm ? storm.count : weaponValue(game, 'slipper', 'count');
-    const target = nearestEnemies(game, 1)[0];
+    const targets = nearestEnemies(game, count, 380);
+    const target = targets[0];
     const baseAngle = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
     for (let index = 0; index < count; index += 1) {
-      const angle = storm ? baseAngle + (index / count) * Math.PI * 2 : baseAngle + (index - (count - 1) / 2) * 0.6;
+      const aimed = targets[index % Math.max(1, targets.length)];
+      const angle = storm ? baseAngle + (index / count) * Math.PI * 2
+        : aimed ? Math.atan2(aimed.y - player.y, aimed.x - player.x) : baseAngle + (index - (count - 1) / 2) * 0.3;
       const { speed, rangeSec } = WEAPONS.slipper;
       game.slippers.push({ x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'slipper', 'damage'), outFor: rangeSec, returning: false, radius: 10 * projectile,
-        scale: projectile,
+        scale: projectile, target: storm ? null : aimed,
         spin: 0, hit: new Set() });
     }
+    addEffect(game, { weapon: 'slipper', type: 'ring', x: player.x, y: player.y, radius: 20, color: 'ball', life: 0.18, sound: 'slash' });
   }
   if (activeWeapon(game, 'coil')) {
     const fire = fusion(game, 'firering');
@@ -1424,9 +1452,11 @@ function fireWeapons(game, dt) {
   }
   if (activeWeapon(game, 'roller') && ready(game, 'roller', dt)) {
     const { speed, lifeSec } = WEAPONS.roller;
-    const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
+    const target = nearestEnemies(game, 1, speed * lifeSec)[0];
+    const forward = target ? Math.atan2(target.y - player.y, target.x - player.x)
+      : player.heading ?? (player.facing > 0 ? 0 : Math.PI);
     for (const angle of evolution(game, 'roller') ? [forward, forward + Math.PI] : [forward]) {
-      game.shots.push({ weapon: 'roller', x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      game.shots.push({ weapon: 'roller', sound: 'roll', x: player.x, y: player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
         damage: weaponValue(game, 'roller', 'damage'), pierce: 999, life: lifeSec, radius: weaponValue(game, 'roller', 'size') * area * projectile,
         hit: new Set(), kind: 'roller', slows: true, mega: Boolean(evolution(game, 'roller')) });
     }
@@ -1436,11 +1466,16 @@ function fireWeapons(game, dt) {
     // 물티슈가 바람이 퍼지는 폭도 넓힌다.
     const spread = Math.min(1.3, (evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread) * area);
     const damage = weaponValue(game, 'dryer', 'dps') * dt;
-    const target = nearestEnemies(game, 1, range + 40)[0];
+    const nearest = nearestEnemies(game, 1, range + 40)[0];
+    const locked = game.dryerTarget;
+    const target = locked && !locked.dead && distance(locked, player) <= range + 40
+      && (!nearest || distance(nearest, player) >= distance(locked, player) * 0.75) ? locked : nearest;
+    game.dryerTarget = target;
     const wanted = target ? Math.atan2(target.y - player.y, target.x - player.x) : (player.facing > 0 ? 0 : Math.PI);
     const current = game.dryerAngle ?? wanted;
     const turn = Math.atan2(Math.sin(wanted - current), Math.cos(wanted - current));
-    game.dryerAngle = current + clamp(turn, -6 * dt, 6 * dt);
+    game.dryerAngle = current + clamp(turn, -WEAPONS.dryer.turn * dt, WEAPONS.dryer.turn * dt);
+    if (target && !game.dryerOn) addEffect(game, { weapon: 'dryer', type: 'ring', x: player.x, y: player.y, radius: 18, color: 'gold', life: 0.18, sound: 'roll' });
     game.dryerOn = Boolean(target);
     game.dryerRange = range;
     game.dryerSpread = spread;
@@ -1464,7 +1499,7 @@ function fireWeapons(game, dt) {
       if (enemy.dead || gap > range + enemy.radius) continue;
       const toEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
       const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
-      if (diff < cone || evolution(game, 'fan')) damageWeaponHit(game, enemy, damage, WEAPONS.fan.slows);
+      if (diff < cone + Math.asin(Math.min(1, enemy.radius / Math.max(1, gap))) || evolution(game, 'fan')) damageWeaponHit(game, enemy, damage, WEAPONS.fan.slows);
     }
     addEffect(game, { weapon: 'fan', type: 'gust', x: player.x, y: player.y, angle, range, cone, life: 0.35,
       mega: Boolean(evolution(game, 'fan')) });
@@ -1477,21 +1512,26 @@ function fireWeapons(game, dt) {
     const width = weaponValue(game, 'laser', 'width') * area * projectile;
     const damage = weaponValue(game, 'laser', 'damage');
     const { length } = WEAPONS.laser;
-    const base = game.random() * Math.PI * 2;
+    const targets = nearestEnemies(game, count, length);
+    const base = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
+    const hitCounts = new Map();
     for (let index = 0; index < count; index += 1) {
-      // 완성형은 고르게 펼치고, 그 전에는 줄기마다 아무 방향이나 고른다.
-      const angle = show ? base + (index / count) * Math.PI * 2 : index === 0 ? base : game.random() * Math.PI * 2;
+      const target = targets[index % Math.max(1, targets.length)];
+      const angle = target ? Math.atan2(target.y - player.y, target.x - player.x) : base + (index - (count - 1) / 2) * 0.18;
       const dx = Math.cos(angle);
       const dy = Math.sin(angle);
       for (const enemy of game.enemies) {
-        if (enemy.dead) continue;
+        if (enemy.dead || (hitCounts.get(enemy.id) ?? 0) >= (show?.maxHitsPerTarget ?? 1)) continue;
         const rx = enemy.x - player.x;
         const ry = enemy.y - player.y;
         const along = rx * dx + ry * dy;
         if (along < -enemy.radius || along > length) continue;
-        if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) damageWeaponHit(game, enemy, damage, true);
+        if (Math.abs(rx * dy - ry * dx) < width / 2 + enemy.radius) {
+          hitCounts.set(enemy.id, (hitCounts.get(enemy.id) ?? 0) + 1);
+          damageWeaponHit(game, enemy, damage, true);
+        }
       }
-      addEffect(game, { weapon: 'laser', type: 'laser', x: player.x, y: player.y, angle, length, width, life: 0.34, mega: Boolean(show) });
+      addEffect(game, { weapon: 'laser', type: 'laser', x: player.x, y: player.y, angle, length, width, life: 0.34, mega: Boolean(show), focus: target ? { x: target.x, y: target.y } : null });
     }
     game.shake = Math.max(game.shake, 0.08);
   }
@@ -1533,7 +1573,8 @@ function fireWeapons(game, dt) {
     const big = evolution(game, 'ball');
     const count = big ? big.count : weaponValue(game, 'ball', 'count');
     while (game.balls.length < count) {
-      const angle = game.random() * Math.PI * 2;
+      const target = nearestEnemies(game, count, 600)[game.balls.length % count];
+      const angle = target ? Math.atan2(target.y - player.y, target.x - player.x) + (game.balls.length - (count - 1) / 2) * 0.2 : game.random() * Math.PI * 2;
       game.balls.push({ id: game.nextId++, x: player.x, y: player.y, dx: Math.cos(angle), dy: Math.sin(angle), bounce: 0 });
     }
     game.balls.length = count;
@@ -1548,6 +1589,7 @@ function fireWeapons(game, dt) {
       ball.radius = radius;
       ball.mega = Boolean(big);
       ball.bounce = Math.max(0, ball.bounce - dt);
+      const previous = { x: ball.x, y: ball.y };
       ball.x += ball.dx * speed * dt;
       ball.y += ball.dy * speed * dt;
       const before = ball.dx * 2 + ball.dy;
@@ -1557,7 +1599,19 @@ function fireWeapons(game, dt) {
       if (ball.y > player.y + halfH) { ball.y = player.y + halfH; ball.dy = -Math.abs(ball.dy); }
       if (before !== ball.dx * 2 + ball.dy) {
         ball.bounce = 0.12;
-        addEffect(game, { type: 'burst', x: ball.x, y: ball.y, color: big ? 'gold' : 'ball', count: 5, life: 0.3 });
+        const target = game.enemies.filter(enemy => !enemy.dead
+          && Math.abs(enemy.x - player.x) < halfW && Math.abs(enemy.y - player.y) < halfH)
+          .sort((a, b) => distance(a, ball) - distance(b, ball))[0];
+        if (target) {
+          const gap = distance(target, ball) || 1;
+          let dx = ball.dx * 0.65 + (target.x - ball.x) / gap * 0.35;
+          let dy = ball.dy * 0.65 + (target.y - ball.y) / gap * 0.35;
+          if (Math.abs(ball.x - player.x) >= halfW - 0.01) dx = Math.sign(ball.dx) * Math.abs(dx);
+          if (Math.abs(ball.y - player.y) >= halfH - 0.01) dy = Math.sign(ball.dy) * Math.abs(dy);
+          const length = Math.hypot(dx, dy) || 1;
+          ball.dx = dx / length; ball.dy = dy / length;
+        }
+        addEffect(game, { type: 'burst', x: ball.x, y: ball.y, color: big ? 'gold' : 'ball', count: 5, life: 0.3, sound: 'bounce' });
       }
       if (thunder) {
         ball.thunder = true;
@@ -1578,8 +1632,7 @@ function fireWeapons(game, dt) {
           if (blast) addEffect(game, { type: 'ring', x: ball.x, y: ball.y, radius: reach, color: 'spark', life: 0.3 });
         }
       }
-      for (const enemy of near(game, ball.x, ball.y, radius)) {
-        if (enemy.dead || distance(enemy, ball) > radius + enemy.radius) continue;
+      for (const { enemy } of sweepHits(game, previous, ball, radius)) {
         enemy.ballHitAt ??= {};
         if (game.time - (enemy.ballHitAt[ball.id] ?? -9) < WEAPONS.ball.hitEverySec) continue;
         enemy.ballHitAt[ball.id] = game.time;
@@ -1685,10 +1738,15 @@ function fireWeapons(game, dt) {
     const sticky = evolution(game, 'mousetrap');
     if (ready(game, 'mousetrap', dt)) {
       const { lifeSec, maxTraps } = WEAPONS.mousetrap;
-      for (let index = 0; index < weaponValue(game, 'mousetrap', 'count'); index += 1) {
-        const angle = game.random() * Math.PI * 2;
-        const reach = 40 + game.random() * 110;
-        game.traps.push({ x: player.x + Math.cos(angle) * reach, y: player.y + Math.sin(angle) * reach, armIn: 0.4, life: lifeSec,
+      const count = weaponValue(game, 'mousetrap', 'count');
+      const targets = nearestEnemies(game, count, 480);
+      for (let index = 0; index < count; index += 1) {
+        const target = targets[index % Math.max(1, targets.length)];
+        const angle = target ? Math.atan2(target.y - player.y, target.x - player.x) + (targets.length === 1 ? (index - (count - 1) / 2) * 0.18 : 0)
+          : (player.heading ?? 0) + (index / count) * Math.PI * 2;
+        const reach = target ? Math.max(35, clamp(distance(target, player) - target.speed * 0.4, 35, 165) - index * 28)
+          : 70 + index * 24;
+        game.traps.push({ x: player.x + Math.cos(angle) * reach, y: player.y + Math.sin(angle) * reach, armIn: 0.4, armSec: 0.4, life: lifeSec,
           radius: weaponValue(game, 'mousetrap', 'radius') * area, damage: weaponValue(game, 'mousetrap', 'damage'), mega: Boolean(sticky) });
       }
       if (game.traps.length > maxTraps) game.traps.splice(0, game.traps.length - maxTraps);
@@ -1727,13 +1785,15 @@ function fireWeapons(game, dt) {
         game.waves.push({ x: player.x, y: player.y, r: start, max, speed: max / WEAPONS.microwave.growSec,
           damage: weaponValue(game, 'microwave', 'damage') * (oven?.damage ?? 1), hit: new Set(), mega: Boolean(evolution(game, 'microwave')), oven });
       }
+      addEffect(game, { weapon: 'microwave', type: 'ring', x: player.x, y: player.y, radius: 28, color: 'gold', life: 0.22, sound: 'pulse' });
     }
     for (const wave of game.waves) {
+      const previousRadius = wave.r;
       wave.r += wave.speed * dt;
       for (const enemy of game.enemies) {
         if (enemy.dead || wave.hit.has(enemy.id)) continue;
         const gap = distance(enemy, wave);
-        if (gap - enemy.radius < wave.r && gap + enemy.radius > wave.r - 20) {
+        if (wave.r > 0 && gap - enemy.radius < Math.min(wave.r, wave.max) && gap + enemy.radius > Math.max(0, previousRadius - 20)) {
           wave.hit.add(enemy.id);
           damageWeaponHit(game, enemy, wave.damage, true, wave);
           if (wave.oven && !enemy.boss) {
@@ -1789,7 +1849,7 @@ function fireWeapons(game, dt) {
   if (mop) {
     game.mopIn = (game.mopIn ?? mop.everySec) - dt;
     if (game.mopIn <= 0) {
-      // 물걸레 회오리: 주위를 한 바퀴 휘감고, 맞은 적을 오리 쪽으로 끌어당긴다.
+      // 물걸레 회오리: 주위를 한 바퀴 휘감고, 맞은 적을 느리게 한다.
       game.mopIn = mop.everySec * statsOf(game).cooldownScale;
       const radius = weaponValue(game, 'towel', 'length') * area;
       const damage = weaponValue(game, 'towel', 'damage') * mop.damage;
@@ -1828,12 +1888,15 @@ function updateProjectiles(game, dt) {
         shot.vy = Math.sin(current + turn) * shot.speed;
       }
     }
-    shot.x += shot.vx * dt;
-    shot.y += shot.vy * dt;
+    if (shot.life <= 0) continue;
+    const previous = { x: shot.x, y: shot.y };
+    const travel = Math.min(dt, shot.life);
+    shot.x += shot.vx * travel;
+    shot.y += shot.vy * travel;
     shot.life -= dt;
-    for (const enemy of near(game, shot.x, shot.y, shot.radius)) {
-      if (shot.life <= 0) break;
-      if (enemy.dead || shot.hit.has(enemy.id) || shot.ignored?.has(enemy.id) || distance(shot, enemy) > shot.radius + enemy.radius) continue;
+    for (const { enemy, t } of sweepHits(game, previous, shot, shot.radius)) {
+      if (enemy.dead || shot.hit.has(enemy.id) || shot.ignored?.has(enemy.id)) continue;
+      const impact = { x: previous.x + (shot.x - previous.x) * t, y: previous.y + (shot.y - previous.y) * t };
       if (shot.volleyId != null) {
         enemy.volleyHits ??= new Map();
         const count = enemy.volleyHits.get(shot.volleyId) ?? 0;
@@ -1848,16 +1911,16 @@ function updateProjectiles(game, dt) {
       }
       shot.hit.add(enemy.id);
       if (shot.pop) {
-        for (const other of near(game, shot.x, shot.y, shot.pop)) {
-          if (other.dead || distance(other, shot) >= shot.pop + other.radius) continue;
+        for (const other of near(game, impact.x, impact.y, shot.pop)) {
+          if (other.dead || distance(other, impact) >= shot.pop + other.radius) continue;
           if (shot.foamMine) {
             if (game.time - (other.foamHitAt ?? -9) < FUSIONS.foammine.hitEverySec) continue;
             other.foamHitAt = game.time;
           }
           damageWeaponHit(game, other, shot.damage, true, shot);
         }
-        addEffect(game, { type: 'ring', x: shot.x, y: shot.y, radius: shot.pop, color: 'bubble', life: 0.3 });
-        addEffect(game, { type: 'burst', x: shot.x, y: shot.y, color: 'bubble', count: 6, life: 0.35 });
+        addEffect(game, { type: 'ring', x: impact.x, y: impact.y, radius: shot.pop, color: 'bubble', life: 0.3 });
+        addEffect(game, { type: 'burst', x: impact.x, y: impact.y, color: 'bubble', count: 6, life: 0.35 });
         shot.life = 0;
         break;
       }
@@ -1880,14 +1943,22 @@ function updateProjectiles(game, dt) {
         enemy.poisonUntil = game.time + FUSIONS.poisongun.poisonSec;
         enemy.poisonDps = shot.poison;
       }
-      if (shot.hit.size > shot.pierce) shot.life = 0;
+      if (shot.hit.size > shot.pierce) { shot.life = 0; break; }
     }
   }
   game.shots = game.shots.filter((shot) => shot.life > 0);
 
   for (const slipper of game.slippers) {
     slipper.spin += dt * 14;
+    const previous = { x: slipper.x, y: slipper.y };
     if (!slipper.returning) {
+      if (slipper.target && !slipper.target.dead && !slipper.hit.has(slipper.target.id)) {
+        const current = Math.atan2(slipper.vy, slipper.vx);
+        const wanted = Math.atan2(slipper.target.y - slipper.y, slipper.target.x - slipper.x);
+        const turn = clamp(Math.atan2(Math.sin(wanted - current), Math.cos(wanted - current)), -WEAPONS.slipper.turn * dt, WEAPONS.slipper.turn * dt);
+        slipper.vx = Math.cos(current + turn) * WEAPONS.slipper.speed;
+        slipper.vy = Math.sin(current + turn) * WEAPONS.slipper.speed;
+      }
       slipper.outFor -= dt;
       if (slipper.outFor <= 0) {
         slipper.returning = true;
@@ -1895,15 +1966,15 @@ function updateProjectiles(game, dt) {
       }
     } else {
       const gap = distance(slipper, game.player) || 1;
-      const speed = WEAPONS.slipper.speed * 1.15;
+      const speed = Math.min(Math.max(WEAPONS.slipper.speed * 1.15, statsOf(game).speed * 1.35), gap / dt);
       slipper.vx = ((game.player.x - slipper.x) / gap) * speed;
       slipper.vy = ((game.player.y - slipper.y) / gap) * speed;
-      if (gap < 18) slipper.done = true;
+      if (gap <= Math.max(18, speed * dt)) slipper.done = true;
     }
     slipper.x += slipper.vx * dt;
     slipper.y += slipper.vy * dt;
-    for (const enemy of near(game, slipper.x, slipper.y, slipper.radius)) {
-      if (enemy.dead || slipper.hit.has(enemy.id) || distance(slipper, enemy) > slipper.radius + enemy.radius) continue;
+    for (const { enemy } of sweepHits(game, previous, slipper, slipper.radius)) {
+      if (enemy.dead || slipper.hit.has(enemy.id)) continue;
       slipper.hit.add(enemy.id);
       damageWeaponHit(game, enemy, slipper.damage, true, slipper);
     }
