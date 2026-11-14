@@ -181,11 +181,13 @@ function drawHud() {
     if (fill.style.transform !== value) fill.style.transform = value;
   });
 
-  const latest = game.effects.findLast((effect) => effect.type === 'banner');
+  const latest = game.effects.findLast((effect) => effect.type === 'banner' && effect.warning)
+    ?? game.effects.findLast((effect) => effect.type === 'banner');
   if (latest && latest !== shownBannerAge) {
     shownBannerAge = latest;
     banner.textContent = latest.text;
     banner.classList.toggle('is-boss', Boolean(latest.boss));
+    banner.classList.toggle('is-warning', Boolean(latest.warning));
   }
   if (banner.classList.contains('is-visible') !== Boolean(latest)) banner.classList.toggle('is-visible', Boolean(latest));
 }

@@ -1,5 +1,5 @@
 import {
-  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -38,6 +38,8 @@ export function createGame(random = Math.random) {
     revived: false,
     alarmIn: 0,
     eliteUnlocked: 0,
+    hpSurgeWarned: false,
+    hpSurgeStarted: false,
     swapIn: null,
     shake: 0,
     gems: [],
@@ -2142,9 +2144,32 @@ export function choose(game, index) {
   return choice;
 }
 
+// 8분 강화는 기존 적과 새 적에 같은 배율로 적용한다. 기존 적의 남은 체력 비율은 보존한다.
+function updateHpSurge(game, previousTime) {
+  if (!game.hpSurgeWarned && game.time >= HP_SURGE.from - HP_SURGE.warningSec && game.time < HP_SURGE.from) {
+    game.hpSurgeWarned = true;
+    addEffect(game, { type: 'banner', text: '경고! 8분부터 적 체력이 크게 증가해요', life: HP_SURGE.warningSec, warning: true, sound: 'boss' });
+  }
+  const ratio = hpSurgeAt(game.time) / hpSurgeAt(previousTime);
+  if (ratio !== 1) {
+    for (const enemy of game.enemies) {
+      if (enemy.dead) continue;
+      enemy.hp *= ratio;
+      enemy.maxHp *= ratio;
+    }
+  }
+  if (!game.hpSurgeStarted && game.time >= HP_SURGE.from) {
+    game.hpSurgeStarted = true;
+    game.hpSurgeWarned = true;
+    addEffect(game, { type: 'banner', text: '위험 단계! 적 체력 2배 · 이후 계속 증가', life: 4, warning: true, sound: 'boss' });
+  }
+}
+
 export function update(game, dt, input = { x: 0, y: 0 }) {
   if (game.over || game.choices) return game;
+  const previousTime = game.time;
   game.time += dt;
+  updateHpSurge(game, previousTime);
   movePlayer(game, dt, input);
   spawn(game, dt);
   moveEnemies(game, dt);

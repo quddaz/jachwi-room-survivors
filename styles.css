@@ -179,6 +179,7 @@ img { display: block; max-width: 100%; }
 }
 .banner.is-visible { opacity: 1; }
 .banner.is-boss { background: var(--color-bad); }
+.banner.is-warning { width: max-content; max-width: calc(100% - 32px); padding: 12px 18px; border: 2px solid #ffd45b; border-radius: 14px; background: #922c2c; color: #fff4cf; white-space: normal; text-align: center; line-height: 1.5; box-shadow: 0 4px 20px rgb(85 10 10 / 30%); }
 .joystick { position: absolute; width: 110px; height: 110px; margin: -55px 0 0 -55px; border: 3px solid rgb(255 255 255 / 70%); border-radius: 50%; background: rgb(255 255 255 / 22%); pointer-events: none; }
 .joystick-knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgb(255 178 31 / 85%); }
 

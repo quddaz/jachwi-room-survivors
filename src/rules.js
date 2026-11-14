@@ -65,6 +65,14 @@ export const MAPS = {
 export const PLAYER = { speed: 200, maxHp: 100, regen: 1, critDamage: 1.5, radius: 16, pickupRadius: 90, invulnerableSec: 0.6,
   maxHitShare: 0.4 };
 
+// 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
+export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
+
+export function hpSurgeAt(time) {
+  if (time < HP_SURGE.from) return 1;
+  return HP_SURGE.multiplier * (1 + HP_SURGE.growthPerMinute) ** ((time - HP_SURGE.from) / 60);
+}
+
 // 시간이 갈수록 끝없이 세진다. 정해진 끝은 없지만, 14분부터는 벽처럼 세져서 20분 안팎이 한계다.
 export function difficultyAt(time) {
   const minutes = time / 60;
@@ -73,7 +81,7 @@ export function difficultyAt(time) {
   // 14분부터는 벽: 체력이 크게 뛰고, 한 번에 깎이는 체력 상한도 커진다.
   const wall = Math.max(0, minutes - 14);
   return {
-    hp: 1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05 + wall * wall * wall * 1.5,
+    hp: (1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05 + wall * wall * wall * 1.5) * hpSurgeAt(time),
     damage: 1.3 + minutes * 0.3 + minutes * minutes * 0.025 + late * 0.5 + wall * 1.5,
     speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03) + wall * 0.04,
     spawnPerSec: Math.min(46 + wall * 6, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.8),
