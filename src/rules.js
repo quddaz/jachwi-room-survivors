@@ -12,7 +12,7 @@ export const BUILD = {
     perks: {
       5: { name: '약점 포착', text: '보스·정예에게 치명타 확률 +10%', eliteCrit: 0.1 },
       10: { name: '치명 폭발', text: '치명타로 쓰러뜨린 적이 터져 주변에 그 피해의 40%', blastShare: 0.4, blastRadius: 70 },
-      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타 맞은 적 0.8초 기절(보스 제외). 기절·빙결 해제 후 1.2초 재발동 면역', critDamage: 0.5, stun: 0.8 },
+      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타마다 적중 피해의 30% 광역 폭발, 맞은 적 0.8초 기절(보스 제외). 기절·빙결 해제 후 1.2초 재발동 면역', critDamage: 0.5, stun: 0.8, blastShare: 0.3, blastRadius: 90, blastVisualEverySec: 0.1 },
     } },
   haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.005 },
     perks: {
@@ -71,8 +71,8 @@ export const HIT_SLOW = { speed: 0.75, eliteSpeed: 0.85, durationSec: 0.35 };
 // 타격 기절·빙결은 연타로 연장하지 않고 해제 후 회복 시간을 공유한다.
 export const HIT_FREEZE = { recoverySec: 1.2 };
 
-// 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
-export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
+// 8분에 체력을 30% 올린 뒤 기존 난이도에 분당 8%를 추가로 곱한다.
+export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 1.3, growthPerMinute: 0.08 };
 
 export function hpSurgeAt(time) {
   if (time < HP_SURGE.from) return 1;
@@ -143,7 +143,7 @@ export const ELITE = {
   from: 480, step: 30,
   order: ['roach', 'trash', 'rust', 'mold', 'mosquito', 'spider', 'fly', 'milk', 'mouse', 'moth', 'ant', 'slug', 'sock', 'dustbunny', 'pigeon'],
   chance: 0.15, chancePerMin: 0.03, maxChance: 0.4,
-  hp: 6, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
+  hp: 4, damage: 1.5, speed: 1.1, radius: 1.25, xp: 5, drop: 3,
 };
 
 export function eliteFrom(kind) {
@@ -295,6 +295,12 @@ export const WEAPONS = {
     damage: [24, 32, 42, 54, 68], count: [1, 1, 1, 2, 2], cooldown: [2, 1.85, 1.7, 1.5, 1.3],
     speed: [240, 270, 300, 330, 360], range: [280, 315, 350, 390, 430], radius: 18,
   },
+  toyknight: {
+    label: '장난감 검사', summon: 'sword', description: '검사가 적을 추격해 넓게 베고 바닥에 푸른 검흔을 남긴다',
+    damage: [24, 32, 42, 54, 68], count: [1, 1, 1, 2, 2], cooldown: [1.5, 1.4, 1.3, 1.15, 1.05],
+    speed: [155, 170, 185, 200, 220], range: [76, 84, 94, 106, 118], seek: 520,
+    arc: 2.6, scarSec: 0.7,
+  },
   plantspirit: {
     label: '화분 정령', summon: 'artillery', description: '따라다니는 화분 정령이 적중하면 넓게 터지는 씨앗을 던진다',
     damage: [20, 27, 35, 44, 54], count: [1, 1, 1, 2, 2], cooldown: [1.7, 1.55, 1.4, 1.25, 1.1],
@@ -363,6 +369,7 @@ export const EVOLUTIONS = {
   sockpuppet: { label: '양말 기사단', icon: 'sockknight', description: '투구를 쓴 인형 셋이 주먹으로 주변 적을 함께 때린다', damage: 1.7, count: 3, speed: 1.15, cleave: 64 },
   toydrone: { label: '쌍포 드론', icon: 'dronemk2', description: '드론 셋이 두 발씩 관통탄을 발사한다', damage: 1.6, count: 3, shots: 2, pierce: 2 },
   windcar: { label: '태엽 전차', icon: 'windtank', description: '전차 셋이 돌진하고 끝에서 충격파를 터뜨린다', damage: 1.7, count: 3, size: 1.25, blast: 90 },
+  toyknight: { label: '검흔 수호자', icon: 'bladeguardian', description: '대검을 든 검사 셋이 더 넓게 베고 겹친 검흔을 남긴다', damage: 1.65, count: 3, range: 1.2, arc: 3.5, scarSec: 1 },
   plantspirit: { label: '숲의 수호자', icon: 'plantguardian', description: '정령 셋이 씨앗 두 발씩 던지고 폭발 범위가 커진다', damage: 1.6, count: 3, shots: 2, radius: 1.35 },
 };
 

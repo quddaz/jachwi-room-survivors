@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyBuild, choose, createGame, describeChoice, rollChoices, rollRelics, statsOf, update } from '../src/engine.js';
 import { BUILD, EVOLUTIONS, PASSIVES, WEAPONS, normalizeBuild, passiveMaxLevel } from '../src/rules.js';
-const IDS = ['sockpuppet', 'toydrone', 'windcar', 'plantspirit'];
+const IDS = ['sockpuppet', 'toydrone', 'windcar', 'plantspirit', 'toyknight'];
 const DT = 1 / 60;
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-6, `${a} != ${b}`);
 function quiet(weapons = {}) {
@@ -79,7 +79,7 @@ describe('소환 20점 전용 패시브', () => {
   });
 });
 
-describe('네 소환 무기와 완성형', () => {
+describe('소환 무기와 완성형', () => {
   for (const id of IDS) {
     it(`${id}: 5레벨과 완성형이 있고 공격하며 소환수가 누적되지 않는다`, () => {
       const g = quiet({ [id]: 5 });g.evolved[id] = true;
@@ -112,11 +112,11 @@ describe('네 소환 무기와 완성형', () => {
     delete g.weapons.sockpuppet;update(g, DT);
     assert.equal(g.summons.length, 1);assert.equal(g.summons[0].weapon, 'toydrone');
   });
-  it('다섯 소환 무기를 최대 강화해도 소환수는 총 30개로 유지한다', () => {
+  it('여섯 소환 무기를 최대 강화해도 소환수는 총 36개로 유지한다', () => {
     const all = [...IDS, 'robot'];const g = quiet(Object.fromEntries(all.map(id => [id, 5])));
     g.evolved = Object.fromEntries(all.map(id => [id, true]));applyBuild(g, { summon: 20, haste: 10 });
     g.passives = { summonwhistle: 3, summoncrest: 5, battery: 5 };
-    target(g);run(g, 600);assert.equal(g.summons.length + g.robots.length, 30);
+    target(g);run(g, 600);assert.equal(g.summons.length + g.robots.length, 36);
     assert.ok(g.shots.length < 400);
   });
 });

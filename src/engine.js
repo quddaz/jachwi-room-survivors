@@ -946,18 +946,23 @@ function separate(enemies) {
   }
 }
 
-// 치명 10점: 치명타로 쓰러진 적이 터진다. 터진 피해로는 다시 터지지 않는다.
-function critBlast(game, source, amount) {
-  const blast = perk(game, 'crit', 10);
+// 치명 10점은 처치 시, 급소 마스터는 치명타 적중마다 폭발한다. 폭발에서 다시 폭발하지 않는다.
+function critBlast(game, source, amount, master = false) {
+  const blast = perk(game, 'crit', master ? 20 : 10);
   if (!blast || game.critBlasting) return;
   game.critBlasting = true;
   for (const enemy of near(game, source.x, source.y, blast.blastRadius)) {
     if (enemy !== source && !enemy.dead && distance(enemy, source) < blast.blastRadius + enemy.radius) {
-      damageEnemy(game, enemy, amount * blast.blastShare);
+      damageEnemy(game, enemy, amount * blast.blastShare, false, source, 0,
+        master ? { canCrit: false, hitEffects: false, showHit: false } : undefined);
     }
   }
   game.critBlasting = false;
-  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: blast.blastRadius, color: 'crit', life: 0.3 });
+  // 피해는 매 치명타마다 적용하고, 같은 적의 겹치는 연출만 짧게 묶는다.
+  if (master && game.time < (source.nextMasterBlastVisualAt ?? -Infinity)) return;
+  if (master) source.nextMasterBlastVisualAt = game.time + blast.blastVisualEverySec;
+  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: blast.blastRadius, color: 'crit', life: 0.3, sound: master ? 'impact' : undefined });
+  if (master) addEffect(game, { type: 'burst', x: source.x, y: source.y, color: 'crit', count: 8, life: 0.25 });
 }
 
 function damageWeaponHit(game, enemy, amount, slows = false, from = game.player) {
@@ -1032,6 +1037,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     killEnemy(game, enemy);
     if (crit) critBlast(game, enemy, amount);
   }
+  if (crit) critBlast(game, enemy, amount, true);
 }
 
 function dropGem(game, x, y, value) {
@@ -1358,14 +1364,15 @@ function updateSummons(game, dt) {
       if (distance(unit, player) > 850) { unit.x = player.x; unit.y = player.y; unit.charging = false; unit.returning = false; }
       unit.evolved = Boolean(evolved);
       unit.attackIn = Math.max(0, unit.attackIn - dt);
-      const seek = weapon.summon === 'melee' ? weapon.seek * stats.summonRange : range;
+      const melee = weapon.summon === 'melee' || weapon.summon === 'sword';
+      const seek = melee ? weapon.seek * stats.summonRange : range;
       let target = null, best = Infinity;
       for (const enemy of near(game, player.x, player.y, seek + 100)) {
         if (enemy.dead || distance(enemy, player) > seek + 100) continue;
         const gap = distance(enemy, unit) + (enemy.id + index) % count * 25;
         if (distance(enemy, unit) <= seek && gap < best) { target = enemy; best = gap; }
       }
-      const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit'].indexOf(id) * 0.8;
+      const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit','toyknight'].indexOf(id) * 0.8;
       const orbit = weapon.summon === 'ranged' ? 76 : 56;
       const home = { x: player.x + Math.cos(angle) * orbit, y: player.y + Math.sin(angle) * orbit };
       if (weapon.summon === 'charge' && unit.charging) {
@@ -1393,13 +1400,28 @@ function updateSummons(game, dt) {
         return;
       }
       const flank = index / count * Math.PI * 2;
-      const goal = weapon.summon === 'melee' && target ? { x: target.x + Math.cos(flank) * (target.radius + range * 0.35), y: target.y + Math.sin(flank) * (target.radius + range * 0.35) } : home;
+      const goal = melee && target ? { x: target.x + Math.cos(flank) * (target.radius + range * 0.35), y: target.y + Math.sin(flank) * (target.radius + range * 0.35) } : home;
       const regroup = unit.returning || distance(unit, player) > 180;
       move(unit, goal, regroup ? Math.max(speed, stats.speed * 1.35) : speed);
       if (unit.returning) { if (distance(unit, player) < 75) unit.returning = false; else return; }
       if (!target || unit.attackIn > 0) return;
       unit.angle = Math.atan2(target.y - unit.y, target.x - unit.x);
-      if (weapon.summon === 'melee') {
+      if (weapon.summon === 'sword') {
+        const reach = range * stats.area;
+        if (distance(target, unit) > reach + target.radius) return;
+        const arc = evolved?.arc ?? weapon.arc;
+        for (const enemy of near(game, unit.x, unit.y, reach)) {
+          if (enemy.dead) continue;
+          const gap = distance(enemy, unit);
+          const offset = Math.atan2(enemy.y - unit.y, enemy.x - unit.x) - unit.angle;
+          const angle = Math.abs(Math.atan2(Math.sin(offset), Math.cos(offset)));
+          const edge = Math.asin(Math.min(1, enemy.radius / Math.max(gap, 1)));
+          if (gap <= reach + enemy.radius && angle <= arc / 2 + edge) damageWeaponHit(game, enemy, damage, true, unit);
+        }
+        // 검흔은 피해 판정을 남기지 않는 잔상이다. 적 하나당 한 번만 벤다.
+        addEffect(game, { type: 'swordscar', x: unit.x, y: unit.y, angle: unit.angle, radius: reach, arc,
+          life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), sound: 'slash' });
+      } else if (weapon.summon === 'melee') {
         if (distance(target, unit) > range + target.radius) return;
         const cleave = evolved?.cleave ? evolved.cleave * stats.area : 0;
         if (cleave) {
@@ -2484,7 +2506,7 @@ export function choose(game, index) {
 function updateHpSurge(game, previousTime) {
   if (!game.hpSurgeWarned && game.time >= HP_SURGE.from - HP_SURGE.warningSec && game.time < HP_SURGE.from) {
     game.hpSurgeWarned = true;
-    addEffect(game, { type: 'banner', text: '경고! 8분부터 적 체력이 크게 증가해요', life: HP_SURGE.warningSec, warning: true, sound: 'boss' });
+    addEffect(game, { type: 'banner', text: '경고! 8분부터 적 체력이 추가로 증가해요', life: HP_SURGE.warningSec, warning: true, sound: 'boss' });
   }
   const ratio = hpSurgeAt(game.time) / hpSurgeAt(previousTime);
   if (ratio !== 1) {
@@ -2497,7 +2519,7 @@ function updateHpSurge(game, previousTime) {
   if (!game.hpSurgeStarted && game.time >= HP_SURGE.from) {
     game.hpSurgeStarted = true;
     game.hpSurgeWarned = true;
-    addEffect(game, { type: 'banner', text: '위험 단계! 적 체력 2배 · 이후 계속 증가', life: 4, warning: true, sound: 'boss' });
+    addEffect(game, { type: 'banner', text: `위험 단계! 적 체력 +${Math.round((HP_SURGE.multiplier - 1) * 100)}% · 이후 서서히 증가`, life: 4, warning: true, sound: 'boss' });
   }
 }
 

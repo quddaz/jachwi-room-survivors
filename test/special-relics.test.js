@@ -98,7 +98,7 @@ describe('소환 전용 보물',()=>{
   near(after.summonPower/before.summonPower,1.35);near(after.summonRange/before.summonRange,1.2);near(after.summonHaste/before.summonHaste,1.25);near(after.summonSpeed/before.summonSpeed,1.25);
   near(after.might,before.might);near(after.cooldownScale,before.cooldownScale);near(after.speed,before.speed);assert.equal(after.summonCount,0);
  });
- it('보물이 소환수를 추가하지 않아 최대 30개체를 유지한다',()=>{
+ it('보물이 소환수를 추가하지 않아 다섯 소환 무기는 30개체를 유지한다',()=>{
   const g=quiet(Object.fromEntries(['robot','sockpuppet','toydrone','windcar','plantspirit'].map(id=>[id,5])));
   g.evolved=Object.fromEntries(Object.keys(g.weapons).map(id=>[id,true]));applyBuild(g,{summon:20});g.passives.summonwhistle=3;g.relics={baton:true,marchdrum:true};
   target(g);for(let n=0;n<180;n++)update(g,DT);assert.equal(g.summons.length+g.robots.length,30);

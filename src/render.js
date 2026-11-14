@@ -547,6 +547,32 @@ function drawEffects(ctx, game, toBuffer) {
         }
       }
       glow(ctx, Math.round(x + dx * reach), Math.round(y + dy * reach), 8 * fade + 2, [255, 210, 63], 0.6 * fade);
+    } else if (effect.type === 'swordscar') {
+      const radius = effect.radius / WORLD_PER_PIXEL;
+      const swing = Math.min(1, progress / 0.28);
+      const fade = 1 - progress;
+      const start = effect.angle - effect.arc / 2;
+      const end = start + effect.arc * swing;
+      // 외곽의 베기와 그 안쪽 잔상을 같은 부채꼴로 남긴다.
+      for (let layer = 0; layer < 3; layer++) {
+        const reach = radius * (1 - layer * 0.13);
+        const steps = Math.ceil(effect.arc * reach * 1.5);
+        ctx.fillStyle = layer === 0 ? `rgba(255,255,255,${fade})`
+          : effect.evolved ? `rgba(189,160,255,${fade * 0.8})` : `rgba(112,204,255,${fade * 0.8})`;
+        for (let point = 0; point <= steps; point++) {
+          const angle = start + (end - start) * point / steps;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), layer ? 1 : 2, 1);
+        }
+      }
+      if (effect.evolved) {
+        const cross = effect.angle + 0.5;
+        line(ctx, Math.round(x + Math.cos(cross) * radius * 0.25), Math.round(y + Math.sin(cross) * radius * 0.25),
+          Math.round(x + Math.cos(cross) * radius), Math.round(y + Math.sin(cross) * radius), `rgba(255,240,180,${fade * 0.75})`);
+      }
+      if (progress < 0.3) {
+        const tipX = x + Math.cos(end) * radius, tipY = y + Math.sin(end) * radius;
+        glow(ctx, tipX, tipY, 5, effect.evolved ? [189,160,255] : [112,204,255], 0.55 * fade);
+      }
     } else if (effect.type === 'slash') {
       // 톱날이 벤 자리: 빛나는 사선 두 줄과 불똥
       const reach = 10 * (0.6 + progress * 0.6);

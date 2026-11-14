@@ -1278,6 +1278,24 @@ function sockPuppet(body, fx, frame, knight = false) {
 }
 ITEMS.sockpuppet = item([], (body, fx, f) => sockPuppet(body, fx, f));
 ITEMS.sockknight = item([], (body, fx, f) => sockPuppet(body, fx, f, true));
+function toyKnight(body, fx, frame, guardian = false) {
+  const armor = guardian ? 'q' : 'B', step = frame % 2;
+  // 짧은 망토, 닫힌 투구, 오른손의 긴 검.
+  body.rect(2, 5, 6, 9, guardian ? 'V' : 'R').rect(3, 6, 4, 8, guardian ? 'v' : 'r');
+  body.rect(4, 11, 3, 4 - step, 'h').rect(9, 11, 3, 3 + step, 'h');
+  body.rect(4, 6, 8, 7, 'h').rect(5, 6, 6, 6, armor).rect(6, 8, 4, 1, 'Y');
+  body.rect(4, 1, 8, 6, 'h').rect(5, 1, 6, 5, 'z').rect(5, 3, 6, 2, 'h').rect(6, 3, 4, 1, 'i');
+  body.rect(7, 0, 2, 2, guardian ? 'Y' : 'R').rect(3, 7, 3, 4, armor);
+  if (frame === 1) {
+    body.rect(10, 7, 6, 2, 'i').rect(11, 7, 5, 1, 'W').rect(11, 6, 1, 4, 'Y');
+    fx.set(15, 5, 'W').set(14, 10, 'i');
+  } else {
+    body.rect(12, 1, 2, 9, 'i').rect(13, 1, 1, 8, 'W').rect(11, 9, 4, 1, 'Y').rect(12, 10, 2, 2, 'N');
+  }
+  if (guardian) { body.rect(4, 6, 3, 2, 'Y').rect(9, 6, 3, 2, 'Y'); twinkle(fx, 14, 0, frame, 'W'); }
+}
+ITEMS.toyknight = item([], (body, fx, f) => toyKnight(body, fx, f));
+ITEMS.bladeguardian = item([], (body, fx, f) => toyKnight(body, fx, f, true));
 function toyDrone(body, fx, frame, twin = false) {
   body.rect(3, 5, 10, 5, 'h').rect(4, 5, 8, 4, twin ? 'q' : 'B');
   body.rect(6, 6, 4, 2, 'i').set(9, 8, 'R');

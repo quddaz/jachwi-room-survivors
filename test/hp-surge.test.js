@@ -24,14 +24,14 @@ function enemy(game, extra = {}) {
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-7, `${actual} != ${expected}`);
 
 describe('8분 체력 강화', () => {
-  it('8분 전은 기존 난이도를 유지하고 8분부터 2배, 이후 분당 15%씩 추가 성장한다', () => {
+  it('8분 전은 기존 난이도를 유지하고 8분부터 1.3배, 이후 분당 8%씩 추가 성장한다', () => {
     near(hpSurgeAt(0), 1);
     near(hpSurgeAt(479.999), 1);
-    near(hpSurgeAt(480), 2);
-    near(hpSurgeAt(540), 2.3);
-    near(hpSurgeAt(600), 2.645);
-    near(hpSurgeAt(720), 3.4980125);
-    near(difficultyAt(480).hp, 29.92);
+    near(hpSurgeAt(480), 1.3);
+    near(hpSurgeAt(540), 1.404);
+    near(hpSurgeAt(600), 1.51632);
+    near(hpSurgeAt(720), 1.768635648);
+    near(difficultyAt(480).hp, 19.448);
   });
 
   it('7분 55초에 경고음이 있는 배너를 한 번만 띄운다', () => {
@@ -52,30 +52,30 @@ describe('8분 체력 강화', () => {
     const boss = enemy(game, { boss: true, hp: 300, maxHp: 1000 });
     const dead = enemy(game, { dead: true, hp: 0 });
     update(game, 1 / 60);
-    for (const [target, maxHp] of [[normal, 200], [elite, 1200], [boss, 2000]]) {
+    for (const [target, maxHp] of [[normal, 130], [elite, 780], [boss, 1300]]) {
       near(target.maxHp, maxHp);
       near(target.hp / target.maxHp, 0.3);
     }
     assert.equal(dead.hp, 0);
     assert.equal(dead.maxHp, 100);
-    assert.ok(game.effects.some((effect) => effect.warning && effect.text.includes('체력 2배')));
+    assert.ok(game.effects.some((effect) => effect.warning && effect.text.includes('체력 +30%')));
   });
 
-  it('8분 전환 후 다음 프레임마다 두 배를 다시 곱하지 않는다', () => {
+  it('8분 전환 후 다음 프레임마다 강화 배율을 다시 곱하지 않는다', () => {
     const game = quiet(480 - 1 / 60);
     const target = enemy(game);
     for (let frame = 0; frame < 61; frame += 1) update(game, 1 / 60);
     near(target.maxHp, 100 * hpSurgeAt(game.time));
     near(target.hp / target.maxHp, 0.3);
-    assert.equal(game.effects.filter((effect) => effect.text?.includes('체력 2배')).length, 1);
+    assert.equal(game.effects.filter((effect) => effect.text?.includes('체력 +30%')).length, 1);
   });
 
-  it('강화 후에도 기존 적의 체력이 분당 15%씩 연속 증가한다', () => {
+  it('강화 후에도 기존 적의 체력이 분당 8%씩 연속 증가한다', () => {
     const game = quiet(480);
     const target = enemy(game);
     update(game, 60);
-    near(target.maxHp, 115);
-    near(target.hp, 34.5);
+    near(target.maxHp, 108);
+    near(target.hp, 32.4);
   });
 
   it('새로 생성된 적은 현재 체력 배율을 정확히 한 번 적용받는다', () => {
@@ -89,7 +89,7 @@ describe('8분 체력 강화', () => {
   });
 
   it('새 보스의 체력에도 8분 배율을 적용한다', () => {
-    assert.equal(bossStatsOf(0, 480).hp, Math.round(BOSSES[0].hp * 29.92));
+    assert.equal(bossStatsOf(0, 480).hp, Math.round(BOSSES[0].hp * 19.448));
   });
 
   it('선택창이 열려 있으면 시간이 멈추고 경고와 체력 강화도 진행하지 않는다', () => {
