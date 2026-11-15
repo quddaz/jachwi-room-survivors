@@ -1,5 +1,5 @@
 import {
-  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, SECRET_MAPS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -36,6 +36,7 @@ export function createGame(random = Math.random) {
     evolved: {},
     fusions: {},
     relics: {},
+    relicAttacks: [],
     pendingRelics: 0,
     revived: false,
     alarmIn: 0,
@@ -125,7 +126,7 @@ function relicReach(game, radius) {
 function hasDotSource(game) {
   return ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
     || ['poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser'].some(id => game.fusions[id])
-    || Boolean(game.relics.match);
+    || Boolean(game.relics.match || game.relics.heatpad || game.relics.freshener);
 }
 
 function fixedPowerOf(game) {
@@ -139,7 +140,13 @@ function buildUnlocked(game, def) {
     && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
     && (!def.dotOnly || hasDotSource(game))
     && (!def.requiresFixedDamage || flatDamageOf(game) > 0)
-    && (!def.requiresMaps || SECRET_MAPS.every(id => game.passives[id] === 5));
+    && (!def.requiresMaps || SECRET_MAPS.every(id => game.passives[id] > 0));
+}
+
+// 공격 수치와 분리한 짧은 발동 표시. 빠른 연쇄 공격은 같은 위치의 표시를 합친다.
+function relicCue(game, id, spot) {
+  if (game.effects.some(effect => effect.type === 'relic-pulse' && effect.id === id && effect.age < 0.12)) return;
+  addEffect(game, { type:'relic-pulse', id, x:spot.x, y:spot.y, life:0.42 });
 }
 
 function relicCastPowers(game,id,clock,dt,initial=RELICS[id].everySec) {
@@ -151,10 +158,11 @@ function relicCastPowers(game,id,clock,dt,initial=RELICS[id].everySec) {
     game[clock] = relicEvery(game,RELICS[id].everySec);powers.push(1);
     if (game.passives.idol) game.relicEchoes.push({id,at:game.time+PASSIVES.idol.echoDelay,power:PASSIVES.idol.echoDamage[0]});
   }
+  if (powers.length) relicCue(game,id,game.player);
   return powers;
 }
 
-// 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 3칸이다.
+// 가질 수 있는 무기 수. 보물 파트 20점이면 보물 칸을 늘리는 대신 무기는 1칸이다.
 export function maxWeaponsOf(game) {
   return perk(game, 'treasure', 20)?.maxWeapons ?? MAX_WEAPONS;
 }
@@ -174,7 +182,6 @@ function overcharged(game) {
 export function applyBuild(game, build) {
   game.build = normalizeBuild(build);
   game.player.hp = statsOf(game).maxHp;
-  if (maxWeaponsOf(game) === 0) for (const id of Object.keys(game.weapons)) dropWeapon(game,id);
 }
 
 function maxHpOf(game) {
@@ -1072,6 +1079,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   // 성냥: 한 대씩 때리는 공격에 가끔 불이 붙는다.
   const match = relic(game, 'match');
   if (hitEffects && match && amount >= 3 && game.random() < match.chance) {
+    relicCue(game,'match',enemy);
     enemy.burnUntil = game.time + match.burnSec;
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps) * (game.passives.idol ? 2 : 1));
   }
@@ -1119,6 +1127,7 @@ function killEnemy(game, enemy) {
     game.popDepth = (game.popDepth ?? 0) + 1;
     const damage = relicDamage(game, popcorn.damage);
     const popReach = relicReach(game, popcorn.radius);
+    relicCue(game,'popcorn',enemy);
     addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: popReach, color: 'gold', life: 0.3 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: 'popcorn', count: 10, life: 0.4 });
     for (const other of near(game, enemy.x, enemy.y, popReach)) {
@@ -1160,6 +1169,7 @@ function killEnemy(game, enemy) {
     addEffect(game, { type: 'banner', text: `${enemy.label} 처치! 보물상자를 주워요`, life: 2.4 });
     return;
   }
+  dropSecretMap(game, enemy);
   const extraDrop = passiveValue(game,'idol','dropBonus');
   if(extraDrop){
     const available=Object.entries(DROPS).filter(([type])=>game.drops.filter(item=>item.type===type).length<DROP_LIMIT);
@@ -1178,6 +1188,31 @@ function killEnemy(game, enemy) {
       break;
     }
   }
+}
+
+// 일반 아이템과 별도로 굴리며, 이미 주웠거나 바닥에 있는 방향은 다시 떨어지지 않는다.
+function dropSecretMap(game, enemy) {
+  if (!perk(game, 'treasure', 20) || game.passives.idol) return;
+  const missing = SECRET_MAPS.filter(id => !game.passives[id] && !game.drops.some(drop => drop.type === id));
+  if (!missing.length || game.random() >= SECRET_MAP_DROP_CHANCE) return;
+  const type = missing[Math.min(missing.length - 1, Math.floor(game.random() * missing.length))];
+  game.drops.push({ type, x: enemy.x, y: enemy.y });
+  addEffect(game, { type:'ring', x:enemy.x, y:enemy.y, radius:55, color:'gold', life:0.9 });
+}
+
+function collectSecretMap(game, drop) {
+  if (!perk(game, 'treasure', 20) || game.passives.idol || game.passives[drop.type]) return;
+  game.passives[drop.type] = 1;
+  const count = SECRET_MAPS.filter(id => game.passives[id]).length;
+  addEffect(game, { type:'relic-awaken', id:drop.type, x:drop.x, y:drop.y, life:0.9 });
+  if (count < SECRET_MAPS.length) {
+    addEffect(game, { type:'banner', text:`${PASSIVES[drop.type].label} 발견! (${count}/4)`, life:2 });
+    return;
+  }
+  for (const id of SECRET_MAPS) delete game.passives[id];
+  game.passives.idol = 1;
+  addEffect(game, { type:'relic-awaken', id:'idol', x:game.player.x, y:game.player.y, life:2 });
+  addEffect(game, { type:'banner', text:'네 조각이 모였다! 고대 우상 각성', life:3, sound:'chest' });
 }
 
 function slow(game, enemy, factor) {
@@ -2400,6 +2435,7 @@ function contactDamage(game) {
 }
 
 function applyDrop(game, drop) {
+  if (SECRET_MAPS.includes(drop.type)) { collectSecretMap(game, drop);return; }
   const { player } = game;
   const stats = statsOf(game);
   const boost = 1;
@@ -2475,8 +2511,8 @@ export function rollChoices(game) {
   const pool = [
     ...Object.keys(WEAPONS).filter((id) => maxWeaponsOf(game) > 0 && (game.weapons[id] ?? 0) < MAX_LEVEL)
       .map((id) => ({ kind: 'weapon', id, level: (game.weapons[id] ?? 0) + 1, ...WEAPONS[id] })),
-    ...Object.keys(PASSIVES).filter((id) => id !== 'idol' && (game.passives[id] ?? 0) < passiveMaxLevel(id)
-      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && !(game.passives.idol && SECRET_MAPS.includes(id)) && buildUnlocked(game, PASSIVES[id]))
+    ...Object.keys(PASSIVES).filter((id) => !PASSIVES[id].hidden && (game.passives[id] ?? 0) < passiveMaxLevel(id)
+      && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && buildUnlocked(game, PASSIVES[id]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
@@ -2486,8 +2522,7 @@ export function rollChoices(game) {
   const fusable = Object.entries(FUSIONS)
     .filter(([id, recipe]) => fusionRoom && !game.fusions[id] && recipe.from.every((weapon) => game.evolved[weapon] && !inFusion(game, weapon)))
     .map(([id, recipe]) => ({ kind: 'fusion', id, level: MAX_LEVEL + 2, ...recipe }));
-  const idol = !game.passives.idol && buildUnlocked(game,PASSIVES.idol) ? [{kind:'passive',id:'idol',level:1,...PASSIVES.idol}] : [];
-  const special = [...idol, ...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
+  const special = [...shuffle(fusable, game.random), ...shuffle(evolvable, game.random)].slice(0, 1);
   const choices = [...special, ...shuffle(pool, game.random)].slice(0, 3)
     .map(({ kind, id, level, label, description, icon }) => ({ kind, id, level, label, description, ...(icon ? { icon } : {}) }));
   while (choices.length < 3) {
@@ -2560,6 +2595,7 @@ function gainRelic(game, id) {
   if (id === 'purifier') game.purifierIn = RELICS.purifier.everySec;
   if (id === 'freshener') game.freshIn = RELICS.freshener.everySec;
   addEffect(game, { type: 'levelup', x: game.player.x, y: game.player.y, life: 1.2, gold: true });
+  addEffect(game, { type:'relic-awaken', id, x:game.player.x, y:game.player.y, life:1 });
 }
 
 // 다음에 보여 줄 선택지. 보물이 레벨업보다 먼저다. 보물을 최대로 가졌으면 상자는 레벨업 두 번이 된다.
@@ -2575,7 +2611,6 @@ function nextChoices(game) {
 
 // 게임을 시작하면 보물을 하나 고른다.
 export function startWithRelic(game) {
-  if (maxWeaponsOf(game) === 0 && !game.relics.heatpad) gainRelic(game,'heatpad');
   game.pendingRelics += 1 + (perk(game, 'treasure', 5)?.relics ?? 0);
   game.choices = nextChoices(game);
   game.rerollLeft = rerollsPerLevel(game);
@@ -2608,7 +2643,7 @@ export function declineChoice(game) {
 export function choose(game, index) {
   const choice = game.choices?.[index];
   if (!choice) return null;
-  if (maxWeaponsOf(game) === 0 && ['weapon','weapon-swap','evolve','fusion'].includes(choice.kind)) return null;
+  if (choice.kind === 'passive' && PASSIVES[choice.id]?.hidden) return null;
   if (choice.kind === 'relic' && relicsFull(game)) {
     // 보물이 가득 찼으면 무엇을 내려놓을지 한 번 더 고른다.
     game.swapIn = choice.id;
@@ -2648,7 +2683,6 @@ export function choose(game, index) {
   }
   if (choice.kind === 'passive') {
     game.passives[choice.id] = choice.level;
-    if (choice.id === 'idol') { for (const id of SECRET_MAPS) delete game.passives[id];addEffect(game,{type:'banner',text:'지도가 완성됐어요! 우상 각성',life:3}); }
   }
   if (choice.kind === 'evolve') {
     game.evolved[choice.id] = true;
@@ -2725,13 +2759,15 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   const firecracker = relic(game, 'firecracker');
   if (firecracker && !game.over) {
     for (const castPower of relicCastPowers(game,'firecracker','fireIn',dt)) {
-      const damage = relicDamage(game, firecracker.damage) * castPower;
-      for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, game.player) < relicReach(game, firecracker.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
+      const targets = nearestEnemies(game, firecracker.rockets, relicReach(game,firecracker.range));
+      for (let index=0;index<firecracker.rockets;index++) {
+        const target = targets[index % Math.max(1,targets.length)];
+        const angle = (game.player.heading ?? 0)+(index-1)*0.6;
+        const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
+        queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
+          fromX:game.player.x,fromY:game.player.y,life:firecracker.aimSec+index*firecracker.gapSec,
+          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage)*castPower});
       }
-      addEffect(game, { type: 'nova', x: game.player.x, y: game.player.y, radius: relicReach(game, firecracker.radius), life: 0.6 });
-      addEffect(game, { type: 'burst', x: game.player.x, y: game.player.y, color: 'gold', count: 40, life: 0.8, big: true });
-      game.shake = Math.max(game.shake, 0.3);
     }
   }
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);
@@ -2743,7 +2779,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: 300, color: 'spark', life: 0.5 });
     }
   }
-  if (!game.over) updateDamageRelics(game, dt);
+  if (!game.over) { updateDamageRelics(game, dt);updateRelicAttacks(game,dt); }
   game.gridFresh = false;
   if ((game.pendingLevels > 0 || game.pendingRelics > 0) && !game.over) {
     game.choices = nextChoices(game);
@@ -2795,40 +2831,109 @@ function updateTops(game, dt) {
   game.tops = game.tops.filter((spinner) => spinner.life > 0);
 }
 
+// 공격 상태는 판정과 연출이 함께 읽는다. 긴 파티클 목록 대신 최대 64개의 공격만 유지한다.
+function queueRelicAttack(game, attack) {
+  game.relicAttacks ??= [];
+  if (game.relicAttacks.length >= 64) game.relicAttacks.shift();
+  game.relicAttacks.push({age:0,seed:game.nextId++,...attack});
+}
+
+function updateRelicAttacks(game, dt) {
+  const active=[];
+  for(const attack of game.relicAttacks ?? []) {
+    if(!game.relics[attack.id])continue;
+    const previous=attack.age;attack.age+=dt;
+    if(attack.type==='firework') {
+      if(attack.age>=attack.life) {
+        for(const enemy of near(game,attack.x,attack.y,attack.radius)) {
+          if(!enemy.dead&&distance(enemy,attack)<attack.radius+enemy.radius)damageEnemy(game,enemy,attack.damage,true,attack);
+        }
+        addEffect(game,{type:'nova',x:attack.x,y:attack.y,radius:attack.radius,life:.5});
+        addEffect(game,{type:'burst',x:attack.x,y:attack.y,color:'gold',count:24,life:.6,big:true,sound:'impact'});
+        game.shake=Math.max(game.shake,.18);continue;
+      }
+    } else if(attack.type==='coolwave') {
+      const outer=attack.radius*Math.min(1,attack.age/attack.life);
+      const inner=attack.radius*Math.min(1,previous/attack.life);
+      for(const enemy of near(game,attack.x,attack.y,outer+30)) {
+        const gap=distance(enemy,attack);
+        if(enemy.dead||attack.hit.has(enemy.id)||gap>outer+enemy.radius||gap<inner-enemy.radius-16)continue;
+        attack.hit.add(enemy.id);damageEnemy(game,enemy,attack.damage,false,attack);
+        if(!enemy.boss){enemy.slowUntil=game.time+RELICS.pas.slowSec;enemy.slowBy=RELICS.pas.slow;}
+      }
+    } else if(attack.type==='heat'||attack.type==='perfume') {
+      while(attack.nextTick<attack.life-1e-6 && attack.nextTick<=attack.age) {
+        const reach=attack.type==='heat'?Math.hypot(attack.halfWidth,attack.halfHeight):attack.radius;
+        for(const enemy of near(game,attack.x,attack.y,reach)) {
+          if(enemy.dead)continue;
+          const dx=enemy.x-attack.x,dy=enemy.y-attack.y;
+          const inside=attack.type==='heat'
+            ? Math.abs(dx*Math.cos(attack.angle)+dy*Math.sin(attack.angle))<attack.halfWidth+enemy.radius
+              && Math.abs(-dx*Math.sin(attack.angle)+dy*Math.cos(attack.angle))<attack.halfHeight+enemy.radius
+            : Math.hypot(dx,dy)<attack.radius+enemy.radius;
+          if(inside)damageOverTime(game,enemy,attack.damage,attack,attack.tickSec);
+        }
+        attack.nextTick+=attack.tickSec;
+      }
+    } else if(attack.type==='chain') {
+      while(attack.nextHop<attack.targets.length && attack.nextHop*RELICS.outlet.hopSec<=attack.age) {
+        const target=attack.targets[attack.nextHop++];
+        if(target.dead)continue;
+        const origin={x:attack.x,y:attack.y};
+        damageEnemy(game,target,attack.damage,true,origin);
+        const spot={x:target.x,y:target.y};
+        addEffect(game,{type:'bolt',points:[origin,spot],mega:true,life:.24,sound:'zap'});
+        addEffect(game,{type:'ring',...spot,radius:30,color:'spark',life:.25});
+        attack.x=spot.x;attack.y=spot.y;
+      }
+    } else if(attack.type==='iceburst') {
+      while(attack.nextVolley<RELICS.purifier.volleys && attack.nextVolley*RELICS.purifier.burstGap<=attack.age) {
+        const target=nearestEnemies(game,1,600*attack.reach)[0],player=game.player;
+        attack.angle=target?Math.atan2(target.y-player.y,target.x-player.x):player.heading??0;
+        attack.x=player.x;attack.y=player.y;
+        const count=RELICS.purifier.shards/RELICS.purifier.volleys;
+        for(let shard=0;shard<count;shard++) {
+          const angle=attack.angle+(shard-(count-1)/2)*.12;
+          game.shots.push({x:player.x,y:player.y,vx:Math.cos(angle)*RELICS.purifier.speed,vy:Math.sin(angle)*RELICS.purifier.speed,
+            damage:attack.damage,pierce:RELICS.purifier.pierce,life:RELICS.purifier.lifeSec*attack.reach,
+            radius:7,scale:1,hit:new Set(),kind:'ice',slows:true});
+        }
+        attack.nextVolley++;
+        addEffect(game,{type:'ring',x:player.x+Math.cos(attack.angle)*24,y:player.y+Math.sin(attack.angle)*24,radius:28,color:'water',life:.2,sound:'shoot'});
+      }
+    }
+    if(attack.age<attack.life)active.push(attack);
+  }
+  game.relicAttacks=active;
+}
+
 // 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게, 멀티탭, 고무장갑, 팽이, 정수기
 function updateDamageRelics(game, dt) {
   const { player } = game;
   const pas = relic(game, 'pas');
   if (pas) {
     for (const castPower of relicCastPowers(game,'pas','pasIn',dt)) {
-      const damage = relicDamage(game, pas.damage) * castPower;
-      for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, player) < relicReach(game, pas.radius) + enemy.radius) damageEnemy(game, enemy, damage, true);
-      }
-      addEffect(game, { type: 'nova', x: player.x, y: player.y, radius: relicReach(game, pas.radius), life: 0.45, color: 'mint' });
-      addEffect(game, { type: 'burst', x: player.x, y: player.y, color: 'teal', count: 16, life: 0.5 });
+      queueRelicAttack(game,{type:'coolwave',id:'pas',x:player.x,y:player.y,life:pas.waveSec,
+        radius:relicReach(game,pas.radius),damage:relicDamage(game,pas.damage)*castPower,hit:new Set()});
     }
   }
   const heat = relic(game, 'heatpad');
   if (heat) {
     for (const castPower of relicCastPowers(game,'heatpad','heatIn',dt)) {
-      // 전기장판: 때마다 넓은 장판이 달아오르며 한꺼번에 지진다.
-      const damage = relicDamage(game, heat.damage) * castPower;
-      const heatReach = relicReach(game, heat.radius);
-      for (const enemy of near(game, player.x, player.y, heatReach)) {
-        if (!enemy.dead && distance(enemy, player) < heatReach + enemy.radius) damageEnemy(game, enemy, damage);
-      }
-      game.heatPulse = game.time;
+      queueRelicAttack(game,{type:'heat',id:'heatpad',x:player.x,y:player.y,angle:player.heading??0,life:heat.zoneSec,
+        halfWidth:relicReach(game,heat.radius),halfHeight:relicReach(game,heat.halfHeight),tickSec:heat.tickSec,
+        damage:relicDamage(game,heat.damage)*castPower/(heat.zoneSec/heat.tickSec),nextTick:0});
     }
   }
   const fresh = relic(game, 'freshener');
   if (fresh) {
     for (const castPower of relicCastPowers(game,'freshener','freshIn',dt)) {
-      const damage = relicDamage(game, fresh.damage) * castPower;
-      for (const enemy of game.enemies) {
-        if (!enemy.dead && distance(enemy, player) < relicReach(game, fresh.radius)) damageEnemy(game, enemy, damage);
-      }
-      addEffect(game, { type: 'mist', x: player.x, y: player.y, radius: fresh.radius, life: 0.9 });
+      const target=nearestEnemies(game,1,relicReach(game,fresh.range))[0];
+      const angle=player.heading??0;
+      queueRelicAttack(game,{type:'perfume',id:'freshener',x:clamp(target?.x??player.x+Math.cos(angle)*180,0,ARENA.width),
+        y:clamp(target?.y??player.y+Math.sin(angle)*180,0,ARENA.height),life:fresh.zoneSec,
+        radius:relicReach(game,fresh.radius),tickSec:fresh.tickSec,
+        damage:relicDamage(game,fresh.damage)*castPower/(fresh.zoneSec/fresh.tickSec),nextTick:0});
     }
   }
   const pin = relic(game, 'clothespin');
@@ -2839,6 +2944,7 @@ function updateDamageRelics(game, dt) {
       const victim = near(game, spot.x, spot.y, pinReach).find((enemy) => !enemy.dead && distance(enemy, spot) < pinReach * 0.5 + enemy.radius);
       if (!victim) continue;
       spot.life = 0;
+      relicCue(game,'clothespin',spot);
       const damage = relicDamage(game, pin.damage) * (spot.power ?? 1);
       for (const enemy of game.enemies) {
         if (!enemy.dead && distance(enemy, spot) < pinReach + enemy.radius) damageEnemy(game, enemy, damage, true, spot);
@@ -2850,21 +2956,17 @@ function updateDamageRelics(game, dt) {
   const outlet = relic(game, 'outlet');
   if (outlet) {
     for (const castPower of relicCastPowers(game,'outlet','outletIn',dt)) {
-      // 멀티탭: 가까운 적 몇에게 하늘에서 벼락이 떨어진다.
-      const range = relicReach(game, outlet.range);
-      const blast = relicReach(game, outlet.radius);
-      const damage = relicDamage(game, outlet.damage) * castPower;
-      const targets = shuffle(near(game, player.x, player.y, range).filter((enemy) => !enemy.dead && distance(enemy, player) < range), game.random)
-        .slice(0, outlet.strikes);
-      for (const target of targets) {
-        const spot = { x: target.x, y: target.y };
-        for (const enemy of near(game, spot.x, spot.y, blast)) {
-          if (!enemy.dead && distance(enemy, spot) < blast + enemy.radius) damageEnemy(game, enemy, damage, true, spot);
-        }
-        addEffect(game, { type: 'bolt', points: [{ x: spot.x + 30, y: spot.y - 260 }, { x: spot.x - 10, y: spot.y - 120 }, { x: spot.x + 8, y: spot.y - 50 }, spot],
-          life: 0.25, mega: true });
-        addEffect(game, { type: 'ring', x: spot.x, y: spot.y, radius: blast, color: 'spark', life: 0.3 });
+      const targets=[];
+      let from={x:player.x,y:player.y};
+      for(let hop=0;hop<outlet.strikes;hop++) {
+        const range=relicReach(game,hop===0?outlet.range:outlet.hop);
+        const target=near(game,from.x,from.y,range).filter(enemy=>!enemy.dead&&!targets.includes(enemy)&&distance(enemy,from)<range)
+          .sort((a,b)=>distance(a,from)-distance(b,from))[0];
+        if(!target)break;
+        targets.push(target);from=target;
       }
+      if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',x:player.x,y:player.y,targets,nextHop:0,
+        life:targets.length*outlet.hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
     }
   }
   const glove = relic(game, 'glove');
@@ -2890,16 +2992,9 @@ function updateDamageRelics(game, dt) {
   const purifier = relic(game, 'purifier');
   if (purifier) {
     for (const castPower of relicCastPowers(game,'purifier','purifierIn',dt)) {
-      // 정수기: 얼음 조각을 사방으로 고르게 쏜다.
-      const damage = relicDamage(game, purifier.damage) * castPower;
-      const reach = relicReach(game, 1);
-      const turn = game.random() * Math.PI * 2;
-      for (let shard = 0; shard < purifier.shards; shard += 1) {
-        const angle = turn + (shard / purifier.shards) * Math.PI * 2;
-        game.shots.push({ x: player.x, y: player.y, vx: Math.cos(angle) * purifier.speed, vy: Math.sin(angle) * purifier.speed,
-          damage, pierce: purifier.pierce, life: purifier.lifeSec * reach, radius: 7, scale: 1, hit: new Set(), kind: 'ice', slows: true });
-      }
-      addEffect(game, { type: 'ring', x: player.x, y: player.y, radius: 50, color: 'water', life: 0.3 });
+      queueRelicAttack(game,{type:'iceburst',id:'purifier',x:player.x,y:player.y,
+        life:(purifier.volleys-1)*purifier.burstGap+0.1,nextVolley:0,
+        damage:relicDamage(game,purifier.damage)*castPower,reach:relicReach(game,1)});
     }
   }
   // 과충전이 시작될 때 알려 준다.

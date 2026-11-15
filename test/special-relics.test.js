@@ -23,11 +23,11 @@ describe('전용 보물 등장 조건',()=>{
   g.relics=Object.fromEntries(Object.keys(RELICS).filter(id=>!['resonator','precisionscale','mallet'].includes(id)).map(id=>[id,true]));
   assert.ok(!offers(g).has('resonator'));g.passives.lightgear=1;assert.ok(offers(g).has('resonator'));
  });
- it('지속 피해 보물은 실제 지속 피해를 주는 무기·합체·성냥이 있어야 나온다',()=>{
-  for(const source of ['none','bleach','dryer','dehumidifier','spinlaser','poisongun','sawblade','dryoven','bleachbot','match']) {
+ it('지속 피해 보물은 실제 지속 피해를 주는 무기·합체·성냥·지속 지대가 있어야 나온다',()=>{
+  for(const source of ['none','bleach','dryer','dehumidifier','spinlaser','poisongun','sawblade','dryoven','bleachbot','match','heatpad','freshener']) {
    const g=quiet(source==='none'?{spray:1}:['bleach','dryer','dehumidifier'].includes(source)?{[source]:1}:{});
-   allBut(g,['thermos','concentrate','match']);
-   if(source==='match')g.relics.match=true;
+   allBut(g,['thermos','concentrate','match','heatpad','freshener']);
+   if(['match','heatpad','freshener'].includes(source))g.relics[source]=true;
    if(['spinlaser','poisongun','sawblade','dryoven','bleachbot'].includes(source))g.fusions[source]=true;
    const found=offers(g);for(const id of ['thermos','concentrate'])assert.equal(found.has(id),source!=='none',source);
   }

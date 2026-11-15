@@ -873,13 +873,15 @@ describe('보물 2', () => {
     assert.equal(near1.hp, 1000 - RELICS.popcorn.damage);
   });
 
-  it('폭죽은 때가 되면 주변 적에게 크게 터진다', () => {
+  it('폭죽은 착탄 예고 후 조준 위치에 세 번 폭발한다', () => {
     const game = quiet();
     game.relics.firecracker = true;
     game.fireIn = 0.01;
-    const roach = placeEnemy(game, 'trash', 200, 0, { hp: 1000 });
+    const roach = placeEnemy(game, 'trash', 200, 0, { hp: 1000, speed: 0 });
     update(game, 1 / 60);
-    assert.equal(roach.hp, 1000 - RELICS.firecracker.damage);
+    assert.equal(roach.hp,1000);
+    for(let frame=0;frame<54;frame++)update(game,1/60);
+    assert.equal(roach.hp,1000-RELICS.firecracker.damage*RELICS.firecracker.rockets);
   });
 
   it('고무망치는 치명타를 없애고, 치명타 확률 5%마다 피해 +20과 공격 속도 2배를 준다', () => {
@@ -1400,6 +1402,7 @@ describe('능력치 투자', () => {
     assert.ok(game.choices && game.choices.every((choice) => choice.kind === 'relic'));
     for (const target of [plain, game]) {
       target.relics = { firecracker: true };
+      target.weapons = {};
       target.choices = null;
       target.pendingRelics = 0;
       target.spawnCarry = -1000;
@@ -1411,9 +1414,10 @@ describe('능력치 투자', () => {
     game.random = () => 0.99;
     update(plain, 1 / 60);
     update(game, 1 / 60);
-    near((1e6 - b.hp) / (1e6 - a.hp), 1 + 10 * 0.02 * 1.2 + 0.3, 1e-6);
     // 1점당 주기 -1%, 10점 주기 -30%
     near(game.fireIn / plain.fireIn, (1 - 10 * 0.01 * 1.2) * 0.7, 1e-3);
+    for(let frame=0;frame<54;frame++){update(plain,1/60);update(game,1/60);}
+    near((1e6-b.hp)/(1e6-a.hp),1+10*.02*1.2+.3,1e-6);
   });
 
   it('보물 파트 20점이면 보물을 6개까지 가지고, 공격 보물과 보물 패시브가 나온다', () => {
@@ -1530,7 +1534,7 @@ describe('조합 밸런스와 피해 보물', () => {
     assert.ok(later.damage - early.damage > 1.2);
   });
 
-  it('물파스는 때마다 주변을 터뜨리고, 레벨이 높을수록 세다', () => {
+  it('물파스 파동이 도달할 때 한 번 적중하고 레벨이 높을수록 세다', () => {
     const low = calm();
     const high = calm();
     high.level = 26;
@@ -1542,11 +1546,12 @@ describe('조합 밸런스와 피해 보물', () => {
     const b = placeEnemy(high, 'trash', 60, 0, { hp: 1e6 });
     update(low, 1 / 60);
     update(high, 1 / 60);
+    for(let frame=0;frame<20;frame++){update(low,1/60);update(high,1/60);}
     near(1e6 - a.hp, RELICS.pas.damage, 1e-6);
     near((1e6 - b.hp) / (1e6 - a.hp), 2, 1e-6);
   });
 
-  it('전기장판은 때마다 넓은 주변을 지지고, 방향제는 화면의 적을 모두 때린다', () => {
+  it('전기장판과 방향제는 각각 고정 장판과 조준한 구름 안에만 지속 피해를 준다', () => {
     const game = calm();
     game.relics = { heatpad: true, freshener: true };
     game.freshIn = 0.001;
@@ -1555,7 +1560,8 @@ describe('조합 밸런스와 피해 보물', () => {
     const far = placeEnemy(game, 'trash', 500, 0, { hp: 1e6 });
     update(game, 1 / 60);
     assert.ok(nearby.hp < far.hp);
-    near(1e6 - far.hp, RELICS.freshener.damage, 1e-6);
+    near(far.hp,1e6,1e-6);
+    assert.deepEqual(game.relicAttacks.map(attack=>attack.type).sort(),['heat','perfume']);
   });
 
   it('빨래집게는 쓰러진 자리에 집게를 남기고, 적이 밟으면 문다', () => {
@@ -1621,9 +1627,10 @@ describe('난이도와 보물 범위·쿨타임', () => {
     const b = placeEnemy(boosted, 'trash', reach, 0, { hp: 1e6, speed: 0 });
     update(plain, 1 / 60);
     update(boosted, 1 / 60);
+    assert.ok(boosted.pasIn < plain.pasIn);
+    for(let frame=0;frame<45;frame++){update(plain,1/60);update(boosted,1/60);}
     assert.equal(a.hp, 1e6);
     assert.ok(b.hp < 1e6);
-    assert.ok(boosted.pasIn < plain.pasIn);
   });
 });
 
@@ -1636,13 +1643,15 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
     return game;
   };
 
-  it('멀티탭은 가까운 적들에게 벼락을 떨어뜨린다', () => {
+  it('멀티탭은 가까운 적부터 순서대로 중복 없이 연쇄 감전시킨다', () => {
     const game = calm();
     game.random = () => 0.5;
     game.relics = { outlet: true };
     game.outletIn = 0.001;
     const targets = [100, 200, 300].map((dx) => placeEnemy(game, 'trash', dx, 0, { hp: 1e6, speed: 0 }));
     update(game, 1 / 60);
+    assert.ok(targets[0].hp<1e6);assert.equal(targets[1].hp,1e6);
+    for(let frame=0;frame<20;frame++)update(game,1/60);
     assert.ok(targets.every((enemy) => enemy.hp < 1e6));
   });
 
@@ -1690,11 +1699,13 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
     assert.ok(enemy.hp < 1e6);
   });
 
-  it('정수기는 얼음 조각을 사방으로 쏜다', () => {
+  it('정수기는 조준 방향으로 네 발씩 세 번 연사한다', () => {
     const game = calm();
     game.relics = { purifier: true };
     game.purifierIn = 0.001;
     update(game, 1 / 60);
+    assert.equal(game.shots.filter(shot=>shot.kind==='ice').length,4);
+    for(let frame=0;frame<20;frame++)update(game,1/60);
     assert.equal(game.shots.filter((shot) => shot.kind === 'ice').length, RELICS.purifier.shards);
   });
 
@@ -1715,11 +1726,13 @@ describe('딜 보물 2와 보물 전용 패시브', () => {
 });
 
 describe('보물 20점 무기 칸', () => {
-  it('보물 20점은 무기 없이 시작하고 무기 선택지가 나오지 않는다', () => {
+  it('보물 20점도 시작 무기를 유지하고 강화와 교체를 할 수 있다', () => {
     const game = createGame(seeded(61));applyBuild(game,{treasure:20});
-    assert.deepEqual(game.weapons,{});
-    for(let n=0;n<20;n++) assert.ok(rollChoices(game).every(choice=>!['weapon','evolve','fusion'].includes(choice.kind)));
+    assert.deepEqual(game.weapons,{spray:1});
+    game.pendingLevels=1;game.choices=[{kind:'weapon',id:'spray',level:2,label:WEAPONS.spray.label}];
+    choose(game,0);assert.equal(game.weapons.spray,2);
     game.pendingLevels=1;game.choices=[{kind:'weapon',id:'swatter',level:1,label:WEAPONS.swatter.label}];
-    assert.equal(choose(game,0),null);assert.deepEqual(game.weapons,{});
+    choose(game,0);assert.ok(game.choices.some(choice=>choice.kind==='weapon-swap'));
+    assert.equal(game.weapons.swatter,undefined);
   });
 });
