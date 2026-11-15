@@ -1922,29 +1922,6 @@ ITEMS.adapter = item([
   twinkle(fx, 2, 2, f, 'Y');
   twinkle(fx, 13, 3, f + 2, 'W');
 });
-ITEMS.gunpowder = item([
-  '................',
-  '................',
-  '.......uu.......',
-  '......uWWu......',
-  '.......uu.......',
-  '.....uuuuuu.....',
-  '....uaaaaaau....',
-  '...uaaaaaaaau...',
-  '...uaaKKKKaau...',
-  '...uaaKRRKaau...',
-  '...uaaKKKKaau...',
-  '...uaaaaaaaau...',
-  '....uaaaaaau....',
-  '.....uuuuuu.....',
-  '................',
-  '................',
-], (body, fx, f) => {
-  // 봉투 위로 화약 가루가 피어오른다.
-  twinkle(fx, 5, 3, f, 'O');
-  twinkle(fx, 10, 2, f + 1, 'Y');
-  twinkle(fx, 12, 5, f + 2, 'O');
-});
 ITEMS.mlrs = item([
   '................',
   '................',

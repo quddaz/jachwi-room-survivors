@@ -1738,7 +1738,7 @@ describe('보물 20점 무기 칸', () => {
   });
 });
 
-describe('다연장 미사일과 고성능 화약', () => {
+describe('다연장 미사일', () => {
   function treasureGame() {
     const game = createGame(seeded(41));
     game.spawnCarry = -100000;
@@ -1756,13 +1756,12 @@ describe('다연장 미사일과 고성능 화약', () => {
   it('폭죽이 있어야 나오고, 가지고 있어도 또 나온다', () => {
     const game = treasureGame();
     for (let index = 0; index < 60; index += 1) {
-      assert.ok(rollRelics(game).every((choice) => !['mlrs', 'gunpowder'].includes(choice.id)));
+      assert.ok(rollRelics(game).every((choice) => choice.id !== 'mlrs'));
     }
     game.relics = { firecracker: true, mlrs: 1 };
     const offered = new Set();
     for (let index = 0; index < 80; index += 1) rollRelics(game).forEach((choice) => offered.add(choice.id));
     assert.ok(offered.has('mlrs'));
-    assert.ok(offered.has('gunpowder'));
   });
 
   it('하나마다 폭죽 로켓이 4발 늘고 보물 칸을 하나씩 쓴다', () => {
@@ -1778,14 +1777,6 @@ describe('다연장 미사일과 고성능 화약', () => {
     assert.equal(fireOnce(game).length, base + 2 * RELICS.mlrs.rockets);
   });
 
-  it('고성능 화약은 폭죽 폭발 범위를 50% 넓힌다', () => {
-    const game = treasureGame();
-    game.relics = { firecracker: true };
-    const plain = fireOnce(game)[0].radius;
-    game.relicAttacks = [];
-    game.relics.gunpowder = true;
-    assert.ok(Math.abs(fireOnce(game)[0].radius - plain * 1.5) < 1e-9);
-  });
 });
 
 describe('돼지코 어댑터', () => {

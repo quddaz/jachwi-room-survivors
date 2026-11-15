@@ -2718,7 +2718,7 @@ export function choose(game, index) {
   if (choice.kind === 'relic-swap') {
     if (relicCount(game, choice.id) > 1) game.relics[choice.id] -= 1;
     else delete game.relics[choice.id];
-    if (choice.id === 'firecracker') for (const id of ['mlrs', 'gunpowder']) delete game.relics[id];
+    if (choice.id === 'firecracker') delete game.relics.mlrs;
     if (choice.id === 'outlet') delete game.relics.adapter;
     if (!nuclearUnlocked(game)) {
       delete game.nuclearIn;
@@ -2782,14 +2782,14 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
     for (const castPower of relicCastPowers(game,'firecracker','fireIn',dt)) {
       const rockets = firecracker.rockets + RELICS.mlrs.rockets * relicCount(game, 'mlrs');
       const targets = nearestEnemies(game, rockets, relicReach(game,firecracker.range));
-      const fallSpeed=1+(relic(game,'gunpowder')?.fallSpeed ?? 0);
+      const fallSpeed=1+firecracker.fallSpeed;
       for (let index=0;index<rockets;index++) {
         const target = targets[index % Math.max(1,targets.length)];
         const angle = (game.player.heading ?? 0)+(index-1)*0.6;
         const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
         queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
           fromX:game.player.x,fromY:game.player.y,life:(firecracker.aimSec+index*firecracker.gapSec)/fallSpeed,
-          radius:relicReach(game,firecracker.radius*(1+(relic(game,'gunpowder')?.radius??0))),damage:relicDamage(game,firecracker.damage)*castPower});
+          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage)*castPower});
       }
     }
   }
@@ -2869,7 +2869,7 @@ function updateNuclearStrike(game, dt) {
   const angle=game.player.heading ?? 0;
   const x=clamp(target?.x ?? game.player.x+Math.cos(angle)*240,0,ARENA.width);
   const y=clamp(target?.y ?? game.player.y+Math.sin(angle)*240,0,ARENA.height);
-  const radius=Math.min(NUCLEAR_STRIKE.maxRadius,relicReach(game,NUCLEAR_STRIKE.radius*(1+(relic(game,'gunpowder')?.radius ?? 0))));
+  const radius=Math.min(NUCLEAR_STRIKE.maxRadius,relicReach(game,NUCLEAR_STRIKE.radius));
   queueRelicAttack(game,{type:'nuclear',id:'firecracker',x,y,radius,
     damage:relicDamage(game,NUCLEAR_STRIKE.damage),falloutDps:relicDamage(game,NUCLEAR_STRIKE.falloutDps),
     life:NUCLEAR_STRIKE.warningSec+NUCLEAR_STRIKE.falloutSec,nextTick:0,detonated:false});

@@ -30,8 +30,8 @@ describe('다연장 미사일 핵 지원',()=>{
   near(1e9-center.hp,(NUCLEAR_STRIKE.damage+NUCLEAR_STRIKE.falloutDps*NUCLEAR_STRIKE.falloutSec)*power);
   assert.equal(edge.hp,edgeHp);assert.equal(nukes(g).length,0);
  });
- it('고성능 화약과 범위 보너스를 받지만 반경은 900을 넘지 않는다',()=>{
-  const g=scene();g.relics.gunpowder=true;g.passives.wipes=5;g.nuclearIn=0;update(g,DT);
+ it('범위 보너스를 받지만 반경은 900을 넘지 않는다',()=>{
+  const g=scene();g.relics.bigpot=true;g.passives.wipes=5;g.nuclearIn=0;update(g,DT);
   assert.equal(nukes(g)[0].radius,NUCLEAR_STRIKE.maxRadius);
  });
  it('5개 미만으로 내려가면 예약이 취소되고 다시 모으면 20초부터 센다',()=>{
