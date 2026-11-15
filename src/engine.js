@@ -1,5 +1,5 @@
 import {
-  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -2719,6 +2719,7 @@ export function choose(game, index) {
     if (relicCount(game, choice.id) > 1) game.relics[choice.id] -= 1;
     else delete game.relics[choice.id];
     if (choice.id === 'firecracker') for (const id of ['mlrs', 'gunpowder']) delete game.relics[id];
+    if (choice.id === 'outlet') delete game.relics.adapter;
     if (!nuclearUnlocked(game)) {
       delete game.nuclearIn;
       game.relicAttacks=(game.relicAttacks ?? []).filter(attack=>attack.type!=='nuclear');
@@ -2944,7 +2945,7 @@ function updateRelicAttacks(game, dt) {
         attack.nextTick+=attack.tickSec;
       }
     } else if(attack.type==='chain') {
-      while(attack.nextHop<attack.targets.length && attack.nextHop*RELICS.outlet.hopSec<=attack.age) {
+      while(attack.nextHop<attack.targets.length && attack.nextHop*(attack.hopSec ?? RELICS.outlet.hopSec)<=attack.age) {
         const target=attack.targets[attack.nextHop++];
         if(target.dead)continue;
         const origin={x:attack.x,y:attack.y};
@@ -2953,6 +2954,26 @@ function updateRelicAttacks(game, dt) {
         addEffect(game,{type:'bolt',points:[origin,spot],mega:true,life:.24,sound:'zap'});
         addEffect(game,{type:'ring',...spot,radius:30,color:'spark',life:.25});
         attack.x=spot.x;attack.y=spot.y;
+      }
+    } else if(attack.type==='orb') {
+      attack.x=clamp(attack.x+attack.vx*dt,0,ARENA.width);attack.y=clamp(attack.y+attack.vy*dt,0,ARENA.height);
+      while(attack.nextTick<=attack.age && attack.age<attack.life) {
+        attack.nextTick+=BALL_LIGHTNING.tickSec;
+        let drawn=0;
+        for(const enemy of near(game,attack.x,attack.y,attack.zapRadius)) {
+          if(enemy.dead || distance(enemy,attack)>=attack.zapRadius+enemy.radius)continue;
+          damageEnemy(game,enemy,attack.zapDamage,false,attack,0,{hitEffects:false});
+          if(drawn++<8)addEffect(game,{type:'bolt',points:[{x:attack.x,y:attack.y},{x:enemy.x,y:enemy.y}],mega:true,life:.18});
+        }
+      }
+      if(attack.age>=attack.life && !attack.burst) {
+        attack.burst=true;
+        for(const enemy of near(game,attack.x,attack.y,attack.burstRadius)) {
+          if(!enemy.dead && distance(enemy,attack)<attack.burstRadius+enemy.radius)
+            damageEnemy(game,enemy,attack.burstDamage,false,attack,0,{hitEffects:false});
+        }
+        addEffect(game,{type:'ring',x:attack.x,y:attack.y,radius:attack.burstRadius,color:'spark',life:.5,sound:'zap'});
+        game.shake=Math.max(game.shake,.3);
       }
     } else if(attack.type==='iceburst') {
       while(attack.nextVolley<RELICS.purifier.volleys && attack.nextVolley*RELICS.purifier.burstGap<=attack.age) {
@@ -3026,15 +3047,27 @@ function updateDamageRelics(game, dt) {
     for (const castPower of relicCastPowers(game,'outlet','outletIn',dt)) {
       const targets=[];
       let from={x:player.x,y:player.y};
-      for(let hop=0;hop<outlet.strikes;hop++) {
+      const strikes=outlet.strikes+RELICS.adapter.strikes*relicCount(game,'adapter');
+      for(let hop=0;hop<strikes;hop++) {
         const range=relicReach(game,hop===0?outlet.range:outlet.hop);
         const target=near(game,from.x,from.y,range).filter(enemy=>!enemy.dead&&!targets.includes(enemy)&&distance(enemy,from)<range)
           .sort((a,b)=>distance(a,from)-distance(b,from))[0];
         if(!target)break;
         targets.push(target);from=target;
       }
-      if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',x:player.x,y:player.y,targets,nextHop:0,
-        life:targets.length*outlet.hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
+      // 대상이 많아도 연쇄가 1.5초 안에 끝나도록 한 번 튀는 간격을 줄인다.
+      const hopSec=Math.min(outlet.hopSec,1.5/Math.max(1,targets.length));
+      if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',x:player.x,y:player.y,targets,nextHop:0,hopSec,
+        life:targets.length*hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
+      if(relicCount(game,'adapter')>=BALL_LIGHTNING.stacks) {
+        const aim=targets[0] ?? nearestEnemies(game,1,relicReach(game,outlet.range))[0];
+        const angle=aim?Math.atan2(aim.y-player.y,aim.x-player.x):player.heading??0;
+        queueRelicAttack(game,{type:'orb',id:'outlet',x:player.x,y:player.y,vx:Math.cos(angle)*BALL_LIGHTNING.speed,
+          vy:Math.sin(angle)*BALL_LIGHTNING.speed,life:BALL_LIGHTNING.lifeSec,nextTick:0,
+          zapRadius:relicReach(game,BALL_LIGHTNING.zapRadius),burstRadius:relicReach(game,BALL_LIGHTNING.burstRadius),
+          zapDamage:relicDamage(game,BALL_LIGHTNING.zapDamage)*castPower,burstDamage:relicDamage(game,BALL_LIGHTNING.burstDamage)*castPower});
+        addEffect(game,{type:'ring',x:player.x,y:player.y,radius:40,color:'spark',life:.3,sound:'zap'});
+      }
     }
   }
   const glove = relic(game, 'glove');

@@ -446,6 +446,11 @@ export const MAX_RELICS = 3;
 export const RELIC_LEVEL_SCALE = 0.04;
 
 // 다연장 미사일 5중첩의 독립 지원 공격. 공속·태엽·우상 추가 발동과 별도로 20초에 한 번이다.
+// 돼지코 어댑터 5개: 멀티탭이 터질 때마다 전기 구체를 날린다. 구체는 날아가며 주변을 계속 감전시키고 끝에서 크게 터진다.
+export const BALL_LIGHTNING = {
+  stacks: 5, speed: 240, lifeSec: 2.4, zapRadius: 170, zapDamage: 70, tickSec: 0.3, burstRadius: 320, burstDamage: 400,
+};
+
 export const NUCLEAR_STRIKE = {
   stacks: 5, everySec: 20, warningSec: 1.3, radius: 640, maxRadius: 900,
   damage: 900, falloutRadius: 0.58, falloutSec: 3, falloutDps: 90, tickSec: 0.25,
@@ -483,6 +488,11 @@ export const RELICS = {
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
     description: '폭죽 로켓이 늘고 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
     rockets: 4 },
+  // 보물 20점 전용이고 멀티탭이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
+  adapter: { label: '돼지코 어댑터', treasureOnly: true, stackable: true, requiresRelic: 'outlet',
+    description: '멀티탭 전기가 훨씬 많은 적에게 이어진다',
+    stats: ['멀티탭 연쇄 대상 +10명(여러 개 가지면 겹쳐 쌓임)', '5개 모으면 멀티탭이 전기 구체를 날려 주변 적을 모두 감전',
+      '보물 20점·멀티탭 보유 시 등장, 하나마다 보물 칸 1개'], strikes: 10 },
   gunpowder: { label: '고성능 화약', treasureOnly: true, requiresRelic: 'firecracker',
     description: '폭죽 로켓이 더 빨리 떨어지고 크게 터진다', stats: ['폭죽 폭발 범위 +50%', '폭죽 로켓 낙하 속도 +30%', '보물 20점·폭죽 보유 시 등장'], radius: 0.5, fallSpeed: 0.3 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },

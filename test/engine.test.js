@@ -4,7 +4,7 @@ import {
   applyBuild, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
-import { BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
+import { BALL_LIGHTNING, BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
 
 function seeded(seed) {
   let value = seed;
@@ -1785,5 +1785,54 @@ describe('다연장 미사일과 고성능 화약', () => {
     game.relicAttacks = [];
     game.relics.gunpowder = true;
     assert.ok(Math.abs(fireOnce(game)[0].radius - plain * 1.5) < 1e-9);
+  });
+});
+
+describe('돼지코 어댑터', () => {
+  function outletGame(adapters) {
+    const game = createGame(seeded(43));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    applyBuild(game, { treasure: 20 });
+    game.relics = { outlet: true, ...(adapters ? { adapter: adapters } : {}) };
+    game.random = () => 0.5;
+    game.outletIn = 0.001;
+    return game;
+  }
+
+  function spread(game, count) {
+    return Array.from({ length: count }, (_, index) => placeEnemy(game, 'trash', 80 + index * 60, 0, { hp: 1e7, speed: 0 }));
+  }
+
+  it('멀티탭이 있어야 나오고, 가지고 있어도 또 나온다', () => {
+    const game = outletGame(0);
+    game.random = seeded(5);
+    delete game.relics.outlet;
+    for (let index = 0; index < 60; index += 1) assert.ok(rollRelics(game).every((choice) => choice.id !== 'adapter'));
+    game.relics = { outlet: true, adapter: 2 };
+    const offered = new Set();
+    for (let index = 0; index < 80; index += 1) rollRelics(game).forEach((choice) => offered.add(choice.id));
+    assert.ok(offered.has('adapter'));
+  });
+
+  it('하나마다 연쇄 대상이 10명 늘고, 늘어나도 1.5초 안에 다 튄다', () => {
+    const game = outletGame(2);
+    const enemies = spread(game, 30);
+    for (let frame = 0; frame < 100; frame += 1) update(game, 1 / 60);
+    assert.equal(enemies.filter((enemy) => enemy.hp < 1e7).length, RELICS.outlet.strikes + 2 * RELICS.adapter.strikes);
+  });
+
+  it('5개를 모으면 전기 구체를 날려 주변 적을 모두 감전시키고, 4개면 날리지 않는다', () => {
+    const four = outletGame(4);
+    spread(four, 3);
+    update(four, 1 / 60);
+    assert.ok(four.relicAttacks.every((attack) => attack.type !== 'orb'));
+    const five = outletGame(BALL_LIGHTNING.stacks);
+    const side = placeEnemy(five, 'trash', 0, 120, { hp: 1e7, speed: 0 });
+    spread(five, 1);
+    update(five, 1 / 60);
+    assert.ok(five.relicAttacks.some((attack) => attack.type === 'orb'));
+    for (let frame = 0; frame < 40; frame += 1) update(five, 1 / 60);
+    assert.ok(side.hp < 1e7);
   });
 });

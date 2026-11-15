@@ -1898,6 +1898,30 @@ ITEMS.scooter = item([], (body, fx, f) => {
     for (let step = 0; step <= length; step += 1) fx.set(1 - slide + step + index, 3 + y, step === length ? 'W' : 'L');
   });
 });
+ITEMS.adapter = item([
+  '................',
+  '................',
+  '.....uuuuuu.....',
+  '...uuWWWWWWuu...',
+  '..uWWWWWWWWWWu..',
+  '..uWWWWWWWWWWu..',
+  '.uWWWuuWWuuWWWu.',
+  '.uWWWuKWWuKWWWu.',
+  '.uWWWuuWWuuWWWu.',
+  '..uWWWWWWWWWWu..',
+  '..uWWWWWWWWWWu..',
+  '...uuWWWWWWuu...',
+  '.....uuuuuu.....',
+  '......uLLu......',
+  '......uLLu......',
+  '................',
+], (body, fx, f) => {
+  // 콧구멍 사이로 전기가 튄다.
+  const sparks = [[[7, 6, 'Y']], [[8, 7, 'W'], [7, 5, 'Y']], [[8, 6, 'Y']], [[7, 8, 'W']]][f];
+  sparks.forEach(([x, y, ch]) => fx.set(x, y, ch));
+  twinkle(fx, 2, 2, f, 'Y');
+  twinkle(fx, 13, 3, f + 2, 'W');
+});
 ITEMS.gunpowder = item([
   '................',
   '................',

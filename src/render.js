@@ -494,6 +494,19 @@ function drawRelicAttacks(ctx, game, toBuffer, time, ground) {
     if(floor!==ground)continue;
     const [x,y]=toBuffer(attack),progress=Math.min(1,attack.age/attack.life);
     ctx.save();
+    if(attack.type==='orb') {
+      // 전기 구체: 밝은 핵과 깜빡이는 테두리, 감전 범위를 흐리게 보여 준다.
+      const zap=attack.zapRadius/WORLD_PER_PIXEL,pulse=Math.floor(time*20)%2;
+      ring(ctx,x,y,zap,'rgba(142,238,255,0.35)',3,Math.floor(time*12));
+      disc(ctx,x,y,9+pulse,'rgba(142,238,255,0.45)');
+      disc(ctx,x,y,6,'#8eeeff');
+      disc(ctx,x,y,3,'#ffffff');
+      for(let arm=0;arm<5;arm++) {
+        const angle=time*9+arm*1.26+Math.sin(time*31+arm)*.4,reach=8+((arm+Math.floor(time*24))%3)*3;
+        line(ctx,x,y,Math.round(x+Math.cos(angle)*reach),Math.round(y+Math.sin(angle)*reach),arm%2?'#ffffff':'#8eeeff');
+      }
+      ctx.restore();continue;
+    }
     if(attack.type==='heat') {
       const w=attack.halfWidth/WORLD_PER_PIXEL,h=attack.halfHeight/WORLD_PER_PIXEL;
       const fade=Math.min(1,(1-progress)*4);
