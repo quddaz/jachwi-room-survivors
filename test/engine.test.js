@@ -1840,3 +1840,31 @@ describe('돼지코 어댑터', () => {
     assert.ok(side.hp < 1e7);
   });
 });
+
+describe('레이저 드론 기지', () => {
+  function droneGame() {
+    const game = createGame(seeded(61));
+    game.spawnCarry = -100000;
+    game.weapons = { toydrone: 5, laser: 5 };
+    game.evolved = { toydrone: true, laser: true };
+    game.fusions = { dronebase: true };
+    return game;
+  }
+
+  it('드론 넷이 서로 다른 적에게 날아가 머리 위에서 지지고, 재료 무기는 따로 쏘지 않는다', () => {
+    const game = droneGame();
+    const enemies = [200, 260, 320, 380].map((dx, index) => placeEnemy(game, 'trash', dx, index % 2 ? 120 : -120, { hp: 1e7, speed: 0 }));
+    for (let frame = 0; frame < 180; frame += 1) update(game, 1 / 60);
+    assert.equal(game.drones.length, FUSIONS.dronebase.count);
+    assert.equal(new Set(game.drones.map((drone) => drone.target?.id)).size, FUSIONS.dronebase.count);
+    assert.ok(enemies.every((enemy) => enemy.hp < 1e7));
+    assert.equal(game.summons.filter((unit) => unit.weapon === 'toydrone').length, 0);
+    assert.ok(game.shots.every((shot) => shot.weapon !== 'laser'));
+  });
+
+  it('적이 없으면 오리 곁을 돈다', () => {
+    const game = droneGame();
+    for (let frame = 0; frame < 120; frame += 1) update(game, 1 / 60);
+    assert.ok(game.drones.every((drone) => !drone.firing && Math.hypot(drone.x - game.player.x, drone.y - game.player.y) < 120));
+  });
+});

@@ -1319,6 +1319,59 @@ export function sawBlades(game) {
   return (game.saws ?? []).map((blade) => ({ ...blade, radius: Math.min(saw.maxRadius, saw.radius * area * projectile) }));
 }
 
+// 레이저 드론 기지: 드론마다 다른 적을 맡아 날아가고, 머리 위에 도착하면 아래로 레이저를 내리쬔다.
+export function laserDrones(game) {
+  const base = fusion(game, 'dronebase');
+  if (!base) return [];
+  const beam = base.beamRadius * statsOf(game).area;
+  return (game.drones ?? []).map((drone) => ({ ...drone, beam }));
+}
+
+function updateDroneBase(game, dt) {
+  const base = fusion(game, 'dronebase');
+  if (!base) {
+    game.drones = [];
+    return;
+  }
+  const { player } = game;
+  const stats = statsOf(game);
+  const beam = base.beamRadius * stats.area;
+  const speed = base.speed * attackTempoOf(game) * stats.summonSpeed;
+  const count = base.count + stats.summonCount;
+  const damage = weaponValue(game, 'laser', 'damage') * base.dps * base.tickSec * stats.summonPower;
+  game.drones = (game.drones ?? []).slice(0, count);
+  while (game.drones.length < count) {
+    game.drones.push({ id: game.nextId++, x: player.x, y: player.y, target: null, tickIn: 0, firing: false });
+  }
+  game.drones.forEach((drone, index) => {
+    if (drone.target && (drone.target.dead || distance(drone.target, player) > base.leash)) drone.target = null;
+    if (!drone.target) {
+      const taken = new Set(game.drones.filter((other) => other !== drone).map((other) => other.target?.id));
+      let best = null;
+      let bestGap = Infinity;
+      for (const enemy of near(game, player.x, player.y, base.seek)) {
+        if (enemy.dead || taken.has(enemy.id) || distance(enemy, player) > base.seek) continue;
+        const gap = distance(enemy, drone);
+        if (gap < bestGap) { bestGap = gap; best = enemy; }
+      }
+      drone.target = best;
+    }
+    const angle = game.time * 1.4 + (index / count) * Math.PI * 2;
+    const goal = drone.target ?? { x: player.x + Math.cos(angle) * base.idleOrbit, y: player.y + Math.sin(angle) * base.idleOrbit };
+    const gap = distance(drone, goal) || 1;
+    const step = Math.min(gap, speed * dt);
+    drone.x += ((goal.x - drone.x) / gap) * step;
+    drone.y += ((goal.y - drone.y) / gap) * step;
+    drone.firing = Boolean(drone.target) && distance(drone, drone.target) < beam;
+    drone.tickIn = Math.max(0, drone.tickIn - dt);
+    if (!drone.firing || drone.tickIn > 0) return;
+    drone.tickIn = base.tickSec;
+    for (const enemy of near(game, drone.x, drone.y, beam + 40)) {
+      if (!enemy.dead && distance(enemy, drone) < beam + enemy.radius) damageWeaponHit(game, enemy, damage, false, drone);
+    }
+  });
+}
+
 // 도탄 톱날: 가까운 적에게 날아가 베고, 근처의 다른 적에게 튕긴다. 튕길 곳이 없거나 다 튕기면 오리에게 돌아온다.
 function updateSaws(game, dt) {
   const saw = fusion(game, 'sawblade');
@@ -1510,7 +1563,7 @@ function updateDragon(game, unit, lengthCount, range, speed, damage, dt) {
 
 function updateSummons(game, dt) {
   const stats = statsOf(game), player = game.player;
-  const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot');
+  const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot' && activeWeapon(game, id));
   game.summons = game.summons.filter(unit => ids.includes(unit.weapon));
   for (const id of ids) {
     const weapon = WEAPONS[id], evolved = evolution(game, id);
@@ -2232,6 +2285,7 @@ function fireWeapons(game, dt) {
     }
   }
   updateSaws(game, dt);
+  updateDroneBase(game, dt);
 }
 
 function updateProjectiles(game, dt) {

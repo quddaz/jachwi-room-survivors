@@ -432,6 +432,10 @@ export const FUSIONS = {
   foammine: { label: '거품 지뢰', description: '쥐덫이 닫히면 여섯 파편의 피해를 모은 거대 거품이 한 번 폭발한다', primary: 'mousetrap', power: 3.5, from: ['mousetrap', 'detergent'], bubbles: 1, blast: 6, hitEverySec: 0.18 },
   dryoven: { label: '건조 오븐', description: '강화 파동 두 번이 퍼지고, 맞은 적을 3초 동안 느리게 하며 태운다', primary: 'microwave', power: 1, from: ['microwave', 'dehumidifier'],
     waves: 2, damage: 1.2, burnSec: 3, burn: 1.5, slow: 0.5 },
+  // 드론은 따로 쏘지 않고, 기지에서 뜬 드론들이 적을 찾아다니며 머리 위에서 레이저를 내리쬔다.
+  dronebase: { label: '레이저 드론 기지', description: '드론 넷이 적을 찾아 날아가 머리 위에서 레이저를 내리쬐어 지진다. 드론끼리 다른 적을 맡는다',
+    primary: null, power: 1, from: ['toydrone', 'laser'],
+    count: 4, speed: 320, seek: 640, leash: 820, beamRadius: 48, tickSec: 0.2, dps: 1.4, idleOrbit: 80 },
   shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', primary: 'shower', power: 1.3, from: ['shower', 'zapper'],
     targets: 3, range: 170, damage: 0.5 },
 };

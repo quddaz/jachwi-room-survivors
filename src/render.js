@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -1605,6 +1605,29 @@ export function render(ctx, game, width, height, time) {
     }
     disc(ctx, x, y, 1, '#ffffff');
     ring(ctx, x, y, radius + 2, 'rgba(255, 255, 255, 0.45)', 2, Math.floor(time * 20));
+  }
+  // 레이저 드론: 땅에 표적 원과 그림자를 그리고, 머리 위의 드론에서 붉은 빔을 내리쬔다.
+  for (const drone of laserDrones(game)) {
+    const [x, y] = toBuffer(drone);
+    const lift = 18 + Math.sin(time * 6 + drone.id) * 1.5;
+    const beam = drone.beam / WORLD_PER_PIXEL;
+    ctx.fillStyle = 'rgba(40,50,70,0.22)'; ctx.fillRect(Math.round(x - 5), Math.round(y + 3), 10, 2);
+    if (drone.firing) {
+      ring(ctx, x, y, beam, 'rgba(255,90,90,0.55)', 3, Math.floor(time * 18));
+      disc(ctx, x, y, beam * (0.55 + 0.1 * Math.sin(time * 30)), 'rgba(255,80,80,0.22)');
+      const flicker = Math.floor(time * 30) % 2;
+      for (let lane = -2; lane <= 2; lane += 1) {
+        const color = lane === 0 ? '#ffffff' : Math.abs(lane) === 1 ? '#ff6b6b' : 'rgba(255,107,107,0.45)';
+        line(ctx, Math.round(x + lane), Math.round(y - lift + 4), Math.round(x + lane * (1.5 + flicker)), Math.round(y), color);
+      }
+      for (let spark = 0; spark < 4; spark += 1) {
+        const angle = time * 11 + spark * 1.57;
+        ctx.fillStyle = spark % 2 ? '#ffd2d2' : '#ff6b6b';
+        ctx.fillRect(Math.round(x + Math.cos(angle) * beam * 0.5), Math.round(y + Math.sin(angle) * beam * 0.35), 1, 1);
+      }
+    }
+    ctx.drawImage(icon('dronemk2', Math.floor(time * 16) % ITEM_FRAMES), Math.round(x - 8), Math.round(y - lift - 8));
+    if (drone.firing) disc(ctx, Math.round(x), Math.round(y - lift + 4), 2, '#fff1f1');
   }
   for (const blade of sawBlades(game)) {
     const [x, y] = toBuffer(blade);

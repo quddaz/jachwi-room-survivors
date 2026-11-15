@@ -1323,6 +1323,13 @@ function toyDrone(body, fx, frame, twin = false) {
 }
 ITEMS.toydrone = item([], (body, fx, f) => toyDrone(body, fx, f));
 ITEMS.dronemk2 = item([], (body, fx, f) => toyDrone(body, fx, f, true));
+ITEMS.dronebase = item([], (body, fx, f) => {
+  toyDrone(body, fx, f, true);
+  // 드론 아래로 붉은 레이저가 내리꽂힌다.
+  for (let y = 11; y < 16; y += 1) fx.set(7, y, y % 2 === f % 2 ? 'R' : 'W');
+  fx.set(6, 15, 'R');
+  fx.set(8, 15, 'R');
+});
 function windCar(body, fx, frame, tank = false) {
   body.rect(2, 6, 12, 7, 'h').rect(3, 6, 10, 6, tank ? 'G' : 'B');
   body.rect(5, 3, 6, 5, tank ? 'x' : 'q').rect(6, 4, 4, 3, 'i');
