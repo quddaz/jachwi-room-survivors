@@ -471,8 +471,8 @@ export const RELICS = {
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 세 발이 날아가 차례로 폭발한다',
-    stats: ['12초마다 조준 로켓 3발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 65(레벨·보물 피해 비례)'],
-    everySec: 12, radius: 90, damage: 65, rockets: 3, range: 520, aimSec: 0.5, gapSec: 0.16 },
+    stats: ['12초마다 조준 로켓 8발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 35(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 90, damage: 35, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
