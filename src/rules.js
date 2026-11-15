@@ -43,7 +43,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
-      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 리롤 +1회. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1, rerolls: 1 },
+      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 리롤 +1회, 일반 몹 처치 시 0.02% 확률로 보물상자. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1, rerolls: 1, chestChance: 0.0002, chestLimit: 2 },
     } },
 };
 

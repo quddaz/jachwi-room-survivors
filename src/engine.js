@@ -1174,6 +1174,7 @@ function killEnemy(game, enemy) {
     return;
   }
   dropSecretMap(game, enemy);
+  dropTreasureChest(game, enemy);
   const extraDrop = passiveValue(game,'idol','dropBonus');
   if(extraDrop){
     const available=Object.entries(DROPS).filter(([type])=>game.drops.filter(item=>item.type===type).length<DROP_LIMIT);
@@ -1192,6 +1193,15 @@ function killEnemy(game, enemy) {
       break;
     }
   }
+}
+
+// 보물 20점의 희귀 상자는 일반 소모품·우상 드랍 보정과 별도로 굴린다.
+function dropTreasureChest(game, enemy) {
+  const bonus=perk(game,'treasure',20);
+  if (!bonus || game.drops.filter(drop=>drop.type==='chest' && drop.source==='treasure').length>=bonus.chestLimit) return;
+  if (game.random()>=bonus.chestChance) return;
+  game.drops.push({type:'chest',source:'treasure',x:enemy.x,y:enemy.y});
+  addEffect(game,{type:'banner',text:'보물 사냥꾼! 적이 보물상자를 떨어뜨렸어요',life:2});
 }
 
 // 일반 아이템과 별도로 굴리며, 이미 주웠거나 바닥에 있는 방향은 다시 떨어지지 않는다.
