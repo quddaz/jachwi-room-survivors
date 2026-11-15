@@ -1,7 +1,7 @@
 import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
-import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, RELICS, WEAPONS } from './rules.js';
+import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, duckSprite, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
@@ -259,13 +259,23 @@ function sparkle(ctx, x, y, color, big) {
 function drawDrop(ctx, drop, x, y, time) {
   const [light, deep] = DROP_GLOW[drop.type] ?? DROP_GLOW.box;
   const chest = drop.type === 'chest';
+  const secret = SECRET_MAPS.includes(drop.type);
   const phase = drop.x * 0.013 + drop.y * 0.007;
   const float = Math.sin(time * 4 + phase);
   const bob = Math.round(float * 2) - 2;
   const pulse = (Math.sin(time * 6 + phase) + 1) / 2;
   disc(ctx, x, y + 9, 5 - (float > 0.4 ? 1 : 0), 'rgba(120, 80, 40, 0.22)');
 
-  const rays = chest ? 12 : 8;
+  if (secret) {
+    ctx.save();
+    ctx.globalAlpha = 0.18 + pulse * 0.12;
+    ctx.fillStyle = '#ffe08a';
+    ctx.fillRect(x - 7, y - 68, 14, 72);
+    ctx.fillStyle = '#ffffff';ctx.fillRect(x - 1, y - 68, 2, 72);
+    ctx.restore();
+    ring(ctx,x,y+bob,17,'#ffcf3f',3,Math.floor(time*8));
+  }
+  const rays = chest || secret ? 12 : 8;
   ctx.globalAlpha = 0.35 + pulse * 0.3;
   for (let ray = 0; ray < rays; ray += 1) {
     const angle = (ray / rays) * Math.PI * 2 + time * (chest ? 1.4 : 0.9) + phase;
@@ -279,7 +289,9 @@ function drawDrop(ctx, drop, x, y, time) {
   ctx.globalAlpha = 1;
   ring(ctx, x, y + bob, 10 + Math.round(pulse), deep, 2, Math.floor(time * 12));
 
-  drawCentered(ctx, icon(drop.type, Math.floor(time * 7 + phase * 10) % ITEM_FRAMES), x, y + bob);
+  const image = icon(drop.type, Math.floor(time * 7 + phase * 10) % ITEM_FRAMES);
+  if (secret) ctx.drawImage(image,x-12,y+bob-12,24,24);
+  else drawCentered(ctx,image,x,y+bob);
 
   for (let orbit = 0; orbit < (chest ? 4 : 2); orbit += 1) {
     const angle = time * 3 + phase + (orbit / (chest ? 4 : 2)) * Math.PI * 2;
@@ -290,6 +302,164 @@ function drawDrop(ctx, drop, x, y, time) {
     const rise = (time * 0.9 + hash(drop.x, mote)) % 1;
     ctx.fillStyle = rise < 0.6 ? light : deep;
     ctx.fillRect(Math.round(x - 7 + hash(drop.y, mote) * 14 + Math.sin(time * 5 + mote) * 1.5), Math.round(y + 6 - rise * 20), 1, 1);
+  }
+}
+
+const RELIC_COLORS = {
+  firecracker:'#ff9b3f', pas:'#79e5ce', heatpad:'#ff9b3f', freshener:'#c8a4ff',
+  outlet:'#8eeeff', glove:'#ffcf3f', purifier:'#9fddff', top:'#ff90bd',
+  alarm:'#b7d7ff', popcorn:'#ffe08a', clothespin:'#efc18b', match:'#ff9b3f',
+};
+
+function drawRelicEffect(ctx, effect, x, y) {
+  const progress = effect.age / effect.life;
+  const awaken = effect.type === 'relic-awaken';
+  const idol = effect.id === 'idol';
+  const color = RELIC_COLORS[effect.id] ?? '#ffe08a';
+  const reach = (awaken ? 38 : 21) * (0.35 + Math.sqrt(progress) * 0.65);
+  ctx.save();
+  ctx.globalAlpha = (1-progress) * (awaken ? 0.85 : 0.65);
+  ring(ctx,x,y,reach,color,awaken ? 3 : 5,Math.floor(effect.age*24));
+  if (awaken) {
+    ring(ctx,x,y,reach*0.72,'#ffffff');
+    for (let ray=0;ray<12;ray++) {
+      const angle=ray*Math.PI/6+progress*0.5;
+      line(ctx,Math.round(x+Math.cos(angle)*reach*.8),Math.round(y+Math.sin(angle)*reach*.8),
+        Math.round(x+Math.cos(angle)*reach*1.25),Math.round(y+Math.sin(angle)*reach*1.25),color);
+    }
+  }
+  const size = idol ? 40 : awaken ? 24 : 12;
+  const ix = awaken ? x : x+17;
+  const iy = y-(awaken ? 20 : 12)-progress*(awaken ? 20 : 9);
+  ctx.globalAlpha = Math.min(1,(1-progress)*3);
+  ctx.drawImage(icon(effect.id,Math.floor(effect.age*8)%ITEM_FRAMES),Math.round(ix-size/2),Math.round(iy-size/2),size,size);
+  for (let mote=0;mote<(awaken?12:5);mote++) {
+    const angle=mote*Math.PI*2/(awaken?12:5)+effect.seed;
+    sparkle(ctx,Math.round(x+Math.cos(angle)*reach),Math.round(y+Math.sin(angle)*reach-progress*5),mote%3?'#ffffff':color,awaken&&mote%3===0);
+  }
+  ctx.restore();
+}
+
+// 우상의 실루엣은 오리 뒤에 고정한다. 게임 판정이나 투사체를 추가하지 않는 시각 효과다.
+function drawIdolAura(ctx, game, x, y, time) {
+  if (!game.passives.idol) return;
+  const pulse=(Math.sin(time*2.5)+1)/2;
+  const cy=y-20;
+  ctx.save();
+  ctx.globalAlpha=0.28+pulse*0.1;
+  glow(ctx,x,cy,30,[255,200,65],0.65);
+  ring(ctx,x,cy,27,'#ffe08a',4,Math.floor(time*7));
+  ring(ctx,x,cy,23,'#fff4c2',3,Math.floor(-time*5));
+  for(let ray=0;ray<8;ray++) {
+    const angle=ray*Math.PI/4+time*.16;
+    line(ctx,Math.round(x+Math.cos(angle)*29),Math.round(cy+Math.sin(angle)*29),
+      Math.round(x+Math.cos(angle)*34),Math.round(cy+Math.sin(angle)*34),'#ffcf3f');
+  }
+  ctx.globalAlpha=0.48+pulse*.08;
+  ctx.drawImage(icon('idol',Math.floor(time*5)%ITEM_FRAMES),Math.round(x-22),Math.round(y-46-Math.sin(time*2)*2),44,44);
+  ctx.globalAlpha=0.75;
+  for(let mote=0;mote<6;mote++) {
+    const angle=mote*Math.PI/3+time*.4;
+    sparkle(ctx,Math.round(x+Math.cos(angle)*25),Math.round(cy+Math.sin(angle)*25),'#ffe08a',mote%2===0);
+  }
+  ctx.restore();
+}
+
+// 열선·구름은 바닥에, 로켓·노즐은 투사체 위에 그린다. 판정 상태의 좌표와 크기를 그대로 쓴다.
+function drawRelicAttacks(ctx, game, toBuffer, time, ground) {
+  for(const attack of game.relicAttacks ?? []) {
+    if(!game.relics[attack.id])continue;
+    const floor=['heat','perfume','coolwave'].includes(attack.type);
+    if(floor!==ground)continue;
+    const [x,y]=toBuffer(attack),progress=Math.min(1,attack.age/attack.life);
+    ctx.save();
+    if(attack.type==='heat') {
+      const w=attack.halfWidth/WORLD_PER_PIXEL,h=attack.halfHeight/WORLD_PER_PIXEL;
+      const fade=Math.min(1,(1-progress)*4);
+      ctx.translate(x,y);ctx.rotate(attack.angle);
+      ctx.globalAlpha=.2*fade;ctx.fillStyle='#563148';ctx.fillRect(-w,-h,w*2,h*2);
+      ctx.globalAlpha=.7*fade;
+      ctx.strokeStyle='#b67965';ctx.lineWidth=1;ctx.strokeRect(-w,-h,w*2,h*2);
+      // 장판 외곽 바느질과 안쪽 지그재그 열선. 밝은 전류가 한 바퀴 돈다.
+      const rows=6;
+      for(let row=0;row<rows;row++) {
+        const yy=-h+5+row*(h*2-10)/(rows-1);
+        line(ctx,Math.round(-w+5),Math.round(yy),Math.round(w-5),Math.round(yy),'#e68c50');
+        if(row<rows-1)line(ctx,Math.round(row%2?-w+5:w-5),Math.round(yy),Math.round(row%2?-w+5:w-5),Math.round(yy+(h*2-10)/(rows-1)),'#ffb75a');
+        const pulse=((attack.age*4+row/rows)%1)*(w*2-12)-w+6;
+        line(ctx,Math.round(pulse-4),Math.round(yy),Math.round(pulse+4),Math.round(yy),'#fff4c2');
+      }
+      for(let rivet=0;rivet<4;rivet++) {
+        ctx.fillStyle='#ffe08a';ctx.fillRect(Math.round((rivet%2?1:-1)*(w-2)),Math.round((rivet<2?-1:1)*(h-2)),2,2);
+      }
+      line(ctx,Math.round(w),0,Math.round(w+6),4,'#67728b');
+      ctx.fillStyle='#dcebff';ctx.fillRect(Math.round(w+5),2,4,5);
+      for(let steam=0;steam<6;steam++) {
+        const xx=-w+10+steam*(w*2-20)/5;
+        sparkle(ctx,Math.round(xx+Math.sin(time*8+steam)*2),Math.round(-h+7-((time*15+steam*4)%14)),'#ffd18c',false);
+      }
+    } else if(attack.type==='perfume') {
+      const r=attack.radius/WORLD_PER_PIXEL;
+      const fade=Math.min(1,attack.age*5,(1-progress)*5);
+      ctx.globalAlpha=.2*fade;
+      for(let puff=0;puff<7;puff++) {
+        const a=puff*Math.PI*2/7+time*.18;
+        disc(ctx,Math.round(x+Math.cos(a)*r*.48),Math.round(y+Math.sin(a)*r*.48),r*.47,puff%2?'#bc91db':'#9bc8c9');
+      }
+      ctx.globalAlpha=.7*fade;
+      ring(ctx,x,y,r,'#d5b8eb',6,Math.floor(time*8));
+      for(let petal=0;petal<16;petal++) {
+        const angle=petal*Math.PI/8+time*.4,reach=r*(.25+hash(attack.seed,petal)*.65);
+        const xx=Math.round(x+Math.cos(angle)*reach),yy=Math.round(y+Math.sin(angle)*reach-((time*8+petal*2)%12));
+        sparkle(ctx,xx,yy,petal%3?'#e2fff2':'#ffd0eb',petal%4===0);
+      }
+      ctx.drawImage(icon('freshener',Math.floor(time*6)%ITEM_FRAMES),x-r-7,y-12,18,24);
+    } else if(attack.type==='coolwave') {
+      const reach=attack.radius/WORLD_PER_PIXEL*progress;
+      ctx.globalAlpha=Math.min(1,(1-progress)*4);
+      ring(ctx,x,y,reach,'#c6fff2',2,Math.floor(time*18));
+      ring(ctx,x,y,Math.max(1,reach-5),'#75cfc4',4,Math.floor(-time*15));
+      for(let shard=0;shard<20;shard++) {
+        const a=shard*Math.PI/10;
+        const sx=Math.round(x+Math.cos(a)*reach),sy=Math.round(y+Math.sin(a)*reach);
+        line(ctx,sx,sy,Math.round(x+Math.cos(a)*(reach+5)),Math.round(y+Math.sin(a)*(reach+5)),'#ffffff');
+        sparkle(ctx,sx,sy,'#b8f3ef',shard%3===0);
+      }
+    } else if(attack.type==='firework') {
+      const [fx,fy]=toBuffer({x:attack.fromX,y:attack.fromY});
+      const r=attack.radius/WORLD_PER_PIXEL;
+      ctx.globalAlpha=.5;
+      ring(ctx,x,y,r,'#ffcf3f',4,Math.floor(time*12));
+      ring(ctx,x,y,r*Math.max(.08,1-progress),'#fff4c2');
+      line(ctx,x-4,y,x+4,y,'#ffe08a');line(ctx,x,y-4,x,y+4,'#ffe08a');
+      ctx.globalAlpha=1;
+      const xx=fx+(x-fx)*progress,yy=fy+(y-fy)*progress-Math.sin(progress*Math.PI)*42;
+      for(let tail=1;tail<=6;tail++) {
+        const p=Math.max(0,progress-tail*.018);
+        const tx=fx+(x-fx)*p,ty=fy+(y-fy)*p-Math.sin(p*Math.PI)*42;
+        disc(ctx,Math.round(tx),Math.round(ty),tail<3?2:1,tail%2?'#ffb75a':'#ffe08a');
+      }
+      ctx.translate(Math.round(xx),Math.round(yy));
+      ctx.rotate(Math.atan2(y-fy-Math.cos(progress*Math.PI)*42*Math.PI,x-fx));
+      ctx.fillStyle='#7d3d48';ctx.fillRect(-6,-3,10,6);
+      ctx.fillStyle='#fff4c2';ctx.fillRect(-5,-2,7,4);
+      ctx.fillStyle='#ef8056';ctx.fillRect(2,-2,3,4);
+      ctx.fillStyle='#ffe08a';ctx.fillRect(-8,-1,3,2);
+    } else if(attack.type==='iceburst') {
+      const angle=attack.angle??0;
+      const recoil=Math.max(0,1-(attack.age%RELICS.purifier.burstGap)/RELICS.purifier.burstGap)*3;
+      ctx.translate(x+Math.cos(angle)*(15-recoil),y+Math.sin(angle)*(15-recoil));ctx.rotate(angle);
+      // 커다란 정수기 노즐: 물통, 몸체, 세 개의 냉각 출구가 반동과 함께 움직인다.
+      ctx.fillStyle='#365c93';ctx.fillRect(-12,-9,20,18);
+      ctx.fillStyle='#dcebff';ctx.fillRect(-11,-8,17,16);
+      ctx.fillStyle='#89d7ec';ctx.fillRect(-9,-6,6,12);
+      ctx.fillStyle='#ffffff';ctx.fillRect(-8,-5,2,9);
+      for(let nozzle=0;nozzle<3;nozzle++) {
+        ctx.fillStyle='#608ca9';ctx.fillRect(6,-7+nozzle*5,7,4);
+        ctx.fillStyle='#b9f3ff';ctx.fillRect(11,-6+nozzle*5,3,2);
+      }
+    }
+    ctx.restore();
   }
 }
 
@@ -498,7 +668,9 @@ function drawEffects(ctx, game, toBuffer) {
     const progress = effect.age / effect.life;
     if (effect.type === 'banner' || effect.type === 'flash') continue;
     const [x, y] = effect.points ? [0, 0] : toBuffer(effect);
-    if (effect.type === 'sweep') {
+    if (effect.type === 'relic-pulse' || effect.type === 'relic-awaken') {
+      drawRelicEffect(ctx,effect,x,y);
+    } else if (effect.type === 'sweep') {
       const radius = (effect.radius / WORLD_PER_PIXEL) * (0.6 + progress * 0.4);
       const start = progress * Math.PI * 2.4;
       const shades = effect.mega ? ['#fff3c4', '#ffcf3f', '#e8871a'] : ['#f3dfb8', '#c9965c', '#9a6b3a'];
@@ -547,6 +719,11 @@ function drawEffects(ctx, game, toBuffer) {
         }
       }
       glow(ctx, Math.round(x + dx * reach), Math.round(y + dy * reach), 8 * fade + 2, [255, 210, 63], 0.6 * fade);
+      ctx.save();ctx.globalAlpha=fade;
+      const tipX=Math.round(x+dx*reach),tipY=Math.round(y+dy*reach);
+      ctx.drawImage(icon('glove',0),tipX-10,tipY-10,20,20);
+      ring(ctx,tipX,tipY,8+progress*12,'#fff4c2',3,Math.floor(progress*16));
+      ctx.restore();
     } else if (effect.type === 'swordscar') {
       const radius = effect.radius / WORLD_PER_PIXEL;
       const swing = Math.min(1, progress / 0.28);
@@ -923,6 +1100,7 @@ export function render(ctx, game, width, height, time) {
   ctx.fillRect(left - 3, top, 3, bottom - top);
   ctx.fillRect(right, top, 3, bottom - top);
 
+  drawRelicAttacks(ctx,game,toBuffer,time,true);
   for (const slime of game.slimes) {
     const [x, y] = toBuffer(slime);
     disc(ctx, x, y, slime.radius / WORLD_PER_PIXEL, `rgba(111, 150, 70, ${slime.life > 1 ? 0.4 : 0.2})`);
@@ -1026,26 +1204,6 @@ export function render(ctx, game, width, height, time) {
     ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.8)', 3, Math.floor(time * 14));
   }
 
-  if (game.relics?.heatpad) {
-    // 전기장판: 발밑에 뜨끈한 주황빛 장판과 일렁이는 아지랑이
-    const radius = (RELICS.heatpad.radius * statsOf(game).area) / WORLD_PER_PIXEL;
-    const [x, y] = toBuffer(player);
-    disc(ctx, x, y, radius, `rgba(255, 138, 61, ${0.08 + Math.sin(time * 4) * 0.02})`);
-    // 지질 때마다 장판 전체가 번쩍 달아오른다.
-    const pulse = game.time - (game.heatPulse ?? -9);
-    if (pulse < 0.3) {
-      disc(ctx, x, y, radius, `rgba(255, 120, 40, ${0.3 * (1 - pulse / 0.3)})`);
-      ring(ctx, x, y, radius * (0.6 + pulse * 1.3), `rgba(255, 236, 160, ${1 - pulse / 0.3})`);
-    }
-    ring(ctx, x, y, radius, 'rgba(255, 106, 42, 0.75)', 4, Math.floor(time * 10));
-    ring(ctx, x, y, radius * 0.66, 'rgba(255, 207, 63, 0.45)', 2, Math.floor(-time * 8));
-    ctx.fillStyle = 'rgba(255, 220, 160, 0.8)';
-    for (let wisp = 0; wisp < 8; wisp += 1) {
-      const angle = (wisp / 8) * Math.PI * 2 + time * 0.6;
-      const at = radius * (0.35 + ((time * 0.7 + wisp * 0.37) % 1) * 0.6);
-      ctx.fillRect(Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - ((time * 6 + wisp) % 4)), 1, 2);
-    }
-  }
 
 
   for (const enemy of game.enemies) {
@@ -1298,6 +1456,11 @@ export function render(ctx, game, width, height, time) {
     // 팽이: 빙글빙글 도는 알록달록 팽이와 회오리 자국
     const [x, y] = toBuffer(spinner);
     const radius = Math.max(4, Math.round(spinner.radius / WORLD_PER_PIXEL));
+    for(let trail=1;trail<=4;trail++) {
+      ctx.save();ctx.globalAlpha=.35*(1-trail/5);
+      ring(ctx,Math.round(x-spinner.dx*trail*4),Math.round(y-spinner.dy*trail*4),Math.max(2,radius-trail),trail%2?'#ff90bd':'#ffe08a');
+      ctx.restore();
+    }
     glow(ctx, x, y, radius + 4, [255, 120, 160], 0.35);
     disc(ctx, x, y, radius, '#3a2a1a');
     disc(ctx, x, y, radius - 1, '#ff6f91');
@@ -1511,6 +1674,8 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x - 1, y - 1, 1, look.core);
   }
   // 오리는 맨 위에. 무기와 적, 탄막이 아무리 많아도 가려지지 않는다.
+  drawRelicAttacks(ctx,game,toBuffer,time,false);
+  drawIdolAura(ctx,game,duckX,duckY,time);
   drawDuck(ctx, game, duckX, duckY, time);
   // 경험치와 드롭 아이템은 투사체 위에 표시한다.
   for (const gem of game.gems) {

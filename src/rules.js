@@ -43,7 +43,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
-      20: { name: '보물 사냥꾼', text: '무기 없이 보물 6칸으로 싸워요. 전기장판으로 시작하고 공격 보물·전용 패시브가 나와요', maxRelics: 3, offers: 1, maxWeapons: 0 },
+      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1 },
     } },
 };
 
@@ -329,12 +329,14 @@ export const WEAPONS = {
 
 // 패시브의 배열 길이가 최대 레벨이다. 공격력·이동 속도·치명타 확률은 10, 증원 호루라기는 3, 나머지는 5레벨이다.
 export const SECRET_MAPS = ['mapnorth', 'mapsouth', 'mapwest', 'mapeast'];
+// 네 조각을 합한 적 처치당 확률. 가장 드문 일반 소모품(0.03%)보다 낮고 정예·우상 보정을 받지 않는다.
+export const SECRET_MAP_DROP_CHANCE = 0.0002;
 export const PASSIVES = {
-  mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
-  mapsouth: { label:'하단 지도',description:'잃어버린 지도의 아래쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
-  mapwest: { label:'왼쪽 지도',description:'잃어버린 지도의 왼쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
-  mapeast: { label:'오른쪽 지도',description:'잃어버린 지도의 오른쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.03,0.06,0.09,0.12,0.15] },
-  idol: { label:'우상',description:'완성한 지도가 고대의 우상으로 바뀐다',hidden:true,treasureOnly:true,requiresMaps:true,
+  mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
+  mapsouth: { label:'하단 지도',description:'잃어버린 지도의 아래쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
+  mapwest: { label:'왼쪽 지도',description:'잃어버린 지도의 왼쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
+  mapeast: { label:'오른쪽 지도',description:'잃어버린 지도의 오른쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
+  idol: { label:'우상',description:'상하좌우 지도 네 조각을 주우면 고대의 우상이 깨어난다',hidden:true,treasureOnly:true,requiresMaps:true,
     inheritedRelicPower:[0.6],relicPower:[0.5],relicRepeats:[1],echoDamage:[1],dropBonus:[0.01],echoDelay:0.18 },
 
   sneakers: { label: '운동화', description: '더 빨리 움직인다', speed: [0.1, 0.2, 0.28, 0.35, 0.42, 0.48, 0.54, 0.6, 0.65, 0.7] },
@@ -468,23 +470,28 @@ export const RELICS = {
   umbrella: { label: '우산', description: '날아오는 것을 막아 준다', stats: ['탄막·떨어지는 쓰레기 피해 -60%'], guard: 0.6 },
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
-  firecracker: { label: '폭죽', description: '때마다 크게 터진다', stats: ['25초마다 주변 큰 폭발', '폭발 피해 120(레벨·보물 피해 비례)'],
-    everySec: 25, radius: 320, damage: 120 },
+  firecracker: { label: '폭죽', description: '적을 조준한 로켓 세 발이 날아가 차례로 폭발한다',
+    stats: ['12초마다 조준 로켓 3발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 65(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 90, damage: 65, rockets: 3, range: 520, aimSec: 0.5, gapSec: 0.16 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',
     stats: ['치명타가 터지지 않음', '치명타 확률 5%마다 피해 +20', '공격 속도 +100%'], step: 0.05, flat: 20, attackSpeed: 1 },
   // 공격 보물: 보물 파트 20점이어야 나온다. 피해는 공격력, 레벨, 보물 피해에 비례한다.
-  pas: { label: '물파스', treasureOnly: true, description: '때마다 화끈하게 터진다', stats: ['8초마다 주변 폭발', '폭발 피해 80(레벨·보물 피해 비례)'],
-    everySec: 8, radius: 170, damage: 80 },
-  heatpad: { label: '전기장판', treasureOnly: true, description: '넓은 장판이 때마다 뜨겁게 달아오른다',
-    stats: ['0.8초마다 넓은 주변을 지짐', '지질 때 피해 8(레벨·보물 피해 비례)'], everySec: 0.8, radius: 175, damage: 8 },
-  freshener: { label: '방향제', treasureOnly: true, description: '때마다 화면 가득 퍼진다', stats: ['12초마다 화면의 모든 적에게 피해 120(레벨·보물 피해 비례)'],
-    everySec: 12, radius: 640, damage: 120 },
+  pas: { label: '물파스', treasureOnly: true, description: '차가운 파동이 퍼져 나가 적을 한 번씩 훑고 느리게 한다',
+    stats: ['8초마다 반경 240까지 0.7초 동안 퍼지는 냉각 파동', '피해 80 · 1.5초 동안 이동 속도 -35%(보스 제외)'],
+    everySec: 8, radius: 240, damage: 80, waveSec: 0.7, slow: 0.65, slowSec: 1.5 },
+  heatpad: { label: '전기장판', treasureOnly: true, description: '지나간 바닥에 열선 장판을 남겨 뒤따라오는 적을 지진다',
+    stats: ['0.8초마다 현재 위치에 0.8초 남는 직사각형 장판', '0.2초마다 피해 2, 장판 하나에 총 피해 8(지속 피해)'],
+    everySec: 0.8, radius: 175, halfHeight: 70, damage: 8, zoneSec: 0.8, tickSec: 0.2 },
+  freshener: { label: '방향제', treasureOnly: true, description: '가까운 적 쪽에 향기 구름을 뿌려 머무르는 적을 중독시킨다',
+    stats: ['12초마다 가까운 적 위치에 3초 동안 향기 구름(반경 160)', '0.25초마다 피해 10, 끝까지 머무르면 총 피해 120(지속 피해)'],
+    everySec: 12, radius: 160, range: 480, damage: 120, zoneSec: 3, tickSec: 0.25 },
   clothespin: { label: '빨래집게', treasureOnly: true, description: '쓰러진 적 자리에 집게를 남긴다',
     stats: ['적이 쓰러지면 20% 확률로 집게 함정', '집게 피해 90(레벨·보물 피해 비례)'], chance: 0.2, damage: 90, radius: 46, lifeSec: 7, max: 12 },
-  outlet: { label: '멀티탭', treasureOnly: true, description: '때마다 화면 곳곳에 벼락이 떨어진다', stats: ['5초마다 가까운 적 넷에게 벼락', '벼락 피해 160(레벨·보물 피해 비례)'],
-    everySec: 5, strikes: 4, range: 520, radius: 44, damage: 160 },
+  outlet: { label: '멀티탭', treasureOnly: true, description: '가장 가까운 적을 감전시키고 주변 적에게 전류를 이어 보낸다',
+    stats: ['5초마다 가까운 적에서 최대 4명에게 순차 연쇄 번개', '탐색 520 · 전이 거리 220 · 대상당 피해 160, 중복 적중 없음'],
+    everySec: 5, strikes: 4, range: 520, hop: 220, radius: 44, hopSec: 0.08, damage: 160 },
   glove: { label: '고무장갑', treasureOnly: true, description: '때마다 앞으로 크게 후려친다', stats: ['4초마다 바라보는 쪽으로 충격파', '충격파 피해 130(레벨·보물 피해 비례)'],
     everySec: 4, length: 300, width: 80, damage: 130, slows: true },
   match: { label: '성냥', treasureOnly: true, description: '맞은 적에게 불이 붙는다', stats: ['한 대씩 맞힐 때 12% 확률로 3초 동안 불붙임', '불 피해 초당 32(레벨·보물 피해 비례)'],
@@ -493,8 +500,9 @@ export const RELICS = {
   top: { label: '팽이', treasureOnly: true, description: '때마다 팽이를 날려 화면을 튕기며 돌게 한다',
     stats: ['2.5초마다 팽이 하나를 날림(4초 동안 돎)', '닿을 때 피해 60(레벨·보물 피해 비례)'],
     everySec: 2.5, lifeSec: 4, speed: 330, radius: 18, damage: 60, hitEverySec: 0.25, max: 8 },
-  purifier: { label: '정수기', treasureOnly: true, description: '때마다 얼음 조각을 사방으로 쏜다', stats: ['6초마다 얼음 조각 12개를 사방으로', '조각 피해 80(레벨·보물 피해 비례), 셋까지 뚫음'],
-    everySec: 6, shards: 12, speed: 320, lifeSec: 1.1, pierce: 3, damage: 80 },
+  purifier: { label: '정수기', treasureOnly: true, description: '가까운 적에게 노즐을 돌려 얼음 탄환을 세 번 연사한다',
+    stats: ['6초마다 조준 얼음 4발씩 3연사(발사 간격 0.14초)', '탄당 피해 32(레벨·보물 피해 비례), 셋까지 뚫음'],
+    everySec: 6, shards: 12, volleys: 3, burstGap: 0.14, speed: 420, lifeSec: 1.1, pierce: 3, damage: 32 },
   precisionscale: { label: '정밀 저울', hasteOnly: true, category: 'fixed', description: '한 대의 고정 피해를 무겁게 만든다',
     stats: ['공속 20점 전용', '타격당 고정 피해 +20', '전체 고정 피해 +25%(고무망치·패시브 포함)'], hitDamage: 20, fixedPower: 0.25 },
   resonator: { label: '공진 못', hasteOnly: true, requiresFixedDamage: true, category: 'fixed', description: '같은 적을 연속 타격하면 고정 피해가 울려 퍼진다',

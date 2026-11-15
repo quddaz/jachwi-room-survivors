@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyBuild, choose, createGame, damageEnemy, maxWeaponsOf, rollChoices, startWithRelic, statsOf, update } from '../src/engine.js';
-import { ARENA, DROP_LIMIT, DROPS, ENEMIES, PASSIVES, PLAYER, SECRET_MAPS } from '../src/rules.js';
+import { ARENA, DROP_LIMIT, DROPS, ENEMIES, PASSIVES, PLAYER, SECRET_MAPS, SECRET_MAP_DROP_CHANCE } from '../src/rules.js';
 const DT=1/60;
 function quiet(treasure=false){const g=createGame(()=>.99);g.weapons={};g.spawnCarry=-1e6;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;if(treasure)applyBuild(g,{treasure:20});return g;}
 function enemy(g,kind='roach',dx=80){const e={id:g.nextId++,kind,x:g.player.x+dx,y:g.player.y,hp:1e8,maxHp:1e8,radius:ENEMIES[kind].radius,speed:0,damage:30,xp:1,timer:0,kx:0,ky:0};g.enemies.push(e);return e;}
@@ -33,32 +33,48 @@ describe('먼지 토끼 안전한 순간이동',()=>{
 });
 
 describe('보물 20점 비밀 성장',()=>{
- it('모든 오리의 보물 20점은 무기 0칸이며 전기장판을 기본 제공한다',()=>{
-  const g=quiet(true);assert.equal(maxWeaponsOf(g),0);assert.deepEqual(g.weapons,{});startWithRelic(g);
-  assert.equal(g.relics.heatpad,true);assert.equal(g.pendingRelics,2);
-  g.choices=null;g.pendingRelics=0;const e=enemy(g);run(g,120);assert.ok(e.hp<e.maxHp);
+ it('보물 20점도 시작 무기 1칸과 시작 보물 두 번 선택을 유지한다',()=>{
+  const g=createGame(()=>.99);applyBuild(g,{treasure:20});startWithRelic(g);
+  assert.equal(maxWeaponsOf(g),1);assert.deepEqual(g.weapons,{spray:1});
+  assert.equal(g.relics.heatpad,undefined);assert.equal(g.pendingRelics,2);
  });
- it('지도는 20점에서만 나오고 조각마다 5레벨에서 보물 피해 15%를 준다',()=>{
-  const base=quiet(true),before=statsOf(base).relicPower;
-  for(const id of SECRET_MAPS){assert.equal(PASSIVES[id].hidden,true);base.passives[id]=5;}
-  near(statsOf(base).relicPower-before,.6);
-  const below=quiet();applyBuild(below,{treasure:19});for(let n=0;n<40;n++)assert.ok(rollChoices(below).every(c=>!SECRET_MAPS.includes(c.id)&&c.id!=='idol'));
+ it('지도와 우상은 완성 조건과 관계없이 레벨업 선택지에 나오지 않는다',()=>{
+  for(const points of [19,20]){
+   const g=quiet();applyBuild(g,{treasure:points});
+   for(const id of SECRET_MAPS)g.passives[id]=1;
+   for(let n=0;n<40;n++)assert.ok(rollChoices(g).every(c=>!SECRET_MAPS.includes(c.id)&&c.id!=='idol'));
+  }
  });
- it('네 지도를 모두 완성하면 우상이 우선 나오며 지도 효과를 계승하고 추가 50%를 얻는다',()=>{
-  const g=quiet(true);g.passives=Object.fromEntries(SECRET_MAPS.map(id=>[id,5]));const before=statsOf(g).relicPower;
-  g.pendingLevels=1;g.choices=rollChoices(g);assert.equal(g.choices[0].id,'idol');choose(g,0);
+ it('지도 전체 드랍률은 가장 드문 일반 소모품보다 낮고 중복 방향은 바닥에 나오지 않는다',()=>{
+  assert.ok(SECRET_MAP_DROP_CHANCE<Math.min(...Object.values(DROPS).map(drop=>drop.chance)));
+  const g=quiet(true);g.random=()=>SECRET_MAP_DROP_CHANCE+.00001;
+  damageEnemy(g,enemy(g),1e10);assert.equal(g.drops.filter(d=>SECRET_MAPS.includes(d.type)).length,0);
+  g.random=()=>.00001;
+  for(let n=0;n<6;n++)damageEnemy(g,enemy(g),1e10);
+  const maps=g.drops.filter(d=>SECRET_MAPS.includes(d.type));
+  assert.equal(maps.length,4);assert.equal(new Set(maps.map(d=>d.type)).size,4);
+  const below=quiet();below.random=()=>.00001;damageEnemy(below,enemy(below),1e10);
+  assert.ok(below.drops.every(d=>!SECRET_MAPS.includes(d.type)));
+ });
+ it('각 방향은 한 번만 줍고 네 번째 조각을 주우면 선택창 없이 즉시 우상으로 합쳐진다',()=>{
+  const g=quiet(true),before=statsOf(g).relicPower;
+  for(let i=0;i<SECRET_MAPS.length;i++){
+   const id=SECRET_MAPS[i];g.drops=[{type:id,x:g.player.x,y:g.player.y}];update(g,DT);
+   if(i<3){assert.equal(g.passives[id],1);near(statsOf(g).relicPower,before+(i+1)*.15);}
+  }
   assert.equal(g.passives.idol,1);for(const id of SECRET_MAPS)assert.equal(g.passives[id],undefined);
-  near(statsOf(g).relicPower,before+.5);assert.equal(statsOf(g).relicRepeats,2);near(statsOf(g).dropBonus,.01);
-  for(let n=0;n<30;n++)assert.ok(rollChoices(g).every(c=>!SECRET_MAPS.includes(c.id)&&c.id!=='idol'));
+  near(statsOf(g).relicPower,before+1.1);assert.equal(statsOf(g).relicRepeats,2);near(statsOf(g).dropBonus,.01);
+  assert.equal(g.choices,null);assert.ok(g.effects.some(effect=>effect.type==='relic-awaken'&&effect.id==='idol'));
+  g.random=()=>.00001;damageEnemy(g,enemy(g),1e10);assert.ok(g.drops.every(d=>!SECRET_MAPS.includes(d.type)));
  });
  it('우상은 주기 보물을 0.18초 후 한 번 더 발동하고 재귀 예약하지 않는다',()=>{
-  const g=quiet(true);g.passives.idol=1;g.relics.heatpad=true;g.heatIn=0;const e=enemy(g);
-  update(g,DT);const first=e.maxHp-e.hp;run(g,12);near(e.maxHp-e.hp,first*2);
-  assert.equal(g.relicEchoes.length,0);assert.ok(g.heatIn>0);
+  const g=quiet(true);g.passives.idol=1;g.relics.firecracker=true;g.fireIn=0;enemy(g);
+  update(g,DT);assert.equal(g.relicAttacks.length,3);run(g,12);
+  assert.equal(g.relicAttacks.length,6);assert.equal(g.relicEchoes.length,0);assert.ok(g.fireIn>0);
  });
  it('우상으로 정수기 투사체도 두 번 나오고 보물을 내려놓으면 예약을 취소한다',()=>{
   const g=quiet(true);g.passives.idol=1;g.relics.purifier=true;g.purifierIn=0;update(g,DT);
-  assert.equal(g.shots.length,12);run(g,12);assert.equal(g.shots.length,24);
+  assert.equal(g.shots.length,4);run(g,35);assert.equal(g.shots.length,24);
   g.purifierIn=0;update(g,DT);delete g.relics.purifier;run(g,12);assert.equal(g.relicEchoes.length,0);
  });
  it('소모품 확률은 전체에 1%p 추가하며 종류별 바닥 개수 제한을 유지한다',()=>{
