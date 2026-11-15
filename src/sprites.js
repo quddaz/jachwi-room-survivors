@@ -1898,6 +1898,53 @@ ITEMS.scooter = item([], (body, fx, f) => {
     for (let step = 0; step <= length; step += 1) fx.set(1 - slide + step + index, 3 + y, step === length ? 'W' : 'L');
   });
 });
+ITEMS.gunpowder = item([
+  '................',
+  '................',
+  '.......uu.......',
+  '......uWWu......',
+  '.......uu.......',
+  '.....uuuuuu.....',
+  '....uaaaaaau....',
+  '...uaaaaaaaau...',
+  '...uaaKKKKaau...',
+  '...uaaKRRKaau...',
+  '...uaaKKKKaau...',
+  '...uaaaaaaaau...',
+  '....uaaaaaau....',
+  '.....uuuuuu.....',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 봉투 위로 화약 가루가 피어오른다.
+  twinkle(fx, 5, 3, f, 'O');
+  twinkle(fx, 10, 2, f + 1, 'Y');
+  twinkle(fx, 12, 5, f + 2, 'O');
+});
+ITEMS.mlrs = item([
+  '................',
+  '................',
+  '...K......K.....',
+  '..uRu....uRu....',
+  '..RYR....RYR....',
+  '..uuu.K..uuu.K..',
+  '.LLLLuRuLLLLuRu.',
+  '.LuuLRYRLuuLRYR.',
+  '.LuuLuuuLuuLuuu.',
+  '.LLLLLLLLLLLLLL.',
+  '.LuuuuuuuuuuuuL.',
+  '.LLLLLLLLLLLLLL.',
+  '...uu......uu...',
+  '..uuuu....uuuu..',
+  '................',
+  '................',
+], (body, fx, f) => {
+  // 발사관 끝에서 차례로 불꽃이 튄다.
+  const tips = [[3, 1], [10, 1], [6, 4], [13, 4]];
+  const [x, y] = tips[f % tips.length];
+  fx.set(x, y, 'Y');
+  fx.set(x, y - 1 < 0 ? 0 : y - 1, 'O');
+});
 ITEMS.firecracker = item([
   '................',
   '................',

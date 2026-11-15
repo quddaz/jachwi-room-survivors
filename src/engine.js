@@ -74,6 +74,9 @@ function passiveValue(game, id, key) {
 }
 
 const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
+// 겹쳐 쌓는 보물은 개수를 숫자로 들고, 나머지는 true다.
+export const relicCount = (game, id) => (game.relics[id] === true ? 1 : game.relics[id] || 0);
+export const relicSlotsUsed = (game) => Object.keys(game.relics).reduce((sum, id) => sum + relicCount(game, id), 0);
 
 // 체력 30% 이하인지(마지막 컵라면)
 // 시작할 때 나눈 능력치에서 나오는 값. 파트마다 점수 × 포인트당 효과 × 효율 배율을 더한다.
@@ -140,6 +143,7 @@ function buildUnlocked(game, def) {
     && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
     && (!def.dotOnly || hasDotSource(game))
     && (!def.requiresFixedDamage || flatDamageOf(game) > 0)
+    && (!def.requiresRelic || Boolean(game.relics[def.requiresRelic]))
     && (!def.requiresMaps || SECRET_MAPS.every(id => game.passives[id] > 0));
 }
 
@@ -2538,7 +2542,7 @@ const KEEP_RELICS = {
   details: ['레벨업 +2'],
 };
 
-const relicsFull = (game) => Object.keys(game.relics).length >= maxRelicsOf(game);
+const relicsFull = (game) => relicSlotsUsed(game) >= maxRelicsOf(game);
 const weaponsFull = (game) => Object.keys(game.weapons).length >= maxWeaponsOf(game);
 
 // 무기를 내려놓는다. 그 무기가 남긴 공, 로봇, 슬리퍼, 쥐덫도 함께 치운다.
@@ -2577,14 +2581,14 @@ function clearMaterialAttacks(game, fusionId) {
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
-  const offers = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
+  const offers = shuffle(Object.keys(RELICS).filter((id) => (!game.relics[id] || RELICS[id].stackable) && buildUnlocked(game, RELICS[id])), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
   if (offers.length === 0) return [];
   return relicsFull(game) ? [...offers, { ...KEEP_RELICS }] : offers;
 }
 
 function gainRelic(game, id) {
-  game.relics[id] = true;
+  game.relics[id] = RELICS[id].stackable ? relicCount(game, id) + 1 : true;
   if (id === 'resonator') for (const enemy of game.enemies) enemy.resonatorHits = 0;
   if (id === 'concentrate') for (const enemy of game.enemies) { delete enemy.dotLastAt; delete enemy.dotStartedAt; }
   if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
@@ -2702,7 +2706,9 @@ export function choose(game, index) {
     addEffect(game, { type: 'banner', text: `보물: ${choice.label}`, life: 2.2 });
   }
   if (choice.kind === 'relic-swap') {
-    delete game.relics[choice.id];
+    if (relicCount(game, choice.id) > 1) game.relics[choice.id] -= 1;
+    else delete game.relics[choice.id];
+    if (choice.id === 'firecracker') for (const id of ['mlrs', 'gunpowder']) delete game.relics[id];
     gainRelic(game, game.swapIn);
     addEffect(game, { type: 'banner', text: `보물 교체: ${RELICS[choice.id].label} → ${RELICS[game.swapIn].label}`, life: 2.4 });
   }
@@ -2759,14 +2765,15 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   const firecracker = relic(game, 'firecracker');
   if (firecracker && !game.over) {
     for (const castPower of relicCastPowers(game,'firecracker','fireIn',dt)) {
-      const targets = nearestEnemies(game, firecracker.rockets, relicReach(game,firecracker.range));
-      for (let index=0;index<firecracker.rockets;index++) {
+      const rockets = firecracker.rockets + RELICS.mlrs.rockets * relicCount(game, 'mlrs');
+      const targets = nearestEnemies(game, rockets, relicReach(game,firecracker.range));
+      for (let index=0;index<rockets;index++) {
         const target = targets[index % Math.max(1,targets.length)];
         const angle = (game.player.heading ?? 0)+(index-1)*0.6;
         const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
         queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
           fromX:game.player.x,fromY:game.player.y,life:firecracker.aimSec+index*firecracker.gapSec,
-          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage)*castPower});
+          radius:relicReach(game,firecracker.radius*(1+(relic(game,'gunpowder')?.radius??0))),damage:relicDamage(game,firecracker.damage)*castPower});
       }
     }
   }

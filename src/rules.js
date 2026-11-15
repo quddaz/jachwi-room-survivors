@@ -473,6 +473,12 @@ export const RELICS = {
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 세 발이 날아가 차례로 폭발한다',
     stats: ['12초마다 조준 로켓 8발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 35(레벨·보물 피해 비례)'],
     everySec: 12, radius: 90, damage: 35, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16 },
+  // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
+  mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
+    description: '폭죽 로켓이 더 많이 날아간다', stats: ['폭죽 로켓 +4발(여러 개 가지면 겹쳐 쌓임)', '보물 20점·폭죽 보유 시 등장, 하나마다 보물 칸 1개'],
+    rockets: 4 },
+  gunpowder: { label: '고성능 화약', treasureOnly: true, requiresRelic: 'firecracker',
+    description: '폭죽 로켓이 훨씬 크게 터진다', stats: ['폭죽 폭발 범위 +50%', '보물 20점·폭죽 보유 시 등장'], radius: 0.5 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',

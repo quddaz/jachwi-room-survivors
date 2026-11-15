@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1734,5 +1734,55 @@ describe('보물 20점 무기 칸', () => {
     game.pendingLevels=1;game.choices=[{kind:'weapon',id:'swatter',level:1,label:WEAPONS.swatter.label}];
     choose(game,0);assert.ok(game.choices.some(choice=>choice.kind==='weapon-swap'));
     assert.equal(game.weapons.swatter,undefined);
+  });
+});
+
+describe('다연장 미사일과 고성능 화약', () => {
+  function treasureGame() {
+    const game = createGame(seeded(41));
+    game.spawnCarry = -100000;
+    game.weapons = {};
+    applyBuild(game, { treasure: 20 });
+    return game;
+  }
+
+  function fireOnce(game) {
+    game.fireIn = 0.01;
+    for (let frame = 0; frame < 2; frame += 1) update(game, 1 / 60);
+    return game.relicAttacks.filter((attack) => attack.id === 'firecracker');
+  }
+
+  it('폭죽이 있어야 나오고, 가지고 있어도 또 나온다', () => {
+    const game = treasureGame();
+    for (let index = 0; index < 60; index += 1) {
+      assert.ok(rollRelics(game).every((choice) => !['mlrs', 'gunpowder'].includes(choice.id)));
+    }
+    game.relics = { firecracker: true, mlrs: 1 };
+    const offered = new Set();
+    for (let index = 0; index < 80; index += 1) rollRelics(game).forEach((choice) => offered.add(choice.id));
+    assert.ok(offered.has('mlrs'));
+    assert.ok(offered.has('gunpowder'));
+  });
+
+  it('하나마다 폭죽 로켓이 4발 늘고 보물 칸을 하나씩 쓴다', () => {
+    const game = treasureGame();
+    game.relics = { firecracker: true };
+    const base = fireOnce(game).length;
+    game.relicAttacks = [];
+    game.choices = [{ kind: 'relic', id: 'mlrs', label: RELICS.mlrs.label }];
+    choose(game, 0);
+    game.choices = [{ kind: 'relic', id: 'mlrs', label: RELICS.mlrs.label }];
+    choose(game, 0);
+    assert.equal(relicCount(game, 'mlrs'), 2);
+    assert.equal(fireOnce(game).length, base + 2 * RELICS.mlrs.rockets);
+  });
+
+  it('고성능 화약은 폭죽 폭발 범위를 50% 넓힌다', () => {
+    const game = treasureGame();
+    game.relics = { firecracker: true };
+    const plain = fireOnce(game)[0].radius;
+    game.relicAttacks = [];
+    game.relics.gunpowder = true;
+    assert.ok(Math.abs(fireOnce(game)[0].radius - plain * 1.5) < 1e-9);
   });
 });

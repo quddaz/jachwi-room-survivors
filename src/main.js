@@ -1,5 +1,5 @@
 import { createMusic } from './audio.js';
-import { inFusion, applyCharacter, applyBuild, maxRelicsOf, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -199,7 +199,7 @@ function drawLoadout() {
     ...Object.entries(game.weapons).filter(([id]) => !inFusion(game, id)),
     ...Object.entries(game.passives),
   ];
-  const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}</span>`).join('');
+  const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}${relicCount(game, id) > 1 ? `×${relicCount(game, id)}` : ''}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
   document.querySelector('.loadout').innerHTML = owned + fused + items
     .map(([id, level]) => (game.evolved[id]
@@ -219,7 +219,7 @@ function drawChoices() {
   const treasure = game.choices[0]?.kind.startsWith('relic');
   const weaponSwapping = game.choices[0]?.kind === 'weapon-swap';
   const swapping = game.choices[0]?.kind === 'relic-swap' || weaponSwapping;
-  const owned = Object.keys(game.relics).length;
+  const owned = relicSlotsUsed(game);
   levelupOverlay.classList.toggle('is-relic', treasure);
   levelupOverlay.classList.toggle('is-weapon-swap', weaponSwapping);
   document.querySelector('.levelup .panel-title').textContent = weaponSwapping ? '무기 교체' : swapping ? '보물 교체'
