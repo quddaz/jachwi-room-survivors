@@ -2796,9 +2796,13 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   updateNuclearStrike(game,dt);
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);
   const alarm = relic(game, 'alarm');
+  // 알람시계는 화면 전체를 얼리므로 보물 쿨타임 감소와 우상 재발동을 받지 않는다.
   if (alarm && !game.over) {
-    for (const castPower of relicCastPowers(game,'alarm','alarmIn',dt)) {
-      game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec * castPower);
+    game.alarmIn = (game.alarmIn ?? alarm.everySec) - dt;
+    if (game.alarmIn <= 0) {
+      game.alarmIn = alarm.everySec;
+      relicCue(game,'alarm',game.player);
+      game.freezeUntil = Math.max(game.freezeUntil, game.time + alarm.freezeSec);
       addEffect(game, { type: 'banner', text: '따르릉! 적이 얼었어요', life: 1.4 });
       addEffect(game, { type: 'ring', x: game.player.x, y: game.player.y, radius: 300, color: 'spark', life: 0.5 });
     }

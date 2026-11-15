@@ -772,6 +772,19 @@ describe('보물', () => {
     assert.equal(roach.x, x);
   });
 
+  it('알람시계는 보물 쿨타임 감소와 우상 재발동을 받지 않는다', () => {
+    const game = quiet();
+    applyBuild(game, { treasure: 20, haste: 10 });
+    game.passives = { battery: 5, idol: 1 };
+    game.relics = { alarm: true, stopwatch: true };
+    game.alarmIn = 0.01;
+    update(game, 1 / 60);
+    assert.ok(Math.abs(game.alarmIn - RELICS.alarm.everySec) < 1e-9);
+    const frozenUntil = game.freezeUntil;
+    for (let step = 0; step < 60; step += 1) update(game, 1 / 60);
+    assert.equal(game.freezeUntil, frozenUntil);
+  });
+
   it('행운의 고양이는 다시 뽑기를 두 번 준다', () => {
     const game = quiet();
     game.relics.neko = true;

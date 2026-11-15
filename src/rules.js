@@ -452,7 +452,7 @@ export const BALL_LIGHTNING = {
 };
 
 export const NUCLEAR_STRIKE = {
-  stacks: 5, everySec: 20, warningSec: 1.3, radius: 640, maxRadius: 900,
+  stacks: 5, everySec: 12, warningSec: 1.3, radius: 640, maxRadius: 900,
   damage: 900, falloutRadius: 0.58, falloutSec: 3, falloutDps: 90, tickSec: 0.25,
 };
 
@@ -468,7 +468,7 @@ export const RELICS = {
   neko: { label: '행운의 고양이', description: '운이 좋아진다', stats: ['다시 뽑기 +1회', '치명타 확률 +10%'], rerolls: 1, critChance: 0.1 },
   firstaid: { label: '구급상자', description: '쓰러져도 한 번 일어난다', stats: ['한 번 체력 50%로 부활', '부활 뒤 3초 무적'], reviveHp: 0.5, reviveGuardSec: 3 },
   scrubber: { label: '철수세미', description: '부딪힌 적에게 따끔하게 돌려준다', stats: ['맞으면 주변 적에게 받은 피해의 500%'], reflect: 5, radius: 110 },
-  alarm: { label: '알람시계', description: '때마다 울려 적을 얼린다', stats: ['20초마다 적 2.5초 얼림(보스 제외)'], everySec: 20, freezeSec: 2.5 },
+  alarm: { label: '알람시계', description: '때마다 울려 적을 얼린다', stats: ['20초마다 적 2.5초 얼림(보스 제외)', '쿨타임 감소와 재발동 효과를 받지 않음'], everySec: 20, freezeSec: 2.5 },
   piggy: { label: '돼지 저금통', description: '차곡차곡 모아 더 빨리 큰다', stats: ['경험치 +20%', '레벨업마다 체력 +4'], xpGain: 0.2, levelHeal: 4 },
   lastcup: { label: '마지막 컵라면', description: '궁지에 몰리면 강해진다', stats: ['체력 30% 이하일 때 공격력 +60%', '쿨타임 -20%'],
     below: 0.3, might: 0.6, haste: 0.2 },
@@ -482,8 +482,8 @@ export const RELICS = {
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 여덟 발이 날아가 차례로 폭발한다',
-    stats: ['12초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 35(레벨·보물 피해 비례)'],
-    everySec: 12, radius: 135, damage: 35, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
+    stats: ['12초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 50(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 135, damage: 50, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
     description: '폭죽 로켓이 늘고 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],

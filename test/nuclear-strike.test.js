@@ -15,10 +15,10 @@ describe('다연장 미사일 핵 지원',()=>{
    assert.equal(nukes(g).length,stacks===5?1:0);
   }
  });
- it('첫 핵은 20초 후이며 공속·태엽·우상이 있어도 40초 동안 두 번만 발사한다',()=>{
+ it('첫 핵은 주기만큼 기다리고 공속·태엽·우상이 있어도 주기 두 번 동안 두 번만 발사한다',()=>{
   const g=scene();applyBuild(g,{treasure:20,haste:10});g.passives={battery:5,windup:5,idol:1};g.relics.stopwatch=true;
-  const launches=new Set();
-  for(let frame=1;frame<=2400;frame++){update(g,DT);for(const a of nukes(g))launches.add(a.seed);if(frame===1199)assert.equal(launches.size,0);if(frame===1200)assert.equal(launches.size,1);}
+  const launches=new Set(),every=Math.round(NUCLEAR_STRIKE.everySec/DT);
+  for(let frame=1;frame<=every*2;frame++){update(g,DT);for(const a of nukes(g))launches.add(a.seed);if(frame===every-1)assert.equal(launches.size,0);if(frame===every)assert.equal(launches.size,1);}
   assert.equal(launches.size,2);
  });
  it('예고 중에는 피해가 없고 충돌은 한 번, 안쪽 잔류 지대만 3초 지속된다',()=>{
