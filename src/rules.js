@@ -330,7 +330,7 @@ export const WEAPONS = {
 // 패시브의 배열 길이가 최대 레벨이다. 공격력·이동 속도·치명타 확률은 10, 증원 호루라기는 3, 나머지는 5레벨이다.
 export const SECRET_MAPS = ['mapnorth', 'mapsouth', 'mapwest', 'mapeast'];
 // 네 조각을 합한 적 처치당 확률. 가장 드문 일반 소모품(0.03%)보다 낮고 정예·우상 보정을 받지 않는다.
-export const SECRET_MAP_DROP_CHANCE = 0.0002;
+export const SECRET_MAP_DROP_CHANCE = 0.0004;
 export const PASSIVES = {
   mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
   mapsouth: { label:'하단 지도',description:'잃어버린 지도의 아래쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
