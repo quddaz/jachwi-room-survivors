@@ -70,8 +70,7 @@ describe('보물 20점 비밀 성장',()=>{
  it('우상은 주기 보물을 0.18초 후 한 번 더 발동하고 재귀 예약하지 않는다',()=>{
   const g=quiet(true);g.passives.idol=1;g.relics.firecracker=true;g.fireIn=0;enemy(g);
   update(g,DT);assert.equal(g.relicAttacks.length,RELICS.firecracker.rockets);run(g,12);
-  const casts=g.relicAttacks.filter(a=>a.type==='firework').length+g.effects.filter(e=>e.type==='nova').length;
-  assert.equal(casts,RELICS.firecracker.rockets*2);assert.equal(g.relicEchoes.length,0);assert.ok(g.fireIn>0);
+  assert.equal(g.relicAttacks.length,RELICS.firecracker.rockets*2);assert.equal(g.relicEchoes.length,0);assert.ok(g.fireIn>0);
  });
  it('우상으로 정수기 투사체도 두 번 나오고 보물을 내려놓으면 예약을 취소한다',()=>{
   const g=quiet(true);g.passives.idol=1;g.relics.purifier=true;g.purifierIn=0;update(g,DT);

@@ -219,7 +219,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     const enemy = target(game);
     update(game, 1 / 60);
     for(let frame=0;frame<35;frame++)update(game,1/60);
-    near(10000 - enemy.hp, RELICS.firecracker.damage * RELICS.firecracker.rockets * 2 * 0.25);
+    near(10000 - enemy.hp, RELICS.firecracker.damage * 2 * 0.25);
   });
 
 });

@@ -22,8 +22,7 @@ describe('다연장 미사일 핵 지원',()=>{
   assert.equal(launches.size,2);
  });
  it('예고 중에는 피해가 없고 충돌은 한 번, 안쪽 잔류 지대만 3초 지속된다',()=>{
-  const g=scene(),radius=Math.min(NUCLEAR_STRIKE.maxRadius,NUCLEAR_STRIKE.radius*statsOf(g).area*statsOf(g).relicArea);
-  const center=target(g,100),edge=target(g,100+radius*.8),outside=target(g,100+radius+50);
+  const g=scene(),center=target(g,100),edge=target(g,100+NUCLEAR_STRIKE.radius*.8),outside=target(g,100+NUCLEAR_STRIKE.radius+50);
   const power=statsOf(g).might*statsOf(g).relicPower;g.nuclearIn=0;run(g,60);
   assert.equal(center.hp,1e9);run(g,24);
   near(1e9-edge.hp,NUCLEAR_STRIKE.damage*power);assert.equal(outside.hp,1e9);

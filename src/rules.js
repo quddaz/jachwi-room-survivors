@@ -39,7 +39,7 @@ export const BUILD = {
       20: { name: '군단 지휘', text: '소환 휘장·증원 호루라기 패시브 해금: 레벨업으로 소환 피해와 소환수 증가' },
     } },
   // 보물 피해는 폭죽, 팝콘 기계, 물파스처럼 보물이 직접 주는 피해다.
-  treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.02, relicHaste: 0.01, relicArea: 0.01, relicFlightSpeed: 0.02 },
+  treasure: { label: '보물', icon: 'chest', per: { relicPower: 0.02, relicHaste: 0.01 },
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
@@ -477,14 +477,14 @@ export const RELICS = {
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 여덟 발이 날아가 차례로 폭발한다',
-    stats: ['12초마다 조준 로켓 8발, 기본 0.2초 후 0.04초 간격 착탄', '발당 범위 90 · 피해 35(레벨·보물 피해 비례)', '보물 투자·범위 증가에 비례해 낙하와 연속 착탄도 빨라짐'],
-    everySec: 12, radius: 90, damage: 35, rockets: 8, range: 520, aimSec: 0.2, gapSec: 0.04 },
+    stats: ['12초마다 조준 로켓 8발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 35(레벨·보물 피해 비례)'],
+    everySec: 12, radius: 90, damage: 35, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
     description: '폭죽 로켓이 늘고 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
     rockets: 4 },
   gunpowder: { label: '고성능 화약', treasureOnly: true, requiresRelic: 'firecracker',
-    description: '폭죽 로켓이 훨씬 크게 터진다', stats: ['폭죽 폭발 범위 +50%', '보물 20점·폭죽 보유 시 등장'], radius: 0.5 },
+    description: '폭죽 로켓이 더 빨리 떨어지고 크게 터진다', stats: ['폭죽 폭발 범위 +50%', '폭죽 로켓 낙하 속도 +30%', '보물 20점·폭죽 보유 시 등장'], radius: 0.5, fallSpeed: 0.3 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.
   mallet: { label: '고무망치', description: '치명타 대신 묵직하게, 자주 때린다',

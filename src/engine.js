@@ -123,8 +123,7 @@ function relicEvery(game, sec) {
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  const stats=statsOf(game);
-  return radius * stats.area * stats.relicArea;
+  return radius * statsOf(game).area;
 }
 
 function hasDotSource(game) {
@@ -265,8 +264,6 @@ export function statsOf(game) {
     critDamage: critDamageOf(game),
     flatDamage: flatDamageOf(game),
     relicPower: relicPowerOf(game),
-    relicArea: 1 + buildValue(game,'relicArea'),
-    relicFlightSpeed: 1 + buildValue(game,'relicFlightSpeed'),
     relicRepeats: 1 + passiveValue(game,'idol','relicRepeats'),
     dropBonus: passiveValue(game,'idol','dropBonus'),
     dotPower: 1 + (relic(game, 'thermos')?.dotPower ?? 0),
@@ -318,8 +315,6 @@ export function statSheet(game) {
     ...(game.relics.concentrate ? [['농축 피해', `최대 ${percent(RELICS.concentrate.power)}`]] : []),
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
-    ...(stats.relicArea > 1 ? [['보물 추가 범위', percent(stats.relicArea - 1)]] : []),
-    ...(stats.relicFlightSpeed > 1 ? [['미사일 낙하 속도', percent(stats.relicFlightSpeed - 1)]] : []),
     ...(game.passives.idol ? [['보물 발동','2회'],['소모품 드랍','+1%p']] : []),
     ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
   ];
@@ -2786,17 +2781,14 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
     for (const castPower of relicCastPowers(game,'firecracker','fireIn',dt)) {
       const rockets = firecracker.rockets + RELICS.mlrs.rockets * relicCount(game, 'mlrs');
       const targets = nearestEnemies(game, rockets, relicReach(game,firecracker.range));
-      const radius=relicReach(game,firecracker.radius*(1+(relic(game,'gunpowder')?.radius??0)));
-      const flightSpeed=statsOf(game).relicFlightSpeed*Math.sqrt(Math.max(1,radius/firecracker.radius));
-      const aimSec=Math.max(.06,firecracker.aimSec/flightSpeed);
-      const gapSec=Math.max(.008,firecracker.gapSec/flightSpeed);
+      const fallSpeed=1+(relic(game,'gunpowder')?.fallSpeed ?? 0);
       for (let index=0;index<rockets;index++) {
         const target = targets[index % Math.max(1,targets.length)];
         const angle = (game.player.heading ?? 0)+(index-1)*0.6;
         const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
         queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
-          fromX:game.player.x,fromY:game.player.y,life:aimSec+index*gapSec,
-          radius,damage:relicDamage(game,firecracker.damage)*castPower});
+          fromX:game.player.x,fromY:game.player.y,life:(firecracker.aimSec+index*firecracker.gapSec)/fallSpeed,
+          radius:relicReach(game,firecracker.radius*(1+(relic(game,'gunpowder')?.radius??0))),damage:relicDamage(game,firecracker.damage)*castPower});
       }
     }
   }
