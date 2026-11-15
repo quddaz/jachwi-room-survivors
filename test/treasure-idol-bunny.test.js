@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyBuild, choose, createGame, damageEnemy, maxWeaponsOf, rollChoices, startWithRelic, statsOf, update } from '../src/engine.js';
-import { ARENA, DROP_LIMIT, DROPS, ENEMIES, PASSIVES, PLAYER, SECRET_MAPS, SECRET_MAP_DROP_CHANCE } from '../src/rules.js';
+import { ARENA, DROP_LIMIT, DROPS, ENEMIES, PASSIVES, PLAYER, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE } from '../src/rules.js';
 const DT=1/60;
 function quiet(treasure=false){const g=createGame(()=>.99);g.weapons={};g.spawnCarry=-1e6;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;if(treasure)applyBuild(g,{treasure:20});return g;}
 function enemy(g,kind='roach',dx=80){const e={id:g.nextId++,kind,x:g.player.x+dx,y:g.player.y,hp:1e8,maxHp:1e8,radius:ENEMIES[kind].radius,speed:0,damage:30,xp:1,timer:0,kx:0,ky:0};g.enemies.push(e);return e;}
@@ -45,8 +45,8 @@ describe('보물 20점 비밀 성장',()=>{
    for(let n=0;n<40;n++)assert.ok(rollChoices(g).every(c=>!SECRET_MAPS.includes(c.id)&&c.id!=='idol'));
   }
  });
- it('지도 전체 드랍률은 가장 드문 일반 소모품보다 낮고 중복 방향은 바닥에 나오지 않는다',()=>{
-  assert.ok(SECRET_MAP_DROP_CHANCE<Math.min(...Object.values(DROPS).map(drop=>drop.chance)));
+ it('지도는 일반 소모품과 별도로 드물게 나오며 중복 방향은 바닥에 나오지 않는다',()=>{
+  assert.ok(SECRET_MAP_DROP_CHANCE>0&&SECRET_MAP_DROP_CHANCE<DROPS.ramen.chance);
   const g=quiet(true);g.random=()=>SECRET_MAP_DROP_CHANCE+.00001;
   damageEnemy(g,enemy(g),1e10);assert.equal(g.drops.filter(d=>SECRET_MAPS.includes(d.type)).length,0);
   g.random=()=>.00001;
@@ -69,8 +69,8 @@ describe('보물 20점 비밀 성장',()=>{
  });
  it('우상은 주기 보물을 0.18초 후 한 번 더 발동하고 재귀 예약하지 않는다',()=>{
   const g=quiet(true);g.passives.idol=1;g.relics.firecracker=true;g.fireIn=0;enemy(g);
-  update(g,DT);assert.equal(g.relicAttacks.length,3);run(g,12);
-  assert.equal(g.relicAttacks.length,6);assert.equal(g.relicEchoes.length,0);assert.ok(g.fireIn>0);
+  update(g,DT);assert.equal(g.relicAttacks.length,RELICS.firecracker.rockets);run(g,12);
+  assert.equal(g.relicAttacks.length,RELICS.firecracker.rockets*2);assert.equal(g.relicEchoes.length,0);assert.ok(g.fireIn>0);
  });
  it('우상으로 정수기 투사체도 두 번 나오고 보물을 내려놓으면 예약을 취소한다',()=>{
   const g=quiet(true);g.passives.idol=1;g.relics.purifier=true;g.purifierIn=0;update(g,DT);

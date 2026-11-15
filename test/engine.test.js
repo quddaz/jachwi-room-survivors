@@ -873,14 +873,15 @@ describe('보물 2', () => {
     assert.equal(near1.hp, 1000 - RELICS.popcorn.damage);
   });
 
-  it('폭죽은 착탄 예고 후 조준 위치에 세 번 폭발한다', () => {
+  it('폭죽은 착탄 예고 후 조준 위치에 전탄 순차 착탄한다', () => {
     const game = quiet();
     game.relics.firecracker = true;
     game.fireIn = 0.01;
     const roach = placeEnemy(game, 'trash', 200, 0, { hp: 1000, speed: 0 });
     update(game, 1 / 60);
     assert.equal(roach.hp,1000);
-    for(let frame=0;frame<54;frame++)update(game,1/60);
+    const frames=Math.ceil((RELICS.firecracker.aimSec+(RELICS.firecracker.rockets-1)*RELICS.firecracker.gapSec)*60)+2;
+    for(let frame=0;frame<frames;frame++)update(game,1/60);
     assert.equal(roach.hp,1000-RELICS.firecracker.damage*RELICS.firecracker.rockets);
   });
 

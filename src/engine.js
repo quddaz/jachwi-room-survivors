@@ -1,5 +1,5 @@
 import {
-  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -276,7 +276,7 @@ export function statsOf(game) {
 }
 
 function rerollsPerLevel(game) {
-  return 1 + (relic(game, 'neko')?.rerolls ?? 0);
+  return 1 + (relic(game, 'neko')?.rerolls ?? 0) + (perk(game, 'treasure', 20)?.rerolls ?? 0);
 }
 
 const percent = (value) => {
@@ -2709,6 +2709,10 @@ export function choose(game, index) {
     if (relicCount(game, choice.id) > 1) game.relics[choice.id] -= 1;
     else delete game.relics[choice.id];
     if (choice.id === 'firecracker') for (const id of ['mlrs', 'gunpowder']) delete game.relics[id];
+    if (!nuclearUnlocked(game)) {
+      delete game.nuclearIn;
+      game.relicAttacks=(game.relicAttacks ?? []).filter(attack=>attack.type!=='nuclear');
+    }
     gainRelic(game, game.swapIn);
     addEffect(game, { type: 'banner', text: `보물 교체: ${RELICS[choice.id].label} → ${RELICS[game.swapIn].label}`, life: 2.4 });
   }
@@ -2777,6 +2781,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
       }
     }
   }
+  updateNuclearStrike(game,dt);
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);
   const alarm = relic(game, 'alarm');
   if (alarm && !game.over) {
@@ -2838,19 +2843,64 @@ function updateTops(game, dt) {
   game.tops = game.tops.filter((spinner) => spinner.life > 0);
 }
 
+function nuclearUnlocked(game) {
+  return Boolean(perk(game,'treasure',20)) && Boolean(game.relics.firecracker)
+    && relicCount(game,'mlrs') >= NUCLEAR_STRIKE.stacks;
+}
+
+function updateNuclearStrike(game, dt) {
+  if (!nuclearUnlocked(game)) { delete game.nuclearIn;return; }
+  game.nuclearIn = (game.nuclearIn ?? NUCLEAR_STRIKE.everySec) - dt;
+  if (game.nuclearIn > 1e-9 || game.over) return;
+  game.nuclearIn = NUCLEAR_STRIKE.everySec;
+  const target=nearestEnemies(game,1,relicReach(game,RELICS.firecracker.range))[0];
+  const angle=game.player.heading ?? 0;
+  const x=clamp(target?.x ?? game.player.x+Math.cos(angle)*240,0,ARENA.width);
+  const y=clamp(target?.y ?? game.player.y+Math.sin(angle)*240,0,ARENA.height);
+  const radius=Math.min(NUCLEAR_STRIKE.maxRadius,relicReach(game,NUCLEAR_STRIKE.radius*(1+(relic(game,'gunpowder')?.radius ?? 0))));
+  queueRelicAttack(game,{type:'nuclear',id:'firecracker',x,y,radius,
+    damage:relicDamage(game,NUCLEAR_STRIKE.damage),falloutDps:relicDamage(game,NUCLEAR_STRIKE.falloutDps),
+    life:NUCLEAR_STRIKE.warningSec+NUCLEAR_STRIKE.falloutSec,nextTick:0,detonated:false});
+  addEffect(game,{type:'banner',text:'핵미사일 낙하! 지원 사격 도착',life:NUCLEAR_STRIKE.warningSec,sound:'nuclearWarning'});
+}
+
 // 공격 상태는 판정과 연출이 함께 읽는다. 긴 파티클 목록 대신 최대 64개의 공격만 유지한다.
 function queueRelicAttack(game, attack) {
   game.relicAttacks ??= [];
-  if (game.relicAttacks.length >= 64) game.relicAttacks.shift();
+  if (game.relicAttacks.length >= 64) {
+    const oldest=game.relicAttacks.findIndex(queued=>queued.type!=='nuclear');
+    game.relicAttacks.splice(Math.max(0,oldest),1);
+  }
   game.relicAttacks.push({age:0,seed:game.nextId++,...attack});
 }
 
 function updateRelicAttacks(game, dt) {
   const active=[];
   for(const attack of game.relicAttacks ?? []) {
-    if(!game.relics[attack.id])continue;
+    if(!game.relics[attack.id] || (attack.type==='nuclear' && !nuclearUnlocked(game)))continue;
     const previous=attack.age;attack.age+=dt;
-    if(attack.type==='firework') {
+    if(attack.type==='nuclear') {
+      if(attack.age>=NUCLEAR_STRIKE.warningSec) {
+        if(!attack.detonated) {
+          attack.detonated=true;
+          for(const enemy of near(game,attack.x,attack.y,attack.radius)) {
+            if(!enemy.dead && distance(enemy,attack)<attack.radius+enemy.radius)
+              damageEnemy(game,enemy,attack.damage,false,attack,0,{hitEffects:false});
+          }
+          addEffect(game,{type:'ring',x:attack.x,y:attack.y,radius:attack.radius,color:'gold',life:.8,sound:'nuclearBlast'});
+          game.shake=Math.max(game.shake,.55);
+        }
+        const elapsed=attack.age-NUCLEAR_STRIKE.warningSec;
+        while(attack.nextTick<NUCLEAR_STRIKE.falloutSec-1e-6 && attack.nextTick<=elapsed) {
+          const reach=attack.radius*NUCLEAR_STRIKE.falloutRadius;
+          for(const enemy of near(game,attack.x,attack.y,reach)) {
+            if(!enemy.dead && distance(enemy,attack)<reach+enemy.radius)
+              damageOverTime(game,enemy,attack.falloutDps*NUCLEAR_STRIKE.tickSec,attack,NUCLEAR_STRIKE.tickSec);
+          }
+          attack.nextTick+=NUCLEAR_STRIKE.tickSec;
+        }
+      }
+    } else if(attack.type==='firework') {
       if(attack.age>=attack.life) {
         for(const enemy of near(game,attack.x,attack.y,attack.radius)) {
           if(!enemy.dead&&distance(enemy,attack)<attack.radius+enemy.radius)damageEnemy(game,enemy,attack.damage,true,attack);

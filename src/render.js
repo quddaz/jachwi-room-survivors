@@ -1,8 +1,8 @@
 import { activeWeapon, coilOrbs, sawBlades, statsOf, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
-import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
-import { DIGITS, ITEM_FRAMES, duckSprite, icon, sprite } from './sprites.js';
+import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
+import { DIGITS, ITEM_FRAMES, dryerFlame, duckSprite, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
 export const PIXEL = 2.4;
@@ -365,10 +365,131 @@ function drawIdolAura(ctx, game, x, y, time) {
   ctx.restore();
 }
 
+function radiationMark(ctx, x, y, radius, color) {
+  disc(ctx,x,y,Math.max(2,radius*.16),color);
+  for(let blade=0;blade<3;blade++) {
+    const angle=blade*Math.PI*2/3-Math.PI/2;
+    for(let spoke=0;spoke<7;spoke++) {
+      const at=angle+(spoke-3)*.1;
+      line(ctx,Math.round(x+Math.cos(at)*radius*.35),Math.round(y+Math.sin(at)*radius*.35),
+        Math.round(x+Math.cos(at)*radius),Math.round(y+Math.sin(at)*radius),color);
+    }
+  }
+}
+
+function stampDryerFlame(ctx, x, y, angle, size, time) {
+  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.rotate(angle);
+  ctx.drawImage(dryerFlame(Math.floor(time*12)),-size/2,-size/2,size,size);
+  ctx.restore();
+}
+
+// 판정과 동일한 낙하지점·반경을 사용한다. 화염은 적 탄막보다 아래, 오리는 모든 효과보다 위다.
+function drawNuclearStrike(ctx, attack, toBuffer, time, ground) {
+  const [x,y]=toBuffer(attack);
+  const radius=attack.radius/WORLD_PER_PIXEL;
+  const falling=attack.age<NUCLEAR_STRIKE.warningSec;
+  const drop=Math.min(1,attack.age/NUCLEAR_STRIKE.warningSec);
+  ctx.save();
+  if(falling) {
+    if(ground) {
+      ctx.globalAlpha=.8;
+      ring(ctx,x,y,radius,'#76522e',8,Math.floor(time*14));
+      ring(ctx,x,y,radius*(1-drop),'#fff4c2',4,Math.floor(-time*10));
+      disc(ctx,x,y,21,'rgba(46,39,37,0.42)');
+      ring(ctx,x,y,34,'#4c3e32',3,Math.floor(time*16));
+      ring(ctx,x,y,31,'#ffe08a',3,Math.floor(-time*16));
+      line(ctx,x-40,y,x-20,y,'#fff4c2');line(ctx,x+20,y,x+40,y,'#fff4c2');
+      line(ctx,x,y-40,x,y-20,'#fff4c2');line(ctx,x,y+20,x,y+40,'#fff4c2');
+      radiationMark(ctx,x,y,14,'#ffdb65');
+    } else if(drop>.25) {
+      // 대형 탄두가 화면 위에서 가속 낙하한다. 길고 굵은 배기와 3단 몸체를 별도로 그린다.
+      const fall=(drop-.25)/.75;
+      const yy=y-(1-fall*fall)*Math.max(210,ctx.canvas.height*.9);
+      const xx=x+(1-fall)*36;
+      for(let tail=7;tail>0;tail--) {
+        ctx.globalAlpha=(1-tail/9)*.7;
+        disc(ctx,Math.round(xx+tail),Math.round(yy-27-tail*7),Math.max(2,8-tail*.7),tail%2?'#ffb75a':'#fff4c2');
+      }
+      ctx.globalAlpha=1;ctx.translate(Math.round(xx),Math.round(yy));ctx.rotate(-.08);
+      ctx.fillStyle='#2d3c50';ctx.fillRect(-9,-27,18,44);
+      ctx.fillStyle='#eee5cf';ctx.fillRect(-8,-26,16,37);
+      ctx.fillStyle='#b7c3ca';ctx.fillRect(4,-25,4,35);
+      ctx.fillStyle='#ffffff';ctx.fillRect(-7,-24,2,32);
+      ctx.fillStyle='#d5ad52';ctx.fillRect(-9,-16,18,4);
+      ctx.fillRect(-8,5,16,5);
+      ctx.fillStyle='#344958';ctx.fillRect(-14,-25,6,12);ctx.fillRect(8,-25,6,12);
+      ctx.fillStyle='#e86a4d';ctx.fillRect(-7,11,14,5);ctx.fillRect(-5,16,10,4);ctx.fillRect(-2,20,4,3);
+      radiationMark(ctx,0,-3,6,'#354355');
+      ctx.fillStyle=Math.floor(time*24)%2?'#fff4c2':'#ffad3d';ctx.fillRect(-5,-35,10,8);
+    }
+    ctx.restore();return;
+  }
+  const elapsed=attack.age-NUCLEAR_STRIKE.warningSec;
+  const fade=Math.min(1,(NUCLEAR_STRIKE.falloutSec-elapsed)/.7);
+  if(ground) {
+    const field=radius*NUCLEAR_STRIKE.falloutRadius;
+    ctx.globalAlpha=.45*fade;
+    ring(ctx,x,y,field,'#dca55a',6,Math.floor(time*12));
+    radiationMark(ctx,x,y,22,'#b37b42');
+    for(let mote=0;mote<18;mote++) {
+      const angle=mote*Math.PI*2/18+time*.12;
+      const at=field*(.2+hash(attack.seed,mote)*.75);
+      const lift=((elapsed*13+mote*5)%18);
+      sparkle(ctx,Math.round(x+Math.cos(angle)*at),Math.round(y+Math.sin(angle)*at-lift),mote%3?'#eef5bd':'#d7ae5d',mote%4===0);
+    }
+  } else {
+    if(elapsed<.8) {
+      const wave=1-(1-elapsed/.8)**3;
+      ctx.globalAlpha=(1-elapsed/.8);
+      ring(ctx,x,y,radius*wave,'#403139');
+      ring(ctx,x,y,Math.max(1,radius*wave-2),'#fff4c2');
+      ring(ctx,x,y,Math.max(1,radius*wave-7),'#ffb75a',6,Math.floor(time*24));
+      for(let shard=0;shard<24;shard++) {
+        const angle=shard*Math.PI/12+hash(attack.seed,shard)*.16;
+        const at=radius*wave;
+        line(ctx,Math.round(x+Math.cos(angle)*at*.86),Math.round(y+Math.sin(angle)*at*.86),
+          Math.round(x+Math.cos(angle)*at),Math.round(y+Math.sin(angle)*at),shard%3?'#ffd26c':'#ffffff');
+      }
+    }
+    if(elapsed<.16) {
+      ctx.globalAlpha=(1-elapsed/.16)*.85;
+      disc(ctx,x,y,Math.min(radius,45+elapsed*900),'#fff4c2');
+    }
+    // 드라이기 아이콘의 기존 불꽃 픽셀을 그대로 확대한 파편과 화염 기둥.
+    if(elapsed<.85) {
+      const bloom=1-(1-Math.min(1,elapsed/.6))**3;
+      ctx.globalAlpha=Math.min(1,(.85-elapsed)/.25);
+      for(let jet=0;jet<6;jet++)for(let mote=0;mote<18;mote++) {
+        const angle=jet*Math.PI/3+(hash(attack.seed,mote)-.5)*.8;
+        const reach=radius*(.15+bloom*.85)*(.2+hash(jet+1,mote)*.8);
+        stampDryerFlame(ctx,x+Math.cos(angle)*reach,y+Math.sin(angle)*reach-elapsed*12,
+          angle,6+hash(jet,mote)*7,time+mote*.13+jet*.17);
+      }
+    }
+    if(elapsed<1.2) {
+      ctx.globalAlpha=Math.min(1,(1.2-elapsed)/.35);
+      for(let tier=0;tier<12;tier++)for(let side=-1;side<=1;side++) {
+        const yy=y-tier*8-Math.min(1,elapsed*3)*12;
+        stampDryerFlame(ctx,x+side*(10-tier*.5)+Math.sin(time*14+tier)*3,yy,-Math.PI/2,
+          12+(1-tier/12)*4,time+tier*.13+side*.2);
+      }
+    }
+    ctx.globalAlpha=fade;
+    for(let flame=0;flame<8;flame++) {
+      const angle=flame*Math.PI/4;
+      const at=radius*NUCLEAR_STRIKE.falloutRadius*(flame%2?.65:.35);
+      const fx=x+Math.cos(angle)*at,fy=y+Math.sin(angle)*at;
+      for(let tier=0;tier<3;tier++)stampDryerFlame(ctx,fx+Math.sin(time*10+tier)*2,fy-tier*6,-Math.PI/2,9,time+flame*.17+tier*.11);
+    }
+  }
+  ctx.restore();
+}
+
 // 열선·구름은 바닥에, 로켓·노즐은 투사체 위에 그린다. 판정 상태의 좌표와 크기를 그대로 쓴다.
 function drawRelicAttacks(ctx, game, toBuffer, time, ground) {
   for(const attack of game.relicAttacks ?? []) {
     if(!game.relics[attack.id])continue;
+    if(attack.type==='nuclear') { drawNuclearStrike(ctx,attack,toBuffer,time,ground);continue; }
     const floor=['heat','perfume','coolwave'].includes(attack.type);
     if(floor!==ground)continue;
     const [x,y]=toBuffer(attack),progress=Math.min(1,attack.age/attack.life);
@@ -1656,6 +1777,7 @@ export function render(ctx, game, width, height, time) {
     ctx.restore();
   }
   drawEffects(ctx, game, toBuffer);
+  drawRelicAttacks(ctx,game,toBuffer,time,false);
   drawHazards(ctx, game, toBuffer, time);
   // 적 탄막은 내 무기와 이펙트 위에 그려서 무엇을 피해야 하는지 바로 보이게 한다.
   for (const shot of game.enemyShots) {
@@ -1674,7 +1796,6 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x - 1, y - 1, 1, look.core);
   }
   // 오리는 맨 위에. 무기와 적, 탄막이 아무리 많아도 가려지지 않는다.
-  drawRelicAttacks(ctx,game,toBuffer,time,false);
   drawIdolAura(ctx,game,duckX,duckY,time);
   drawDuck(ctx, game, duckX, duckY, time);
   // 경험치와 드롭 아이템은 투사체 위에 표시한다.

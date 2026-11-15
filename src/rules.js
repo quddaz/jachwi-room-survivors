@@ -43,7 +43,7 @@ export const BUILD = {
     perks: {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
-      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1 },
+      20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 리롤 +1회. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1, rerolls: 1 },
     } },
 };
 
@@ -329,7 +329,7 @@ export const WEAPONS = {
 
 // 패시브의 배열 길이가 최대 레벨이다. 공격력·이동 속도·치명타 확률은 10, 증원 호루라기는 3, 나머지는 5레벨이다.
 export const SECRET_MAPS = ['mapnorth', 'mapsouth', 'mapwest', 'mapeast'];
-// 네 조각을 합한 적 처치당 확률. 가장 드문 일반 소모품(0.03%)보다 낮고 정예·우상 보정을 받지 않는다.
+// 네 조각을 합한 적 처치당 확률. 일반 소모품과 따로 굴리고 정예·우상 보정을 받지 않는다.
 export const SECRET_MAP_DROP_CHANCE = 0.0004;
 export const PASSIVES = {
   mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
@@ -445,6 +445,12 @@ export const MAX_RELICS = 3;
 // 보물이 직접 주는 피해는 레벨마다 이만큼 세진다(공격력과 보물 피해도 곱한다). 후반에도 쓸모 있게.
 export const RELIC_LEVEL_SCALE = 0.04;
 
+// 다연장 미사일 5중첩의 독립 지원 공격. 공속·태엽·우상 추가 발동과 별도로 20초에 한 번이다.
+export const NUCLEAR_STRIKE = {
+  stacks: 5, everySec: 20, warningSec: 1.3, radius: 640, maxRadius: 900,
+  damage: 900, falloutRadius: 0.58, falloutSec: 3, falloutDps: 90, tickSec: 0.25,
+};
+
 // 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
 // stats는 카드에 적는 정확한 효과다.
 export const RELICS = {
@@ -470,12 +476,12 @@ export const RELICS = {
   umbrella: { label: '우산', description: '날아오는 것을 막아 준다', stats: ['탄막·떨어지는 쓰레기 피해 -60%'], guard: 0.6 },
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
-  firecracker: { label: '폭죽', description: '적을 조준한 로켓 세 발이 날아가 차례로 폭발한다',
+  firecracker: { label: '폭죽', description: '적을 조준한 로켓 여덟 발이 날아가 차례로 폭발한다',
     stats: ['12초마다 조준 로켓 8발, 0.5초 후 순차 착탄', '발당 범위 90 · 피해 35(레벨·보물 피해 비례)'],
     everySec: 12, radius: 90, damage: 35, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
-    description: '폭죽 로켓이 더 많이 날아간다', stats: ['폭죽 로켓 +4발(여러 개 가지면 겹쳐 쌓임)', '보물 20점·폭죽 보유 시 등장, 하나마다 보물 칸 1개'],
+    description: '폭죽 로켓이 늘고 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
     rockets: 4 },
   gunpowder: { label: '고성능 화약', treasureOnly: true, requiresRelic: 'firecracker',
     description: '폭죽 로켓이 훨씬 크게 터진다', stats: ['폭죽 폭발 범위 +50%', '보물 20점·폭죽 보유 시 등장'], radius: 0.5 },

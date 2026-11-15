@@ -430,6 +430,12 @@ const ART = {
 
 // 아이템 아이콘은 16x16 격자에 4프레임으로 그린다. body는 외곽선을 두르는 본체, fx는 외곽선 없이 덧그리는 반짝임·김·불꽃이다.
 export const ITEM_FRAMES = 4;
+const DRYER_FLAMES = [
+  ['Yy.', 'WYO', 'Ye.'],
+  ['YO.', 'WYe', 'YYO'],
+  ['Ye.', 'WYO', 'yO.'],
+  ['YYO', 'WYe', 'YO.'],
+];
 const ITEM_SIZE = 16;
 
 function item(rows, animate) {
@@ -757,13 +763,7 @@ const ITEMS = {
     '.....uu.........',
     '................',
   ], (body, fx, f) => {
-    const flames = [
-      ['Yy.', 'WYO', 'Ye.'],
-      ['YO.', 'WYe', 'YYO'],
-      ['Ye.', 'WYO', 'yO.'],
-      ['YYO', 'WYe', 'YO.'],
-    ];
-    fx.stamp(13, 4, flames[f]);
+    fx.stamp(13, 4, DRYER_FLAMES[f]);
     fx.set(13, 3, f % 2 === 0 ? 'O' : '.').set(14, 7, f % 2 === 1 ? 'e' : '.').set(15, 2 + f, 'O');
     body.set(5 + (f % 2), 5, 'K').set(5 + ((f + 1) % 2), 6, 'W');
   }),
@@ -2770,6 +2770,14 @@ export function sprite(name, { flip = false, tint = null, scale = 1 } = {}) {
 function buildItem(id, frame, scale = 1) {
   const [body, overlay] = (ITEMS[id] ?? ITEMS.box)(frame % ITEM_FRAMES);
   return build(body, { scale, overlay });
+}
+
+// 드라이기 아이콘과 폭발 연출이 동일한 불꽃 도트 4프레임을 공유한다.
+export function dryerFlame(frame = 0) {
+  const index=((Math.floor(frame)%ITEM_FRAMES)+ITEM_FRAMES)%ITEM_FRAMES;
+  const key=`dryer-flame|${index}`;
+  if(!cache.has(key))cache.set(key,build(DRYER_FLAMES[index],{outline:false}));
+  return cache.get(key);
 }
 
 // 바닥에 떨어진 아이템을 그릴 때 쓴다. frame은 0부터 ITEM_FRAMES - 1까지다.
