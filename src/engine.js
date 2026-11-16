@@ -382,7 +382,7 @@ export function describeChoice(game, choice) {
   if (choice.kind === 'weapon') {
     const weapon = WEAPONS[choice.id];
     const might = statsOf(game).might;
-    return [...(weapon.finisher ? [`처치 시 ${weapon.finisher.label}: 피해 ${weapon.finisher.damage}배, 개체당 ${weapon.finisher.cooldown}초 쿨타임`] : []), ...Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
+    return [...(weapon.finisher ? [`완성형부터 처치 시 ${weapon.finisher.label}: 피해 ${weapon.finisher.damage}배, 개체당 ${weapon.finisher.cooldown}초 쿨타임`] : []), ...Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
       const dragonLength = weapon.summon === 'dragon' && key === 'count';
       const text = dragonLength ? { ...WEAPON_TEXT[key], name: '몸통 마디' } : WEAPON_TEXT[key];
       const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
@@ -1715,7 +1715,7 @@ function updateDragonStorm(game, unit, damage, dt) {
 // 직접 공격으로 처치했을 때만 발동한다. 피니시 처치는 다시 피니시를 일으키지 않는다.
 function summonFinisher(game, unit, damage) {
   const skill = WEAPONS[unit.weapon].finisher;
-  if (!skill || game.time < (unit.finisherReadyAt ?? 0)) return;
+  if (!skill || !evolution(game, unit.weapon) || game.time < (unit.finisherReadyAt ?? 0)) return;
   unit.finisherReadyAt = game.time + skill.cooldown;
   const area = statsOf(game).area;
   const reach = (skill.radius ?? skill.length) * area;

@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import { createGame, update } from '../src/engine.js';
-import { WEAPONS } from '../src/rules.js';
-function setup(id) {
- const g=createGame(()=>.99);g.weapons={[id]:1};g.spawnCarry=-1e9;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;
+import { FUSIONS, WEAPONS } from '../src/rules.js';
+function setup(id, evolved = true) {
+ const g=createGame(()=>.99);g.weapons={[id]:evolved ? 5 : 1};g.evolved=evolved ? {[id]:true} : {};g.spawnCarry=-1e9;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;
  const add=(x,y,hp)=>{const e={id:g.nextId++,kind:'roach',x:g.player.x+x,y:g.player.y+y,hp,maxHp:hp,radius:8,speed:0,damage:0,xp:0,timer:0,kx:0,ky:0};g.enemies.push(e);return e;};
  return {g,add};
 }
@@ -35,7 +35,7 @@ it('네 근접 소환수의 최대 피해·공격 주기·이동 속도를 함�
 
 it('가습기 지속 피해로 적을 처치해도 피니시는 발동하지 않는다',()=>{
  const {g,add}=setup('plushbear');const e=add(40,0,1);g.relics.humidifier=true;
- g.summons=[{id:g.nextId++,weapon:'plushbear',x:e.x,y:e.y,angle:0,attackIn:Infinity}];
+ g.summons=Array.from({length:3},()=>({id:g.nextId++,weapon:'plushbear',x:e.x,y:e.y,angle:0,attackIn:Infinity}));
  for(let i=0;i<15;i++)update(g,1/60);
  assert.ok(e.dead);assert.ok(!g.effects.some(f=>f.finisher));assert.equal(g.summons[0].finisherReadyAt,undefined);
 });
@@ -45,3 +45,15 @@ it('피니시 쿨타임이 지나면 새로운 직접 처치로 다시 발동한
  const e=add(unit.x-g.player.x+20,unit.y-g.player.y,1);unit.attackIn=0;update(g,1/60);
  assert.ok(e.dead);assert.ok(unit.finisherReadyAt>previous);assert.ok(g.effects.some(f=>f.finisher));
 });
+
+for (const id of ['toyknight','toyaxe','plushbear']) {
+ it(`${id}: 기본 1~5레벨은 피니시가 없고 완성형과 합체에서만 발동한다`,()=>{
+  for (const level of [1,2,3,4,5]) {
+   const {g,add}=setup(id,false);g.weapons[id]=level;const e=add(40,0,1);update(g,1/60);
+   assert.ok(e.dead);assert.ok(!g.effects.some(f=>f.finisher));assert.ok(g.summons.every(u=>u.finisherReadyAt===undefined));
+  }
+  const {g,add}=setup(id);const [fid,recipe]=Object.entries(FUSIONS).find(([,r])=>r.primary===id) ?? [];
+  if (fid) { g.fusions[fid]=true;for(const material of recipe.from){g.weapons[material]=5;g.evolved[material]=true;} }
+  add(40,0,1);update(g,1/60);assert.ok(g.effects.some(f=>f.finisher));
+ });
+}
