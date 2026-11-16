@@ -632,6 +632,7 @@ export const MAX_FUSIONS = 2;
 
 // 완성형 두 개의 독립 공격을 합체 공격으로 대체한다. primary는 재사용할 공격 경로(별도 구현이면 null), power는 통합 피해 배율이다.
 export const FUSIONS = {
+  thunderdragons: { label: '쌍룡 뇌우', icon: 'thunderdragons', description: '청룡 두 마리가 독립적으로 적을 관통하고, 각 용 주변에 불규칙한 낙뢰를 세 번씩 떨어뜨린다. 증원은 두 용의 몸통을 늘린다', primary: 'toydragon', power: 1.6, from: ['toydragon', 'zapper'], heads: 2, lightningEverySec: 0.85, strikes: 3, stormRange: 220, blastRadius: 65, lightningDamage: 1.15 },
   stormcrane: {
     label: "천둥학",
     icon: "stormcrane",

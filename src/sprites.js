@@ -1335,6 +1335,7 @@ function toyDragon(body, fx, frame, azure = false) {
 }
 ITEMS.toydragon = item([], (body, fx, f) => toyDragon(body, fx, f));
 ITEMS.azuredragon = item([], (body, fx, f) => toyDragon(body, fx, f, true));
+ITEMS.thunderdragons = item([], (body, fx, f) => { toyDragon(body, fx, f, true); fx.line(11, 0, 8, 4, 'Y').line(8, 4, 12, 4, 'Y').line(12, 4, 9, 8, 'W'); twinkle(fx, 3, 2, f, 'E'); });
 function toyKnight(body, fx, frame, guardian = false) {
   const armor = guardian ? 'q' : 'B', step = frame % 2;
   // 짧은 망토, 닫힌 투구, 오른손의 긴 검.

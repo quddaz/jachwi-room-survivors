@@ -1682,12 +1682,34 @@ function updateDragon(game, unit, lengthCount, range, speed, damage, dt) {
   // 마디마다 때리는 대신 용 전체가 같은 적을 주기당 한 번만 때린다.
   [unit, ...unit.spine].forEach((point, index) => {
     for (const { enemy } of sweepHits(game, previous[index], point, hitRadius)) {
-      if (game.time - (enemy.dragonHitAt ?? -Infinity) < hitEvery) continue;
+      const lastHit = unit.thunder ? enemy.dragonHits?.[unit.id] : enemy.dragonHitAt;
+      if (game.time - (lastHit ?? -Infinity) < hitEvery) continue;
+      if (unit.thunder) { enemy.dragonHits ??= {}; enemy.dragonHits[unit.id] = game.time; }
       enemy.dragonHitAt = game.time;
       damageWeaponHit(game, enemy, damage, true, unit);
       unit.muzzleUntil = game.time + 0.1;
     }
   });
+}
+
+// 용의 몸통 판정과 별개로 주변 적의 위치를 무작위 추출해 하늘에서 낙뢰를 내린다.
+function updateDragonStorm(game, unit, damage, dt) {
+  const storm = FUSIONS.thunderdragons, stats = statsOf(game);
+  unit.stormIn = (unit.stormIn ?? (unit.id % 2) * .3) - dt;
+  if (unit.stormIn > 0) return;
+  unit.stormIn = Math.max(.18, storm.lightningEverySec * (.8 + game.random() * .4) / attackTempoOf(game) / stats.summonHaste);
+  const reach = storm.stormRange * stats.summonRange * stats.area;
+  const radius = storm.blastRadius * stats.area;
+  const candidates = near(game, unit.x, unit.y, reach).filter(enemy => !enemy.dead && distance(enemy, unit) <= reach);
+  for (let n = 0; n < storm.strikes && candidates.length; n++) {
+    const index = Math.min(candidates.length - 1, Math.floor(game.random() * candidates.length));
+    const target = candidates.splice(index, 1)[0];
+    for (const enemy of near(game, target.x, target.y, radius)) {
+      if (!enemy.dead && distance(enemy, target) <= radius + enemy.radius) damageWeaponHit(game, enemy, damage * storm.lightningDamage, true, unit);
+    }
+    addEffect(game, { weapon: 'toydragon', type: 'bolt', points: [{ x: target.x + (game.random() - .5) * 100, y: target.y - 360 }, { x: target.x, y: target.y }], life: .24, mega: true, sound: 'zap' });
+    addEffect(game, { weapon: 'toydragon', type: 'ring', x: target.x, y: target.y, radius, color: 'spark', life: .3 });
+  }
 }
 
 function updateSummons(game, dt) {
@@ -1699,17 +1721,24 @@ function updateSummons(game, dt) {
     const owner = fusionForWeapon(game, id);
     const evolved = evolution(game, id) ? { ...evolution(game, id), ...(owner ? FUSIONS[owner].summonBoost : {}) } : null;
     const lengthCount = (evolved?.count ?? weaponValue(game, id, 'count')) + stats.summonCount;
-    const count = weapon.summon === 'dragon' ? 1 : lengthCount;
+    const count = weapon.summon === 'dragon' ? (owner ? FUSIONS[owner].heads ?? 1 : 1) : lengthCount;
     const units = game.summons.filter(unit => unit.weapon === id).slice(0, count);
     game.summons = game.summons.filter(unit => unit.weapon !== id).concat(units);
     while (units.length < count) {
-      const unit = { id: game.nextId++, weapon: id, x: player.x, y: player.y, angle: 0, attackIn: units.length * 0.12 };
+      const unit = { id: game.nextId++, weapon: id, x: player.x, y: player.y, angle: weapon.summon === 'dragon' ? units.length * Math.PI : 0, attackIn: units.length * 0.12 };
       units.push(unit); game.summons.push(unit);
     }
     const range = weaponValue(game, id, 'range') * stats.summonRange;
     const speed = weaponValue(game, id, 'speed') * attackTempoOf(game) * stats.summonSpeed;
     const damage = weaponValue(game, id, 'damage');
-    if (weapon.summon === 'dragon') { updateDragon(game, units[0], lengthCount, range, speed, damage, dt); continue; }
+    if (weapon.summon === 'dragon') {
+      for (const unit of units) {
+        unit.thunder = owner === 'thunderdragons';
+        updateDragon(game, unit, lengthCount, range, speed, damage, dt);
+        if (unit.thunder) updateDragonStorm(game, unit, damage, dt);
+      }
+      continue;
+    }
     const cooldown = weaponValue(game, id, 'cooldown') * stats.cooldownScale / stats.summonHaste;
     const move = (unit, goal, pace) => {
       const gap = distance(unit, goal);

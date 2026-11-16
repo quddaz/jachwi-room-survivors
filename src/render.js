@@ -2006,14 +2006,22 @@ export function render(ctx, game, width, height, time) {
         ctx.save();ctx.translate(sx, sy);ctx.rotate(angle);
         ctx.fillStyle = 'rgba(40,60,60,0.2)';ctx.fillRect(-half, 4, half * 2, 3);
         disc(ctx, 0, 0, half + 1, '#253b41');
-        disc(ctx, 0, 0, half, unit.evolved ? '#427bd4' : '#4f9b79');
+        disc(ctx, 0, 0, half, unit.thunder ? '#5964be' : unit.evolved ? '#427bd4' : '#4f9b79');
         disc(ctx, -1, -2, half * 0.65, unit.evolved ? '#9cd7ff' : '#a9dca2');
         ctx.fillStyle = '#fff0bf';ctx.fillRect(-half, half - 3, half * 2, 2);
         ctx.fillStyle = '#ffcf3f';ctx.fillRect(-2, -half - 3, 3, 4);
         if (!tail && index % 3 === 1) { ctx.fillRect(-2, half - 1, 4, 4);ctx.fillRect(-2, -half - 2, 4, 2); }
         ctx.restore();
       }
-      const image = icon(unit.evolved ? 'azuredragon' : 'toydragon', Math.floor(time * 8) % ITEM_FRAMES);
+      if (unit.thunder) {
+        for (let n = 0; n < spine.length; n += 4) {
+          const [sx, sy] = toBuffer(spine[n]);
+          const phase = Math.floor(time * 12 + n) % 3;
+          line(ctx, sx - 3, sy - 5 - phase, sx + 2, sy - 2, '#7fe9ff');
+          line(ctx, sx + 2, sy - 2, sx - 1, sy + 2, '#ffffff');
+        }
+      }
+      const image = icon(unit.thunder ? 'thunderdragons' : unit.evolved ? 'azuredragon' : 'toydragon', Math.floor(time * 8) % ITEM_FRAMES);
       ctx.save();ctx.translate(x, y);ctx.rotate(unit.angle);ctx.scale(size, size);ctx.drawImage(image, -8, -8);ctx.restore();
       continue;
     }
