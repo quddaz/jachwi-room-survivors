@@ -803,8 +803,8 @@ export const RELICS = {
     everySec: 12, radius: 135, damage: 50, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
-    description: '폭죽 로켓이 늘고 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
-    rockets: 4 },
+    description: '폭죽 로켓이 늘고 세지며 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발, 로켓 피해 +30(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
+    rockets: 4, damage: 30 },
   // 보물 20점 전용이고 멀티탭이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   adapter: { label: '돼지코 어댑터', treasureOnly: true, stackable: true, requiresRelic: 'outlet',
     description: '멀티탭 전기가 훨씬 많은 적에게 이어진다',

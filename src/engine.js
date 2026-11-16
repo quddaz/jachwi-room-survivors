@@ -3067,7 +3067,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
         const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
         queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
           fromX:game.player.x,fromY:game.player.y,life:(firecracker.aimSec+index*firecracker.gapSec)/fallSpeed,
-          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage)*castPower});
+          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage+RELICS.mlrs.damage*relicCount(game,'mlrs'))*castPower});
       }
     }
   }
