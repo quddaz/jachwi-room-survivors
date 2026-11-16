@@ -237,6 +237,7 @@ function drawChoices() {
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
       <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
+        ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>
@@ -634,7 +635,9 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
   }
   if (event.code === 'Escape' && playing) setPaused(!paused);
+  if (game?.choices && event.repeat) return;
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
+  if (event.code === 'KeyQ' && game?.choices && declineChoice(game)) drawChoices();
   const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
     selectItem(pick);

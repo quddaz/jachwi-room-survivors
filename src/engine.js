@@ -1320,12 +1320,12 @@ export function sawBlades(game) {
   return (game.saws ?? []).map((blade) => ({ ...blade, radius: Math.min(saw.maxRadius, saw.radius * area * projectile) }));
 }
 
-// 레이저 드론 기지: 드론마다 다른 적을 맡아 날아가고, 머리 위에 도착하면 아래로 레이저를 내리쬔다.
+// 레이저 드론 기지: 드론이 오리 주변의 아무 곳으로 옮겨 다니며, 사거리 안의 가까운 적을 향해 관통 빔을 쏜다.
 export function laserDrones(game) {
   const base = fusion(game, 'dronebase');
   if (!base) return [];
-  const beam = base.beamRadius * statsOf(game).area;
-  return (game.drones ?? []).map((drone) => ({ ...drone, beam }));
+  const width = base.beamWidth * statsOf(game).area;
+  return (game.drones ?? []).map((drone) => ({ ...drone, width, firing: game.time < (drone.beamUntil ?? -1) }));
 }
 
 function updateDroneBase(game, dt) {
@@ -1336,39 +1336,46 @@ function updateDroneBase(game, dt) {
   }
   const { player } = game;
   const stats = statsOf(game);
-  const beam = base.beamRadius * stats.area;
-  const speed = base.speed * attackTempoOf(game) * stats.summonSpeed;
+  const width = base.beamWidth * stats.area;
+  const length = base.beamLength * stats.area;
+  const speed = base.speed * stats.summonSpeed;
   const count = base.count + stats.summonCount;
-  const damage = weaponValue(game, 'laser', 'damage') * base.dps * base.tickSec * stats.summonPower;
+  const damage = weaponValue(game, 'laser', 'damage') * base.damage * stats.summonPower;
+  const roam = () => {
+    const angle = game.random() * Math.PI * 2, reach = base.patrol * (0.35 + game.random() * 0.65);
+    return { x: player.x + Math.cos(angle) * reach, y: player.y + Math.sin(angle) * reach };
+  };
   game.drones = (game.drones ?? []).slice(0, count);
   while (game.drones.length < count) {
-    game.drones.push({ id: game.nextId++, x: player.x, y: player.y, target: null, tickIn: 0, firing: false });
+    const index = game.drones.length;
+    game.drones.push({ id: game.nextId++, x: player.x, y: player.y, goal: null, fireIn: (index / count) * base.fireSec, angle: 0, beamUntil: -1, beamLength: 0 });
   }
-  game.drones.forEach((drone, index) => {
-    if (drone.target && (drone.target.dead || distance(drone.target, player) > base.leash)) drone.target = null;
-    if (!drone.target) {
-      const taken = new Set(game.drones.filter((other) => other !== drone).map((other) => other.target?.id));
-      let best = null;
-      let bestGap = Infinity;
-      for (const enemy of near(game, player.x, player.y, base.seek)) {
-        if (enemy.dead || taken.has(enemy.id) || distance(enemy, player) > base.seek) continue;
-        const gap = distance(enemy, drone);
-        if (gap < bestGap) { bestGap = gap; best = enemy; }
-      }
-      drone.target = best;
-    }
-    const angle = game.time * 1.4 + (index / count) * Math.PI * 2;
-    const goal = drone.target ?? { x: player.x + Math.cos(angle) * base.idleOrbit, y: player.y + Math.sin(angle) * base.idleOrbit };
-    const gap = distance(drone, goal) || 1;
+  game.drones.forEach((drone) => {
+    // 목적지에 닿거나 오리에게서 너무 멀어지면 새 목적지를 잡는다.
+    if (!drone.goal || distance(drone, drone.goal) < 12 || distance(drone.goal, player) > base.patrol * 1.4) drone.goal = roam();
+    const gap = distance(drone, drone.goal) || 1;
     const step = Math.min(gap, speed * dt);
-    drone.x += ((goal.x - drone.x) / gap) * step;
-    drone.y += ((goal.y - drone.y) / gap) * step;
-    drone.firing = Boolean(drone.target) && distance(drone, drone.target) < beam;
-    drone.tickIn = Math.max(0, drone.tickIn - dt);
-    if (!drone.firing || drone.tickIn > 0) return;
-    drone.tickIn = base.tickSec;
-    for (const enemy of near(game, drone.x, drone.y, beam + 40)) {
-      if (!enemy.dead && distance(enemy, drone) < beam + enemy.radius) damageWeaponHit(game, enemy, damage, false, drone);
+    drone.x += ((drone.goal.x - drone.x) / gap) * step;
+    drone.y += ((drone.goal.y - drone.y) / gap) * step;
+    drone.fireIn -= dt * attackTempoOf(game);
+    if (drone.fireIn > 0) return;
+    let target = null;
+    let best = base.range;
+    for (const enemy of near(game, drone.x, drone.y, base.range)) {
+      const gapTo = distance(enemy, drone);
+      if (!enemy.dead && gapTo < best) { best = gapTo; target = enemy; }
+    }
+    if (!target) { drone.fireIn = 0.1; return; }
+    drone.fireIn = base.fireSec;
+    drone.angle = Math.atan2(target.y - drone.y, target.x - drone.x);
+    drone.beamUntil = game.time + base.beamSec;
+    drone.beamLength = length;
+    const dx = Math.cos(drone.angle), dy = Math.sin(drone.angle);
+    for (const enemy of near(game, drone.x + dx * length / 2, drone.y + dy * length / 2, length / 2 + 40)) {
+      if (enemy.dead) continue;
+      const along = (enemy.x - drone.x) * dx + (enemy.y - drone.y) * dy;
+      const across = Math.abs((enemy.x - drone.x) * dy - (enemy.y - drone.y) * dx);
+      if (along > -enemy.radius && along < length && across < width / 2 + enemy.radius) damageWeaponHit(game, enemy, damage, false, drone);
     }
   });
 }
@@ -1618,6 +1625,7 @@ function updateSummons(game, dt) {
         for (const { enemy } of sweepHits(game, previous, unit, radius)) {
           if (unit.hit.has(enemy.id)) continue;
           unit.hit.add(enemy.id); damageWeaponHit(game, enemy, damage, true, unit);
+          if (id === 'chessrook') addEffect(game, { type: 'rookhit', x: enemy.x, y: enemy.y, angle: unit.angle, life: 0.3, evolved: Boolean(evolved) });
         }
         if (unit.chargeLeft <= 0) {
           unit.charging = false; unit.returning = true;
@@ -1626,7 +1634,10 @@ function updateSummons(game, dt) {
             for (const enemy of near(game, unit.x, unit.y, blast)) {
               if (!enemy.dead && distance(enemy, unit) <= blast + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
             }
-            addEffect(game, { type: 'ring', x: unit.x, y: unit.y, radius: blast, color: 'gold', life: 0.35, sound: 'impact' });
+            addEffect(game, id === 'chessrook'
+              ? { type: 'rookquake', x: unit.x, y: unit.y, radius: blast, life: 0.5, fused: Boolean(owner), sound: 'impact' }
+              : { type: 'ring', x: unit.x, y: unit.y, radius: blast, color: 'gold', life: 0.35, sound: 'impact' });
+            if (id === 'chessrook') game.shake = Math.max(game.shake, owner ? 0.12 : 0.06);
           }
         }
         return;
@@ -1640,6 +1651,28 @@ function updateSummons(game, dt) {
       unit.angle = Math.atan2(target.y - unit.y, target.x - unit.x);
       if (weapon.summon === 'sword') {
         const reach = range * stats.area;
+        if (weapon.line) {
+          // 도끼병: 바라보는 쪽(합체면 네 방향)으로 일직선 베기. 적 하나당 한 번만 벤다.
+          const length = reach * weapon.lineScale;
+          if (distance(target, unit) > length + target.radius) return;
+          const half = (evolved?.lineWidth ?? weapon.lineWidth) * stats.area;
+          const lines = evolved?.lines ?? 1;
+          const hit = new Set();
+          for (let lane = 0; lane < lines; lane++) {
+            const angle = unit.angle + lane * Math.PI * 2 / lines;
+            const dx = Math.cos(angle), dy = Math.sin(angle);
+            for (const enemy of near(game, unit.x, unit.y, length + 40)) {
+              if (enemy.dead || hit.has(enemy.id)) continue;
+              const along = (enemy.x - unit.x) * dx + (enemy.y - unit.y) * dy;
+              const across = Math.abs(-(enemy.x - unit.x) * dy + (enemy.y - unit.y) * dx);
+              if (along < -enemy.radius || along > length + enemy.radius || across > half + enemy.radius) continue;
+              hit.add(enemy.id);
+              damageWeaponHit(game, enemy, damage, true, unit);
+            }
+            addEffect(game, { type: 'axescar', x: unit.x, y: unit.y, angle, length, half,
+              life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), fire: lines > 1, sound: lane ? undefined : 'slash' });
+          }
+        } else {
         if (distance(target, unit) > reach + target.radius) return;
         const arc = evolved?.arc ?? weapon.arc;
         for (const enemy of near(game, unit.x, unit.y, reach)) {
@@ -1653,6 +1686,7 @@ function updateSummons(game, dt) {
         // 검흔은 피해 판정을 남기지 않는 잔상이다. 적 하나당 한 번만 벤다.
         addEffect(game, { type: 'swordscar', x: unit.x, y: unit.y, angle: unit.angle, radius: reach, arc,
           life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), sound: 'slash' });
+        }
       } else if (weapon.summon === 'melee') {
         if (distance(target, unit) > range + target.radius) return;
         const cleave = (evolved?.cleave ?? weapon.cleave ?? 0) * stats.area;
@@ -1661,7 +1695,9 @@ function updateSummons(game, dt) {
             if (!enemy.dead && distance(enemy, target) <= cleave + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
           }
         } else damageWeaponHit(game, target, damage, true, unit);
-        addEffect(game, { type: 'slash', x: unit.x, y: unit.y, angle: unit.angle, life: 0.18, sound: 'slash' });
+        addEffect(game, id === 'plushbear'
+          ? { type: 'paw', x: target.x, y: target.y, angle: unit.angle, radius: Math.max(cleave, 26), evolved: Boolean(evolved), life: 0.32, sound: 'slash' }
+          : { type: 'slash', x: unit.x, y: unit.y, angle: unit.angle, life: 0.18, sound: 'slash' });
       } else if (weapon.summon === 'charge') {
         unit.charging = true; unit.chargeLeft = Math.min(range, distance(unit, target) + 60); unit.hit = new Set();
       } else {
@@ -1696,7 +1732,8 @@ function fireTreasureWeapons(game, dt) {
     if (!targets.length) continue;
     const angle = Math.atan2(targets[0].y - origin.y, targets[0].x - origin.x);
     const hit = (enemy, from = origin) => damageWeaponHit(game, enemy, damage, true, from);
-    const visual = (point, size, extra = {}) => addEffect(game, { weapon: id, type: 'fortune', pattern: weapon.pattern, x: point.x, y: point.y, radius: size, life: .4, sound: 'impact', ...extra });
+    const visual = (point, size, extra = {}) => addEffect(game, { weapon: id, type: 'fortune', pattern: weapon.pattern, x: point.x, y: point.y, radius: size, life: .4, sound: 'impact',
+      evolved: Boolean(evolved), fused: Boolean(owner), ...extra });
     if (weapon.pattern === 'chain') {
       const points = [{ x: origin.x, y: origin.y }];
       let previous = origin;
@@ -1727,7 +1764,7 @@ function fireTreasureWeapons(game, dt) {
         const end = { x: origin.x + Math.cos(heading) * reach, y: origin.y + Math.sin(heading) * reach };
         // 연출에 쓰는 선과 같은 선분으로 판정한다. 한 발은 적 하나를 한 번만 때린다.
         for (const { enemy } of sweepHits(game, origin, end, cross ? radius * .45 : 12 * stats.projectile)) hit(enemy);
-        visual(origin, cross ? radius * .45 : 12 * stats.projectile, { end, life: cross ? .35 : .22 });
+        visual(origin, cross ? radius * .45 : 12 * stats.projectile, { end, life: cross ? .4 : .32 });
       }
     }
   }
@@ -3034,7 +3071,7 @@ function updateRelicAttacks(game, dt) {
         }
         addEffect(game,{type:'nova',x:attack.x,y:attack.y,radius:attack.radius,life:.5});
         addEffect(game,{type:'burst',x:attack.x,y:attack.y,color:'gold',count:24,life:.6,big:true,sound:'impact'});
-        game.shake=Math.max(game.shake,.18);continue;
+        game.shake=Math.max(game.shake,.018);continue;
       }
     } else if(attack.type==='coolwave') {
       const outer=attack.radius*Math.min(1,attack.age/attack.life);

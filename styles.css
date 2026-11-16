@@ -193,6 +193,7 @@ img { display: block; max-width: 100%; }
 .levelup .panel { max-height: 100%; overflow-y: auto; touch-action: pan-y; }
 .choices { display: grid; gap: 8px; }
 .choice {
+  position: relative;
   display: grid;
   grid-template-columns: 60px 1fr;
   gap: 2px 12px;
@@ -222,10 +223,11 @@ img { display: block; max-width: 100%; }
 .choice-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
 .choice-actions button { min-height: 44px; border-radius: var(--radius-md); background: transparent; color: var(--color-ink-soft); cursor: pointer; }
 .reroll { flex: 1 0 auto; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px dashed var(--color-wood); font-weight: 800; }
-.decline-choice { padding: 0 12px; border: 1px solid var(--color-wood); font-size: 14px; font-weight: 700; }
+.decline-choice { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--color-wood); font-size: 14px; font-weight: 700; }
 .decline-choice:hover, .decline-choice:focus-visible { border-color: var(--color-ink-soft); color: var(--color-ink); }
 .reroll b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; border-radius: 999px; background: var(--color-beak); color: #fff; font-size: 12px; }
-.reroll small { padding: 0 6px; border: 1px solid var(--color-wood); border-radius: 6px; color: var(--color-muted); font-size: 11px; }
+.choice-key { position: absolute; top: 8px; right: 10px; min-width: 18px; padding: 0 4px; border: 1px solid var(--color-wood); border-radius: 6px; background: rgba(255, 255, 255, 0.7); color: var(--color-muted); font-size: 11px; font-weight: 700; line-height: 16px; text-align: center; }
+.reroll small, .decline-choice small { padding: 0 6px; border: 1px solid var(--color-wood); border-radius: 6px; color: var(--color-muted); font-size: 11px; }
 .reroll:not(:disabled):hover { border-color: var(--color-beak); color: var(--color-ink); }
 .reroll:disabled { opacity: 0.45; cursor: default; }
 

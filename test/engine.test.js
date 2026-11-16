@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, laserDrones, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BALL_LIGHTNING, BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1851,20 +1851,45 @@ describe('레이저 드론 기지', () => {
     return game;
   }
 
-  it('드론 넷이 서로 다른 적에게 날아가 머리 위에서 지지고, 재료 무기는 따로 쏘지 않는다', () => {
+  it('드론 넷이 돌아다니며 관통 빔으로 줄지어 선 적을 모두 맞히고, 재료 무기는 따로 쏘지 않는다', () => {
     const game = droneGame();
-    const enemies = [200, 260, 320, 380].map((dx, index) => placeEnemy(game, 'trash', dx, index % 2 ? 120 : -120, { hp: 1e7, speed: 0 }));
+    const enemies = [200, 260, 320, 380].map((dx) => placeEnemy(game, 'trash', dx, 0, { hp: 1e7, speed: 0 }));
     for (let frame = 0; frame < 180; frame += 1) update(game, 1 / 60);
     assert.equal(game.drones.length, FUSIONS.dronebase.count);
-    assert.equal(new Set(game.drones.map((drone) => drone.target?.id)).size, FUSIONS.dronebase.count);
+    assert.ok(game.drones.some((drone) => Math.hypot(drone.x - game.player.x, drone.y - game.player.y) > 40));
     assert.ok(enemies.every((enemy) => enemy.hp < 1e7));
     assert.equal(game.summons.filter((unit) => unit.weapon === 'toydrone').length, 0);
     assert.ok(game.shots.every((shot) => shot.weapon !== 'laser'));
   });
 
-  it('적이 없으면 오리 곁을 돈다', () => {
+  it('적이 없으면 쏘지 않고 오리 주변을 떠돈다', () => {
     const game = droneGame();
     for (let frame = 0; frame < 120; frame += 1) update(game, 1 / 60);
-    assert.ok(game.drones.every((drone) => !drone.firing && Math.hypot(drone.x - game.player.x, drone.y - game.player.y) < 120));
+    assert.ok(laserDrones(game).every((drone) => !drone.firing && Math.hypot(drone.x - game.player.x, drone.y - game.player.y) < FUSIONS.dronebase.patrol * 1.4));
+  });
+});
+
+describe('도끼병 일직선 베기', () => {
+  function axeGame() {
+    const game = createGame(seeded(71));
+    game.spawnCarry = -100000;
+    game.weapons = { toyaxe: 1 };
+    return game;
+  }
+
+  it('바라보는 쪽 일직선의 적만 베고 옆과 뒤는 베지 않는다', () => {
+    const game = axeGame();
+    update(game, 1 / 60);
+    const unit = game.summons.find((summon) => summon.weapon === 'toyaxe');
+    Object.assign(unit, { x: game.player.x, y: game.player.y, attackIn: 0 });
+    const front = placeEnemy(game, 'trash', 60, 0, { hp: 1e7, speed: 0 });
+    const far = placeEnemy(game, 'trash', 150, 0, { hp: 1e7, speed: 0 });
+    const side = placeEnemy(game, 'trash', 60, 70, { hp: 1e7, speed: 0 });
+    const back = placeEnemy(game, 'trash', -60, 0, { hp: 1e7, speed: 0 });
+    for (let frame = 0; frame < 3; frame += 1) update(game, 1 / 60);
+    assert.ok(front.hp < 1e7 && far.hp < 1e7);
+    assert.equal(side.hp, 1e7);
+    assert.equal(back.hp, 1e7);
+    assert.ok(game.effects.some((effect) => effect.type === 'axescar'));
   });
 });

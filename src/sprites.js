@@ -2850,4 +2850,99 @@ export function iconSheetUrl(id) {
   return urlCache.get(key);
 }
 
+// 진화형과 합체형 아이콘: 기본 그림 위에 금빛 테두리와 표식(진화), 속성 장식(합체)을 움직이며 얹는다.
+function shimmerOutline(rows, fx, frame, colors) {
+  rows.forEach((line, y) => [...line].forEach((cell, x) => {
+    if (cell !== '.') return;
+    const edge = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => (rows[y + dy]?.[x + dx] ?? '.') !== '.');
+    if (edge && (x * 3 + y * 5 + frame * 7) % 11 === 0) fx.set(x, y, colors[(x + frame) % colors.length]);
+  }));
+}
+
+function plusBadge(fx, frame) {
+  const glow = frame % 2 ? 'W' : 'Y';
+  fx.set(13, 0, 'O').set(12, 1, 'O').set(13, 1, glow).set(14, 1, 'O').set(13, 2, 'O');
+}
+
+const FUSION_DECOR = {
+  // 번개: 파란 번개 두 줄기가 번갈아 친다.
+  storm: (fx, f) => {
+    const bolt = f % 2 ? [[1, 2], [2, 3], [1, 4], [2, 5]] : [[14, 7], [13, 8], [14, 9], [13, 10]];
+    bolt.forEach(([x, y], i) => fx.set(x, y, i % 2 ? 'W' : 'B'));
+    fx.set(f % 2 ? 2 : 13, f % 2 ? 6 : 11, 'Y');
+  },
+  // 가시 정원: 덩굴 끝에 꽃이 피었다 진다.
+  thorn: (fx, f) => {
+    [[0, 13], [1, 12], [2, 13], [15, 13], [14, 12], [13, 13]].forEach(([x, y]) => fx.set(x, y, 'G'));
+    fx.set(1, 11, f % 2 ? 'R' : 'Y').set(14, 11, f % 2 ? 'Y' : 'R');
+  },
+  // 공성: 아래로 돌먼지와 불똥이 튄다.
+  siege: (fx, f) => {
+    [[2, 15], [4, 14], [11, 14], [13, 15]].forEach(([x, y], i) => fx.set(x + (f % 2), y, i % 2 ? 'L' : 'W'));
+    fx.set(1 + f, 13, 'O').set(14 - f, 13, 'Y');
+  },
+  // 청소 곰: 옆에 빗자루를 든다.
+  janitor: (fx, f) => {
+    for (let y = 4; y < 13; y++) fx.set(14, y, 'N');
+    [[12, 13], [13, 13], [14, 13], [15, 13], [12, 14], [13, 14], [14, 14], [15, 14]].forEach(([x, y]) => fx.set(x + (f % 2 ? 0 : 0), y, 'Y'));
+    fx.set(13 + (f % 2), 15, 'L');
+  },
+  // 불꽃: 위로 불길이 일렁인다.
+  fire: (fx, f) => {
+    [[3, 1], [6, 0], [9, 1], [12, 0]].forEach(([x, y], i) => {
+      const lift = (f + i) % 2;
+      fx.set(x, y + 1 - lift, 'Y').set(x, y + 2 - lift, 'O').set(x + 1, y + 2, 'R');
+    });
+  },
+  // 금화 소나기: 위에서 금화가 떨어진다.
+  coins: (fx, f) => {
+    [[2, 0], [8, 2], [13, 1]].forEach(([x, y], i) => {
+      const fall = (y + f * 2 + i * 3) % 6;
+      fx.set(x, 10 + fall - 6, 'Y').set(x + 1, 10 + fall - 6, 'O');
+    });
+  },
+  // 황금 종: 금빛 빛살이 사방으로 퍼진다.
+  rays: (fx, f) => {
+    const long = f % 2 ? 2 : 1;
+    for (let n = 0; n <= long; n++) fx.set(1 + n, 7, 'Y').set(14 - n, 7, 'Y');
+    fx.set(2, 2, f % 2 ? 'W' : 'Y').set(13, 2, f % 2 ? 'Y' : 'W').set(7, 15, 'Y').set(8, 15, 'O');
+  },
+  // 폭풍 나침반: 바깥으로 도는 번개 고리
+  stormring: (fx, f) => {
+    const ring = [[7, 0], [12, 2], [15, 7], [12, 12], [7, 15], [2, 12], [0, 7], [2, 2]];
+    ring.forEach(([x, y], i) => { if ((i + f) % 2 === 0) fx.set(x, y, i % 4 ? 'B' : 'W'); });
+  },
+  // 옥새: 머리에 왕관을 쓴다.
+  crown: (fx, f) => {
+    [[5, 0], [7, 0], [9, 0], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1]].forEach(([x, y]) => fx.set(x, y, 'Y'));
+    fx.set(7, 0, f % 2 ? 'R' : 'W').set(6, 1, 'O').set(8, 1, 'O');
+  },
+  // 시간의 바람: 휘감는 바람 줄기
+  wind: (fx, f) => {
+    const arcs = [[[0, 4], [1, 3], [2, 3]], [[13, 12], [14, 12], [15, 11]], [[1, 11], [0, 12]], [[14, 3], [15, 4]]];
+    arcs.forEach((arc, i) => arc.forEach(([x, y]) => fx.set(x, y + ((f + i) % 2), i % 2 ? 'W' : 'B')));
+  },
+};
+
+const UPGRADED = {
+  papercraneplus: ['papercrane', 'plus'], cactusplus: ['cactus', 'plus'], chessrookplus: ['chessrook', 'plus'],
+  plushbearplus: ['plushbear', 'plus'], toyaxeplus: ['toyaxe', 'plus'], coinplus: ['coin', 'plus'],
+  handbellplus: ['handbell', 'plus'], compassplus: ['compass', 'plus'], sealplus: ['seal', 'plus'], hourglassplus: ['hourglass', 'plus'],
+  stormcrane: ['papercrane', 'storm', 'q'], thorngarden: ['cactus', 'thorn', 'x'], siegerook: ['chessrook', 'siege', 'h'],
+  janitorbear: ['plushbear', 'janitor', 'k'], firelegion: ['toyaxe', 'fire', 'u'], goldrain: ['coin', 'coins', 'f'],
+  goldbell: ['handbell', 'rays', 'f'], stormcompass: ['compass', 'stormring', 'q'], royalseal: ['seal', 'crown', 'u'],
+  timewind: ['hourglass', 'wind', 'q'],
+};
+for (const [id, [baseId, kind, outline = 'f']] of Object.entries(UPGRADED)) {
+  if (!ITEMS[id] || !ITEMS[baseId]) continue;
+  const baseRows = ITEMS[baseId](0)[0];
+  // 기본 그림의 형태와 색은 그대로 두고 외곽선만 등급 색으로 바꾼다.
+  const rows = baseRows.map((line) => line.replace(/K/g, outline));
+  ITEMS[id] = item(rows, (body, fx, frame) => {
+    shimmerOutline(rows, fx, frame, kind === 'plus' ? ['Y', 'W'] : ['Y', 'O']);
+    if (kind === 'plus') plusBadge(fx, frame);
+    else FUSION_DECOR[kind](fx, frame);
+  });
+}
+
 export const ITEM_IDS = Object.keys(ITEMS);
