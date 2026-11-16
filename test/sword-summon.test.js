@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyBuild, createGame, statsOf, update } from '../src/engine.js';
+import { WEAPONS } from '../src/rules.js';
 
 function quiet() {
   const game = createGame(() => 0.99);
@@ -22,8 +23,8 @@ describe('검을 든 소환수', () => {
     const game = quiet();
     const front = target(game, 50), side = target(game, 60, 35), behind = target(game, -70), outside = target(game, 180);
     update(game, 1 / 60);
-    near(front.maxHp - front.hp, 24);
-    near(side.maxHp - side.hp, 24);
+    near(front.maxHp - front.hp, WEAPONS.toyknight.damage[0]);
+    near(side.maxHp - side.hp, WEAPONS.toyknight.damage[0]);
     near(behind.hp, behind.maxHp);
     near(outside.hp, outside.maxHp);
     const scar = game.effects.find(e => e.type === 'swordscar');
@@ -44,9 +45,9 @@ describe('검을 든 소환수', () => {
     game.relics = { baton: true, marchdrum: true };
     const enemy = target(game, 50);
     update(game, 1 / 60);
-    near(enemy.maxHp - enemy.hp, 24 * 2.16 * 1.35);
+    near(enemy.maxHp - enemy.hp, WEAPONS.toyknight.damage[0] * 2.16 * 1.35);
     assert.equal(game.summons.length, 4);
-    near(game.summons[0].attackIn, 1.5 * statsOf(game).cooldownScale / (1.25 * 1.25));
+    near(game.summons[0].attackIn, WEAPONS.toyknight.cooldown[0] * statsOf(game).cooldownScale / (1.25 * 1.25));
   });
   it('검흔 수호자는 검사의 앞옆까지 더 넓게 베며 1초 잔상을 남긴다', () => {
     const sample = evolved => {
@@ -59,7 +60,7 @@ describe('검을 든 소환수', () => {
     };
     near(sample(false).damage, 0);
     const evolved = sample(true);
-    near(evolved.damage, 24 * 1.65);
+    near(evolved.damage, WEAPONS.toyknight.damage[0] * 1.65);
     assert.equal(evolved.scar.life, 1);
     assert.equal(evolved.scar.evolved, true);
   });

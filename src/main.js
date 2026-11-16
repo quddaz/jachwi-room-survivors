@@ -479,6 +479,7 @@ const CODEX_TABS = [
     <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,
+        weapon.finisher && `처치 시 ${weapon.finisher.label}: 피해 ${weapon.finisher.damage}배 · 개체당 ${weapon.finisher.cooldown}초 쿨타임`,
         weapon.dps && `초당 피해 ${statLine(id, 'dps')}`,
         weapon.cooldown && `쿨타임 ${statLine(id, 'cooldown', '초')}`,
         Array.isArray(weapon.count) && (weapon.summon === 'dragon'

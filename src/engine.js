@@ -382,7 +382,7 @@ export function describeChoice(game, choice) {
   if (choice.kind === 'weapon') {
     const weapon = WEAPONS[choice.id];
     const might = statsOf(game).might;
-    return Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
+    return [...(weapon.finisher ? [`처치 시 ${weapon.finisher.label}: 피해 ${weapon.finisher.damage}배, 개체당 ${weapon.finisher.cooldown}초 쿨타임`] : []), ...Object.entries(weapon).filter(([key, values]) => Array.isArray(values) && WEAPON_TEXT[key]).flatMap(([key, values]) => {
       const dragonLength = weapon.summon === 'dragon' && key === 'count';
       const text = dragonLength ? { ...WEAPON_TEXT[key], name: '몸통 마디' } : WEAPON_TEXT[key];
       const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
@@ -398,7 +398,7 @@ export function describeChoice(game, choice) {
       if (before === after) return [];
       if (text.plain) return [`${text.name} ${show(before)} → ${show(after)}`];
       return [`${text.name} ${percent(after / before - 1)} (${show(before)} → ${show(after)})`];
-    });
+    })];
   }
   const recipe = choice.kind === 'fusion' ? FUSIONS[choice.id] : EVOLUTIONS[choice.id];
   return Object.entries(recipe).filter(([key, value]) => EVOLUTION_TEXT[key] && typeof value === 'number' && value > 1)
@@ -1712,6 +1712,34 @@ function updateDragonStorm(game, unit, damage, dt) {
   }
 }
 
+// 직접 공격으로 처치했을 때만 발동한다. 피니시 처치는 다시 피니시를 일으키지 않는다.
+function summonFinisher(game, unit, damage) {
+  const skill = WEAPONS[unit.weapon].finisher;
+  if (!skill || game.time < (unit.finisherReadyAt ?? 0)) return;
+  unit.finisherReadyAt = game.time + skill.cooldown;
+  const area = statsOf(game).area;
+  const reach = (skill.radius ?? skill.length) * area;
+  const half = (skill.halfWidth ?? 0) * area;
+  const dx = Math.cos(unit.angle), dy = Math.sin(unit.angle);
+  for (const enemy of near(game, unit.x, unit.y, reach + half)) {
+    if (enemy.dead) continue;
+    if (skill.length) {
+      const along = (enemy.x - unit.x) * dx + (enemy.y - unit.y) * dy;
+      const across = Math.abs(-(enemy.x - unit.x) * dy + (enemy.y - unit.y) * dx);
+      if (along < -enemy.radius || along > reach + enemy.radius || across > half + enemy.radius) continue;
+    } else if (distance(enemy, unit) > reach + enemy.radius) continue;
+    damageWeaponHit(game, enemy, damage * skill.damage, true, unit);
+  }
+  const effect = { weapon: unit.weapon, finisher: true, x: unit.x, y: unit.y, angle: unit.angle, life: .55, sound: 'impact' };
+  if (unit.weapon === 'toyknight') addEffect(game, { ...effect, type: 'swordscar', radius: reach, arc: Math.PI * 2, evolved: true });
+  else if (unit.weapon === 'toyaxe') addEffect(game, { ...effect, type: 'axescar', length: reach, half, evolved: true });
+  else {
+    addEffect(game, { ...effect, type: 'slam', radius: reach });
+    addEffect(game, { ...effect, type: 'paw', radius: reach * .6, evolved: true });
+  }
+  game.shake = Math.max(game.shake, .1);
+}
+
 function updateSummons(game, dt) {
   const stats = statsOf(game), player = game.player;
   const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot' && activeWeapon(game, id));
@@ -1758,9 +1786,12 @@ function updateSummons(game, dt) {
       let target = null, best = Infinity;
       for (const enemy of near(game, player.x, player.y, seek + 100)) {
         if (enemy.dead || distance(enemy, player) > seek + 100) continue;
+        // 근접 소환수는 살아 있는 추격 대상을 유지해 적 사이에서 방향만 바꾸지 않는다.
+        if (melee && enemy.id === unit.targetId && distance(enemy, unit) <= seek) { target = enemy; best = -Infinity; continue; }
         const gap = distance(enemy, unit) + (enemy.id + index) % count * 25;
         if (distance(enemy, unit) <= seek && gap < best) { target = enemy; best = gap; }
       }
+      if (melee) unit.targetId = target?.id;
       const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit','toyknight'].indexOf(id) * 0.8;
       const orbit = weapon.summon === 'ranged' ? 76 : 56;
       const home = { x: player.x + Math.cos(angle) * orbit, y: player.y + Math.sin(angle) * orbit };
@@ -1799,6 +1830,12 @@ function updateSummons(game, dt) {
       if (unit.returning) { if (distance(unit, player) < 75) unit.returning = false; else return; }
       if (!target || unit.attackIn > 0) return;
       unit.angle = Math.atan2(target.y - unit.y, target.x - unit.x);
+      let killed = false;
+      const strike = (enemy) => {
+        if (enemy.dead) return;
+        damageWeaponHit(game, enemy, damage, true, unit);
+        if (enemy.dead) killed = true;
+      };
       if (weapon.summon === 'sword') {
         const reach = range * stats.area;
         if (weapon.line) {
@@ -1817,7 +1854,7 @@ function updateSummons(game, dt) {
               const across = Math.abs(-(enemy.x - unit.x) * dy + (enemy.y - unit.y) * dx);
               if (along < -enemy.radius || along > length + enemy.radius || across > half + enemy.radius) continue;
               hit.add(enemy.id);
-              damageWeaponHit(game, enemy, damage, true, unit);
+              strike(enemy);
             }
             addEffect(game, { type: 'axescar', x: unit.x, y: unit.y, angle, length, half,
               life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), coil: Boolean(evolved?.coil), sound: lane ? undefined : 'slash' });
@@ -1831,7 +1868,7 @@ function updateSummons(game, dt) {
           const offset = Math.atan2(enemy.y - unit.y, enemy.x - unit.x) - unit.angle;
           const angle = Math.abs(Math.atan2(Math.sin(offset), Math.cos(offset)));
           const edge = Math.asin(Math.min(1, enemy.radius / Math.max(gap, 1)));
-          if (gap <= reach + enemy.radius && angle <= arc / 2 + edge) damageWeaponHit(game, enemy, damage, true, unit);
+          if (gap <= reach + enemy.radius && angle <= arc / 2 + edge) strike(enemy);
         }
         // 검흔은 피해 판정을 남기지 않는 잔상이다. 적 하나당 한 번만 벤다.
         addEffect(game, { type: 'swordscar', x: unit.x, y: unit.y, angle: unit.angle, radius: reach, arc,
@@ -1842,9 +1879,9 @@ function updateSummons(game, dt) {
         const cleave = (evolved?.cleave ?? weapon.cleave ?? 0) * stats.area;
         if (cleave) {
           for (const enemy of near(game, target.x, target.y, cleave)) {
-            if (!enemy.dead && distance(enemy, target) <= cleave + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
+            if (!enemy.dead && distance(enemy, target) <= cleave + enemy.radius) strike(enemy);
           }
-        } else damageWeaponHit(game, target, damage, true, unit);
+        } else strike(target);
         addEffect(game, id === 'plushbear'
           ? { type: 'paw', x: target.x, y: target.y, angle: unit.angle, radius: Math.max(cleave, 26), evolved: Boolean(evolved), life: 0.32, sound: 'slash' }
           : { type: 'slash', x: unit.x, y: unit.y, angle: unit.angle, life: 0.18, sound: 'slash' });
@@ -1862,6 +1899,7 @@ function updateSummons(game, dt) {
             pop: seed ? weaponValue(game, id, 'radius') * stats.area : 0, popColor: 'teal', popSound: seed ? 'impact' : undefined });
         }
       }
+      if (killed) summonFinisher(game, unit, damage);
       unit.attackIn = cooldown; unit.muzzleUntil = game.time + 0.12;
     });
   }
