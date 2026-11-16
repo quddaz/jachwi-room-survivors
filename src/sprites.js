@@ -465,6 +465,20 @@ function steam(fx, x, bottom, frame, height = 4) {
 }
 
 const ITEMS = {
+  splitplug: item([
+    '................',
+    '......zz........',
+    '......zz........',
+    '....WWWWWW......',
+    '...WbbbbbbW.....',
+    '...WbKbbKbW.....',
+    '...WbbbbbbW.....',
+    '...WbKbbKbW.....',
+    '...WbbbbbbW.....',
+    '...WbKbbKbW.....',
+    '...WbbbbbbW.....',
+    '....WWWWWW......',
+  ], (body, fx, frame) => { twinkle(fx, 11, 4, frame, 'E'); }),
   humidifier: item([
     '................',
     '.......ii.......',

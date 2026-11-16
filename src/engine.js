@@ -640,7 +640,7 @@ export function practiceRemove(game, kind, id) {
     if (relicCount(game, id) > 1) game.relics[id] -= 1;
     else delete game.relics[id];
     if (id === 'firecracker') delete game.relics.mlrs;
-    if (id === 'outlet') delete game.relics.adapter;
+    if (id === 'outlet') { delete game.relics.adapter; delete game.relics.splitplug; }
     if (!nuclearUnlocked(game)) {
       delete game.nuclearIn;
       game.relicAttacks = (game.relicAttacks ?? []).filter((attack) => attack.type !== 'nuclear');
@@ -3055,7 +3055,7 @@ export function choose(game, index) {
     if (relicCount(game, choice.id) > 1) game.relics[choice.id] -= 1;
     else delete game.relics[choice.id];
     if (choice.id === 'firecracker') delete game.relics.mlrs;
-    if (choice.id === 'outlet') delete game.relics.adapter;
+    if (choice.id === 'outlet') { delete game.relics.adapter; delete game.relics.splitplug; }
     if (!nuclearUnlocked(game)) {
       delete game.nuclearIn;
       game.relicAttacks=(game.relicAttacks ?? []).filter(attack=>attack.type!=='nuclear');
@@ -3418,22 +3418,30 @@ function updateDamageRelics(game, dt) {
   const outlet = relic(game, 'outlet');
   if (outlet) {
     for (const castPower of relicCastPowers(game,'outlet','outletIn',dt)) {
-      const targets=[];
-      let from={x:player.x,y:player.y};
-      const strikes=outlet.strikes+RELICS.adapter.strikes*relicCount(game,'adapter');
-      for(let hop=0;hop<strikes;hop++) {
-        const range=relicReach(game,hop===0?outlet.range:outlet.hop);
-        const target=near(game,from.x,from.y,range).filter(enemy=>!enemy.dead&&!targets.includes(enemy)&&distance(enemy,from)<range)
-          .sort((a,b)=>distance(a,from)-distance(b,from))[0];
-        if(!target)break;
-        targets.push(target);from=target;
+      const chainCount = 1 + (relic(game, 'splitplug')?.extraChains ?? 0);
+      const starts = nearestEnemies(game, chainCount, relicReach(game, outlet.range));
+      let firstTarget;
+      for (let stream = 0; stream < chainCount; stream++) {
+        const targets=[];
+        let from={x:player.x,y:player.y};
+        const strikes=outlet.strikes+RELICS.adapter.strikes*relicCount(game,'adapter');
+        for(let hop=0;hop<strikes;hop++) {
+          const range=relicReach(game,hop===0?outlet.range:outlet.hop);
+          // 첫 대상을 분산하고 각 줄 안에서만 중복을 막는다. 적이 하나여도 세 줄을 발사한다.
+          const target = hop === 0 ? starts[stream % Math.max(1, starts.length)]
+            : near(game,from.x,from.y,range).filter(enemy=>!enemy.dead&&!targets.includes(enemy)&&distance(enemy,from)<range)
+              .sort((a,b)=>distance(a,from)-distance(b,from))[0];
+          if(!target)break;
+          targets.push(target);from=target;
+        }
+        firstTarget ??= targets[0];
+        // 대상이 많아도 각 줄의 연쇄는 1.5초 안에 끝난다.
+        const hopSec=Math.min(outlet.hopSec,1.5/Math.max(1,targets.length));
+        if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',stream,x:player.x,y:player.y,targets,nextHop:0,hopSec,
+          life:targets.length*hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
       }
-      // 대상이 많아도 연쇄가 1.5초 안에 끝나도록 한 번 튀는 간격을 줄인다.
-      const hopSec=Math.min(outlet.hopSec,1.5/Math.max(1,targets.length));
-      if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',x:player.x,y:player.y,targets,nextHop:0,hopSec,
-        life:targets.length*hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
       if(relicCount(game,'adapter')>=BALL_LIGHTNING.stacks) {
-        const aim=targets[0] ?? nearestEnemies(game,1,relicReach(game,outlet.range))[0];
+        const aim=firstTarget ?? nearestEnemies(game,1,relicReach(game,outlet.range))[0];
         const angle=aim?Math.atan2(aim.y-player.y,aim.x-player.x):player.heading??0;
         queueRelicAttack(game,{type:'orb',id:'outlet',x:player.x,y:player.y,vx:Math.cos(angle)*BALL_LIGHTNING.speed,
           vy:Math.sin(angle)*BALL_LIGHTNING.speed,life:BALL_LIGHTNING.lifeSec,nextTick:0,
