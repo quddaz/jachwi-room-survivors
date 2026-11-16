@@ -863,19 +863,27 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
       const length = effect.length / WORLD_PER_PIXEL, half = Math.max(2, effect.half / WORLD_PER_PIXEL);
       const reach = length * Math.min(1, progress / 0.22), fade = 1 - progress;
       const dx = Math.cos(effect.angle), dy = Math.sin(effect.angle), nx = -dy, ny = dx;
-      const outer = effect.fire ? [255, 140, 40] : [220, 40, 40];
-      for (let lane = -Math.round(half); lane <= Math.round(half); lane++) {
-        const edge = Math.abs(lane) / half;
-        const color = edge < 0.25 ? `rgba(255,240,230,${fade})` : edge < 0.6 ? `rgba(255,70,70,${fade * 0.9})`
-          : `rgba(${outer[0]},${outer[1]},${outer[2]},${fade * 0.45})`;
-        const taper = reach * (1 - edge * 0.35);
-        line(ctx, Math.round(x + nx * lane), Math.round(y + ny * lane),
-          Math.round(x + nx * lane + dx * taper), Math.round(y + ny * lane + dy * taper), color);
+      const outer = effect.coil ? [62, 159, 106] : [220, 40, 40];
+      // 픽셀마다 선을 긋지 않고 겹친 사다리꼴 세 장으로 그린다(합체 도끼가 많아도 가볍게).
+      const bands = [[half, 0.65, `rgba(${outer[0]},${outer[1]},${outer[2]},${fade * 0.45})`],
+        [half * 0.6, 0.78, effect.coil ? `rgba(143,209,158,${fade * 0.9})` : `rgba(255,70,70,${fade * 0.9})`],
+        [half * 0.25, 0.92, effect.coil ? `rgba(255,190,90,${fade})` : `rgba(255,240,230,${fade})`]];
+      for (const [width, tipScale, color] of bands) {
+        const tip = reach * tipScale + reach * (1 - tipScale) * 0.5, tipWidth = width * 0.35;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x + nx * width, y + ny * width);
+        ctx.lineTo(x + nx * tipWidth + dx * tip, y + ny * tipWidth + dy * tip);
+        ctx.lineTo(x - nx * tipWidth + dx * tip, y - ny * tipWidth + dy * tip);
+        ctx.lineTo(x - nx * width, y - ny * width);
+        ctx.closePath();
+        ctx.fill();
       }
       glow(ctx, x + dx * reach, y + dy * reach, half + 3, outer, 0.6 * fade);
       for (let spark = 0; spark < 6; spark++) {
         const at = hash(effect.seed, spark) * reach, side = (hash(effect.seed, spark + 9) - 0.5) * half * 2.4;
-        ctx.fillStyle = spark % 2 ? `rgba(255,200,180,${fade})` : `rgba(255,60,60,${fade})`;
+        ctx.fillStyle = effect.coil ? (spark % 2 ? `rgba(255,178,31,${fade})` : `rgba(143,209,158,${fade})`)
+          : spark % 2 ? `rgba(255,200,180,${fade})` : `rgba(255,60,60,${fade})`;
         ctx.fillRect(Math.round(x + dx * at + nx * side), Math.round(y + dy * at + ny * side - progress * 4), 1, 1);
       }
     } else if (effect.type === 'swordscar') {

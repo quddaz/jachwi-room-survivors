@@ -1782,7 +1782,7 @@ function updateSummons(game, dt) {
         const reach = range * stats.area;
         if (weapon.line) {
           // 도끼병: 바라보는 쪽(합체면 네 방향)으로 일직선 베기. 적 하나당 한 번만 벤다.
-          const length = reach * weapon.lineScale;
+          const length = reach * (evolved?.lineScale ?? weapon.lineScale);
           if (distance(target, unit) > length + target.radius) return;
           const half = (evolved?.lineWidth ?? weapon.lineWidth) * stats.area;
           const lines = evolved?.lines ?? 1;
@@ -1799,7 +1799,7 @@ function updateSummons(game, dt) {
               damageWeaponHit(game, enemy, damage, true, unit);
             }
             addEffect(game, { type: 'axescar', x: unit.x, y: unit.y, angle, length, half,
-              life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), fire: lines > 1, sound: lane ? undefined : 'slash' });
+              life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), coil: Boolean(evolved?.coil), sound: lane ? undefined : 'slash' });
           }
         } else {
         if (distance(target, unit) > reach + target.radius) return;
