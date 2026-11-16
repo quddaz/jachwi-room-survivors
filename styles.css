@@ -211,6 +211,7 @@ img { display: block; max-width: 100%; }
 .choice-name { font-weight: 800; }
 .choice-name small { margin-left: 6px; color: var(--color-beak-deep); font-weight: 800; }
 .choice-new { color: var(--color-good) !important; }
+.choice-name small.choice-type { padding: 1px 6px; border: 1px solid var(--color-wood); border-radius: 6px; color: var(--color-muted); font-size: 11px; font-weight: 700; }
 .choice-evolve { padding: 1px 7px; border-radius: 999px; background: #ffb21f; color: #5a3a00 !important; }
 .choice.is-evolve { border-color: #ffb21f; background: linear-gradient(135deg, #fff7dc, #ffe9a8); box-shadow: 0 0 0 3px rgb(255 178 31 / 35%), var(--shadow-card); animation: choice-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards, evolve-glow 1.2s ease-in-out infinite alternate; }
 @keyframes evolve-glow { to { box-shadow: 0 0 0 6px rgb(255 178 31 / 15%), var(--shadow-card); } }

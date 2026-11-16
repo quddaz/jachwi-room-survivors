@@ -199,6 +199,23 @@ export function bossStatsOf(index, time) {
 }
 
 // 무기. 배열은 1~5레벨 값이다.
+// 선택 카드에 보이는 공격 유형
+export const WEAPON_TYPES = {
+  spray: '투사체', slipper: '투사체', roller: '투사체', laser: '관통', stapler: '투사체', ball: '투사체', paperplane: '유도', coin: '투사체', hourglass: '투사체',
+  dehumidifier: '지속', dryer: '지속', coil: '지속', bleach: '장판',
+  broom: '범위', fan: '범위', towel: '범위', microwave: '범위', handbell: '범위', swatter: '강타',
+  sawblade: '투사체', mopstorm: '범위',
+  zapper: '연쇄', compass: '연쇄', detergent: '설치', mousetrap: '설치', shower: '낙하', seal: '낙하',
+};
+
+export function weaponTypeOf(id) {
+  if (WEAPON_TYPES[id]) return WEAPON_TYPES[id];
+  if (WEAPONS[id]?.summon) return '소환';
+  const fused = FUSIONS[id];
+  if (fused) return fused.primary ? weaponTypeOf(fused.primary) : '소환';
+  return '';
+}
+
 export const WEAPONS = {
   papercrane: {
     label: "종이학",
