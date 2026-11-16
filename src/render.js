@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, topSpinners } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -1975,6 +1975,22 @@ export function render(ctx, game, width, height, time) {
         const to = radius + 4 + hash(ball.id + jitter, arc + 9) * 5;
         line(ctx, Math.round(x + Math.cos(angle) * from), Math.round(y + Math.sin(angle) * from),
           Math.round(x + Math.cos(angle + 0.4) * to), Math.round(y + Math.sin(angle + 0.4) * to), arc % 2 === 0 ? '#fff6b0' : '#ffffff');
+      }
+    }
+  }
+  // 안개는 바닥에만 옅게 그려 소환수와 적의 공격을 가리지 않는다.
+  if (game.relics.humidifier) {
+    const radius = RELICS.humidifier.radius * statsOf(game).area / WORLD_PER_PIXEL;
+    for (const source of summonMistSources(game)) {
+      const [x, y] = toBuffer(source);
+      if (!visible([x, y], radius + 8)) continue;
+      disc(ctx, x, y, radius, 'rgba(122,211,200,0.09)');
+      ring(ctx, x, y, radius, 'rgba(122,211,200,0.35)', 3, Math.floor(time * 4) % 4);
+      for (let n = 0; n < 8; n++) {
+        const phase = (time * .6 + n / 8) % 1;
+        const angle = n * 2.4 + source.id;
+        ctx.fillStyle = `rgba(211,243,255,${(1 - phase) * .45})`;
+        ctx.fillRect(Math.round(x + Math.cos(angle) * radius * .7), Math.round(y + Math.sin(angle) * radius * .55 - phase * 8), 2, 2);
       }
     }
   }

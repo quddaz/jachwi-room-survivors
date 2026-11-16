@@ -127,7 +127,7 @@ function relicReach(game, radius) {
 }
 
 function hasDotSource(game) {
-  return ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
+  return Boolean(relic(game, 'humidifier')) || ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
     || ['poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser'].some(id => game.fusions[id])
     || Boolean(game.relics.match || game.relics.heatpad || game.relics.freshener);
 }
@@ -3271,7 +3271,39 @@ function updateRelicAttacks(game, dt) {
 }
 
 // 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게, 멀티탭, 고무장갑, 팽이, 정수기
+// 논리 소환수 하나에 안개 하나. 용의 몸통 마디와 합체로 사라진 재료는 제외한다.
+export function summonMistSources(game) {
+  if (!relic(game, 'humidifier')) return [];
+  return [
+    ...game.summons.filter(unit => activeWeapon(game, unit.weapon)),
+    ...(activeWeapon(game, 'robot') ? game.robots : []),
+    ...(fusion(game, 'dronebase') ? game.drones ?? [] : []),
+  ];
+}
+
+function updateSummonMist(game, dt) {
+  const mist = relic(game, 'humidifier');
+  if (!mist) { game.summonMistElapsed = 0; return; }
+  game.summonMistElapsed = (game.summonMistElapsed ?? 0) + dt;
+  const ticks = Math.floor((game.summonMistElapsed + 1e-9) / mist.tickSec);
+  if (!ticks) return;
+  const elapsed = ticks * mist.tickSec;
+  game.summonMistElapsed = Math.max(0, game.summonMistElapsed - elapsed);
+  const radius = relicReach(game, mist.radius), coverage = new Map();
+  for (const unit of summonMistSources(game)) {
+    for (const enemy of near(game, unit.x, unit.y, radius)) {
+      if (enemy.dead || distance(enemy, unit) > radius + enemy.radius) continue;
+      const hit = coverage.get(enemy.id);
+      if (hit) hit.stacks = Math.min(mist.maxStacks, hit.stacks + 1);
+      else coverage.set(enemy.id, { enemy, source: unit, stacks: 1 });
+    }
+  }
+  const damage = relicDamage(game, mist.dps) * statsOf(game).summonPower * elapsed;
+  for (const { enemy, source, stacks } of coverage.values()) damageOverTime(game, enemy, damage * stacks, source, elapsed);
+}
+
 function updateDamageRelics(game, dt) {
+  updateSummonMist(game, dt);
   const { player } = game;
   const pas = relic(game, 'pas');
   if (pas) {

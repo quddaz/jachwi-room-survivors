@@ -465,6 +465,19 @@ function steam(fx, x, bottom, frame, height = 4) {
 }
 
 const ITEMS = {
+  humidifier: item([
+    '................',
+    '.......ii.......',
+    '......i.........',
+    '.......i........',
+    '......zzz.......',
+    '.....TTTTT......',
+    '....TiiiiiT.....',
+    '....TiiiiiT.....',
+    '....TiiiiiT.....',
+    '....TTTTTTT.....',
+    '.....ttttt......',
+  ], (body, fx, frame) => { steam(fx, 7, 4, frame); twinkle(fx, 11, 7, frame, 'i'); }),
   papercrane: item(["................", ".......W........", "......WW...W....", "..W..WWWW.WW....", "..WWWWWWWWWW....", "...WWWWWwWW.....", "....WWWWWW......", "......WW........", ".....WWW........", "....WW.WW.......", "...W....W......."], (body, fx, frame) => { twinkle(fx, 12, 3, frame, 'Y'); }),
   papercraneplus: item(["................", ".......W........", "......WW...W....", "..W..WWWW.WW....", "..WWWWWWWWWW....", "...WWWWWwWW.....", "....WWWWWW......", "......WW........", ".....WWW........", "....WW.WW.......", "...W....W......."], (body, fx, frame) => { twinkle(fx, 12, 3, frame, 'Y'); body.set(3, 12, 'F').set(11, 12, 'F'); }),
   stormcrane: item(["................", ".......W........", "......WW...W....", "..W..WWWW.WW....", "..WWWWWWWWWW....", "...WWWWWwWW.....", "....WWWWWW......", "......WW........", ".....WWW........", "....WW.WW.......", "...W....W......."], (body, fx, frame) => { twinkle(fx, 12, 3, frame, 'Y'); body.set(3, 12, 'F').set(11, 12, 'F'); }),
