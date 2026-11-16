@@ -3323,7 +3323,7 @@ function updateSummonMist(game, dt) {
     for (const enemy of near(game, unit.x, unit.y, radius)) {
       if (enemy.dead || distance(enemy, unit) > radius + enemy.radius) continue;
       const hit = coverage.get(enemy.id);
-      if (hit) hit.stacks = Math.min(mist.maxStacks, hit.stacks + 1);
+      if (hit) hit.stacks += 1;
       else coverage.set(enemy.id, { enemy, source: unit, stacks: 1 });
     }
   }

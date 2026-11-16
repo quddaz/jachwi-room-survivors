@@ -24,10 +24,10 @@ it('휴대용 가습기는 소환 20점부터 보물로 등장하고 전용 아�
   }
   assert.ok(ITEM_IDS.includes('humidifier'));
 });
-it('소환수가 없으면 피해가 없고 한 적에게 안개는 최대 3개만 겹친다', () => {
+it('소환수가 없으면 피해가 없고 같은 적에게 모든 소환수의 안개 피해가 합산된다', () => {
   for (const count of [0,1,2,3,4]) {
     const {g,e}=scene(count); run(g);
-    close(e.maxHp-e.hp,24*Math.min(count,3));
+    close(e.maxHp-e.hp,24*count);
   }
 });
 it('범위 밖 적은 피해를 받지 않으며 범위 증가가 적용된다', () => {
