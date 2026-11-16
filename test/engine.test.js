@@ -1919,7 +1919,7 @@ describe('연습장', () => {
     assert.ok(practiceDps(game) > 0);
   });
 
-  it('목록에서 무기와 완성형, 합체, 패시브, 보물을 바로 받고 뺄 수 있다', () => {
+  it('목록에서 무기와 완성형, 합체, 보물을 바로 받고 뺄 수 있고 패시브는 고를 수 없다', () => {
     const game = startPractice(createGame(seeded(82)));
     assert.ok(practicePick(game, 'weapon', 'broom'));
     assert.equal(game.weapons.broom, 1);
@@ -1928,7 +1928,7 @@ describe('연습장', () => {
     assert.ok(game.evolved.laser);
     assert.ok(practicePick(game, 'fusion', 'dronebase'));
     assert.ok(game.fusions.dronebase && game.evolved.toydrone);
-    assert.ok(practicePick(game, 'passive', Object.keys(PASSIVES).find((id) => !PASSIVES[id].hidden)));
+    assert.equal(practicePick(game, 'passive', Object.keys(PASSIVES).find((id) => !PASSIVES[id].hidden)), false);
     assert.ok(practicePick(game, 'relic', 'mlrs') && practicePick(game, 'relic', 'mlrs'));
     assert.equal(relicCount(game, 'mlrs'), 2);
     assert.equal(game.pendingLevels, 0);

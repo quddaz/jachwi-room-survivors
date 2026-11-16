@@ -611,10 +611,6 @@ export function practicePick(game, kind, id) {
     for (const weapon of FUSIONS[id].from) { game.weapons[weapon] = MAX_LEVEL; game.evolved[weapon] = true; }
     choice = { kind: 'fusion', id, level: MAX_LEVEL + 2, ...FUSIONS[id] };
   }
-  if (kind === 'passive' && PASSIVES[id] && !PASSIVES[id].hidden) {
-    const level = game.passives[id] ?? 0;
-    if (level < passiveMaxLevel(id)) choice = { kind: 'passive', id, level: level + 1, ...PASSIVES[id] };
-  }
   if (kind === 'relic' && RELICS[id] && (!game.relics[id] || RELICS[id].stackable)) choice = { kind: 'relic', id, level: 1, ...RELICS[id] };
   if (kind === 'idol') return practiceIdol(game);
   if (!choice) return false;
@@ -639,10 +635,6 @@ export function practiceRemove(game, kind, id) {
   } else if (kind === 'fusion') {
     if (!game.fusions[id]) return false;
     delete game.fusions[id];
-  } else if (kind === 'passive') {
-    if (!game.passives[id]) return false;
-    if (game.passives[id] > 1) game.passives[id] -= 1;
-    else delete game.passives[id];
   } else if (kind === 'relic') {
     if (!game.relics[id]) return false;
     if (relicCount(game, id) > 1) game.relics[id] -= 1;

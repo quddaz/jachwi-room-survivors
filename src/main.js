@@ -392,8 +392,6 @@ function drawPicker() {
       owned: Boolean(game.evolved[id]), level: WEAPONS[id].label, max: Boolean(game.evolved[id]) })),
     fusion: () => Object.keys(FUSIONS).map((id) => ({ id, label: FUSIONS[id].label, icon: itemIcon(id),
       owned: Boolean(game.fusions[id]), level: FUSIONS[id].from.map((weapon) => WEAPONS[weapon].label).join(' + '), max: Boolean(game.fusions[id]) })),
-    passive: () => Object.keys(PASSIVES).filter((id) => !PASSIVES[id].hidden).map((id) => ({ id, label: PASSIVES[id].label, icon: itemIcon(id),
-      owned: Boolean(game.passives[id]), level: game.passives[id] ? `Lv ${game.passives[id]}` : '', max: false })),
     relic: () => [
       ...Object.keys(RELICS).map((id) => ({ id, label: RELICS[id].label, icon: itemIcon(id),
         owned: Boolean(game.relics[id]), level: RELICS[id].stackable && game.relics[id] ? `x${relicCount(game, id)}` : RELICS[id].stackable ? '중첩' : '',
