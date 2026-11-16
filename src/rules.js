@@ -746,9 +746,9 @@ export const FUSIONS = {
   dryoven: { label: '건조 오븐', description: '강화 파동 두 번이 퍼지고, 맞은 적을 3초 동안 느리게 하며 태운다', primary: 'microwave', power: 1, from: ['microwave', 'dehumidifier'],
     waves: 2, damage: 1.2, burnSec: 3, burn: 1.5, slow: 0.5 },
   // 드론은 따로 쏘지 않고, 기지에서 뜬 드론들이 오리 주변을 돌아다니며 관통 레이저를 쏜다.
-  dronebase: { label: '레이저 드론 기지', description: '드론 넷이 오리 주변을 돌아다니며 가까운 적에게 관통 레이저를 쏜다. 빔은 줄지어 선 적을 모두 꿰뚫는다',
+  dronebase: { label: '레이저 드론 기지', description: '드론 넷이 오리 주변을 돌아다니며 관통 레이저를 45도로 한 번 긁는다. 빔이 지나간 부채꼴의 적을 모두 벤다',
     primary: null, power: 1, from: ['toydrone', 'laser'],
-    count: 4, speed: 240, patrol: 260, range: 460, beamLength: 620, beamWidth: 16, fireSec: 0.7, damage: 1.3, beamSec: 0.22 },
+    count: 4, speed: 240, patrol: 260, range: 460, beamLength: 620, beamWidth: 20, fireSec: 0.7, damage: 1.3, beamSec: 0.3, sweep: Math.PI / 4 },
   shockshower: { label: '감전 샤워', description: '물줄기가 떨어진 자리에서 전기가 주변 적 셋에게 튄다', primary: 'shower', power: 1.3, from: ['shower', 'zapper'],
     targets: 3, range: 170, damage: 0.5 },
 };

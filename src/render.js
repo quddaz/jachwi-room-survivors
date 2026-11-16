@@ -1818,10 +1818,16 @@ export function render(ctx, game, width, height, time) {
     const sx = x, sy = y - lift + 3;
     ctx.fillStyle = 'rgba(40,50,70,0.22)'; ctx.fillRect(Math.round(x - 5), Math.round(y + 3), 10, 2);
     if (drone.firing) {
-      const left = Math.max(0, (drone.beamUntil - game.time) / 0.22);
-      const reach = drone.beamLength / WORLD_PER_PIXEL, half = Math.max(1, drone.width / WORLD_PER_PIXEL / 2) * (0.5 + left * 0.5);
-      const ex = sx + Math.cos(drone.angle) * reach, ey = sy + Math.sin(drone.angle) * reach;
-      const nx = -Math.sin(drone.angle), ny = Math.cos(drone.angle);
+      const left = Math.max(0, (drone.beamUntil - game.time) / drone.beamSec);
+      const done = 1 - left, angle = drone.sweepFrom + (drone.sweepTo - drone.sweepFrom) * Math.min(1, done * 1.3);
+      const reach = drone.beamLength / WORLD_PER_PIXEL, half = Math.max(1, drone.width / WORLD_PER_PIXEL / 2);
+      const ex = sx + Math.cos(angle) * reach, ey = sy + Math.sin(angle) * reach;
+      const nx = -Math.sin(angle), ny = Math.cos(angle);
+      // 지나간 자리에 옅은 부채꼴 잔광
+      ctx.fillStyle = `rgba(255,90,90,${0.16 * left})`;
+      ctx.beginPath(); ctx.moveTo(sx, sy);
+      ctx.arc(sx, sy, reach, Math.min(drone.sweepFrom, angle), Math.max(drone.sweepFrom, angle));
+      ctx.closePath(); ctx.fill();
       ctx.save();
       ctx.lineCap = 'round';
       [[half * 2.4, `rgba(255,70,70,${0.18 * left})`], [half * 1.4, `rgba(255,90,90,${0.55 * left})`], [Math.max(1, half * 0.6), `rgba(255,245,245,${0.95 * left})`]].forEach(([w, color]) => {
@@ -1831,10 +1837,10 @@ export function render(ctx, game, width, height, time) {
       ctx.restore();
       // 빔을 따라 튀는 불티
       for (let spark = 0; spark < 8; spark += 1) {
-        const at = hash(drone.id + Math.floor(drone.beamUntil * 10), spark) * reach;
-        const off = (hash(drone.id, spark + 9) - 0.5) * half * 3;
+        const at = hash(drone.id + Math.floor(time * 30), spark) * reach;
+        const off = (hash(drone.id + Math.floor(time * 30), spark + 9) - 0.5) * half * 3;
         ctx.fillStyle = spark % 2 ? `rgba(255,210,210,${left})` : `rgba(255,110,110,${left})`;
-        ctx.fillRect(Math.round(sx + Math.cos(drone.angle) * at + nx * off), Math.round(sy + Math.sin(drone.angle) * at + ny * off), 1, 1);
+        ctx.fillRect(Math.round(sx + Math.cos(angle) * at + nx * off), Math.round(sy + Math.sin(angle) * at + ny * off), 2, 2);
       }
       glow(ctx, sx, sy, 6, [255, 90, 90], 0.6 * left);
     }

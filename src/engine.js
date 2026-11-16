@@ -1367,15 +1367,23 @@ function updateDroneBase(game, dt) {
     }
     if (!target) { drone.fireIn = 0.1; return; }
     drone.fireIn = base.fireSec;
-    drone.angle = Math.atan2(target.y - drone.y, target.x - drone.x);
+    // 겨눈 방향을 가운데로 두고 45도를 한 번 긁는다. 긁는 방향은 번갈아 바뀐다.
+    const aim = Math.atan2(target.y - drone.y, target.x - drone.x);
+    drone.spin = drone.spin === 1 ? -1 : 1;
+    drone.sweepFrom = aim - drone.spin * base.sweep / 2;
+    drone.sweepTo = aim + drone.spin * base.sweep / 2;
+    drone.angle = drone.sweepTo;
     drone.beamUntil = game.time + base.beamSec;
+    drone.beamSec = base.beamSec;
     drone.beamLength = length;
-    const dx = Math.cos(drone.angle), dy = Math.sin(drone.angle);
-    for (const enemy of near(game, drone.x + dx * length / 2, drone.y + dy * length / 2, length / 2 + 40)) {
+    for (const enemy of near(game, drone.x, drone.y, length + 40)) {
       if (enemy.dead) continue;
-      const along = (enemy.x - drone.x) * dx + (enemy.y - drone.y) * dy;
-      const across = Math.abs((enemy.x - drone.x) * dy - (enemy.y - drone.y) * dx);
-      if (along > -enemy.radius && along < length && across < width / 2 + enemy.radius) damageWeaponHit(game, enemy, damage, false, drone);
+      const gap = distance(enemy, drone);
+      if (gap > length + enemy.radius) continue;
+      let off = Math.abs(Math.atan2(enemy.y - drone.y, enemy.x - drone.x) - aim) % (Math.PI * 2);
+      if (off > Math.PI) off = Math.PI * 2 - off;
+      const slack = Math.atan2(width / 2 + enemy.radius, Math.max(gap, 1));
+      if (off <= base.sweep / 2 + slack) damageWeaponHit(game, enemy, damage, false, drone);
     }
   });
 }
