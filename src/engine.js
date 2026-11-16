@@ -590,10 +590,74 @@ export function practiceIdol(game) {
   return true;
 }
 
-export function practiceLevelUp(game, relicToo = false) {
-  if (!game.practice || game.over) return false;
-  if (relicToo) game.pendingRelics += 1;
+// 연습장 아이템 고르기: 목록에서 고른 것을 실전 선택과 같은 길로 바로 적용한다.
+// 칸이 가득 차면 실전처럼 무엇을 내려놓을지 고르는 창이 뜬다.
+export function practicePick(game, kind, id) {
+  if (!game.practice || game.over || game.choices) return false;
+  let choice = null;
+  if (kind === 'weapon' && WEAPONS[id] && !game.evolved[id]) {
+    const level = game.weapons[id] ?? 0;
+    if (level < MAX_LEVEL) choice = { kind: 'weapon', id, level: level + 1, ...WEAPONS[id] };
+    else if (EVOLUTIONS[id]) choice = { kind: 'evolve', id, level: MAX_LEVEL + 1, ...EVOLUTIONS[id] };
+  }
+  if (kind === 'evolve' && EVOLUTIONS[id] && !game.evolved[id]) {
+    if (!game.weapons[id] && weaponsFull(game)) return false;
+    game.weapons[id] = MAX_LEVEL;
+    choice = { kind: 'evolve', id, level: MAX_LEVEL + 1, ...EVOLUTIONS[id] };
+  }
+  if (kind === 'fusion' && FUSIONS[id] && !game.fusions[id]) {
+    const missing = FUSIONS[id].from.filter((weapon) => !game.weapons[weapon]).length;
+    if (Object.keys(game.weapons).length + missing > maxWeaponsOf(game)) return false;
+    for (const weapon of FUSIONS[id].from) { game.weapons[weapon] = MAX_LEVEL; game.evolved[weapon] = true; }
+    choice = { kind: 'fusion', id, level: MAX_LEVEL + 2, ...FUSIONS[id] };
+  }
+  if (kind === 'passive' && PASSIVES[id] && !PASSIVES[id].hidden) {
+    const level = game.passives[id] ?? 0;
+    if (level < passiveMaxLevel(id)) choice = { kind: 'passive', id, level: level + 1, ...PASSIVES[id] };
+  }
+  if (kind === 'relic' && RELICS[id] && (!game.relics[id] || RELICS[id].stackable)) choice = { kind: 'relic', id, level: 1, ...RELICS[id] };
+  if (kind === 'idol') return practiceIdol(game);
+  if (!choice) return false;
+  if (kind === 'relic') game.pendingRelics += 1;
   else game.pendingLevels += 1;
+  game.choices = [choice];
+  game.rerollLeft = 0;
+  choose(game, 0);
+  return true;
+}
+
+export function practiceRemove(game, kind, id) {
+  if (!game.practice || game.over || game.choices) return false;
+  // 한 단계씩 내린다: 완성형은 Lv 5로, Lv 1은 빼기. 완성형이 풀리면 그 무기로 만든 합체도 풀린다.
+  const unfuse = () => { for (const [fusionId, recipe] of Object.entries(FUSIONS)) if (game.fusions[fusionId] && recipe.from.includes(id)) delete game.fusions[fusionId]; };
+  if (kind === 'weapon' || kind === 'evolve') {
+    if (!game.weapons[id]) return false;
+    if (game.evolved[id]) { unfuse(); delete game.evolved[id]; }
+    else if (kind === 'evolve') return false;
+    else if (game.weapons[id] > 1) game.weapons[id] -= 1;
+    else dropWeapon(game, id);
+  } else if (kind === 'fusion') {
+    if (!game.fusions[id]) return false;
+    delete game.fusions[id];
+  } else if (kind === 'passive') {
+    if (!game.passives[id]) return false;
+    if (game.passives[id] > 1) game.passives[id] -= 1;
+    else delete game.passives[id];
+  } else if (kind === 'relic') {
+    if (!game.relics[id]) return false;
+    if (relicCount(game, id) > 1) game.relics[id] -= 1;
+    else delete game.relics[id];
+    if (id === 'firecracker') delete game.relics.mlrs;
+    if (id === 'outlet') delete game.relics.adapter;
+    if (!nuclearUnlocked(game)) {
+      delete game.nuclearIn;
+      game.relicAttacks = (game.relicAttacks ?? []).filter((attack) => attack.type !== 'nuclear');
+    }
+  } else if (kind === 'idol') {
+    if (!game.passives.idol) return false;
+    delete game.passives.idol;
+  } else return false;
+  game.player.hp = Math.min(game.player.hp, statsOf(game).maxHp);
   return true;
 }
 

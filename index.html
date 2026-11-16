@@ -83,7 +83,24 @@
           </div>
         </header>
         <div class="boss-bars"></div>
-        <div class="practice-hud" hidden><b class="practice-dps">0</b><span>초당 피해 (최근 5초)</span><small><kbd>L</kbd> 레벨업 <kbd>T</kbd> 보물 <kbd>I</kbd> 우상 <kbd>Esc</kbd> 메뉴</small></div>
+        <div class="practice-hud" hidden><b class="practice-dps">0</b><span>초당 피해 (최근 5초)</span><small><kbd>B</kbd> 아이템 고르기 <kbd>Esc</kbd> 메뉴</small><button class="practice-open" type="button" data-action="practice-open">아이템 고르기</button></div>
+        <div class="practice-picker" hidden>
+          <div class="practice-picker-panel">
+            <header class="practice-picker-head">
+              <b>아이템 고르기</b>
+              <button class="practice-close" type="button" data-action="practice-close">닫기 <small>B</small></button>
+            </header>
+            <nav class="practice-tabs">
+              <button type="button" data-practice-tab="weapon" class="is-active">무기</button>
+              <button type="button" data-practice-tab="evolve">완성형</button>
+              <button type="button" data-practice-tab="fusion">합체</button>
+              <button type="button" data-practice-tab="passive">패시브</button>
+              <button type="button" data-practice-tab="relic">보물</button>
+            </nav>
+            <p class="practice-note">누르면 한 단계 올리고, −는 한 단계 내려요</p>
+            <div class="practice-items"></div>
+          </div>
+        </div>
         <div class="loadout"></div>
         <aside class="stats" aria-label="내 능력치">
           <button class="stats-toggle" type="button" data-action="stats">능력치</button>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, applyCharacter, laserDrones, practiceDps, practiceIdol, practiceLevelUp, startPractice, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, applyCharacter, laserDrones, practiceDps, practiceIdol, practicePick, practiceRemove, startPractice, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BALL_LIGHTNING, BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1909,12 +1909,29 @@ describe('연습장', () => {
     assert.ok(practiceDps(game) > 0);
   });
 
-  it('원할 때 레벨업과 보물 선택을 열 수 있다', () => {
+  it('목록에서 무기와 완성형, 합체, 패시브, 보물을 바로 받고 뺄 수 있다', () => {
     const game = startPractice(createGame(seeded(82)));
-    assert.ok(practiceLevelUp(game));
-    update(game, 1 / 60);
-    assert.ok(game.choices);
-    assert.equal(practiceLevelUp(createGame(seeded(83))), false);
+    assert.ok(practicePick(game, 'weapon', 'broom'));
+    assert.equal(game.weapons.broom, 1);
+    assert.equal(game.choices, null);
+    assert.ok(practicePick(game, 'evolve', 'laser'));
+    assert.ok(game.evolved.laser);
+    assert.ok(practicePick(game, 'fusion', 'dronebase'));
+    assert.ok(game.fusions.dronebase && game.evolved.toydrone);
+    assert.ok(practicePick(game, 'passive', Object.keys(PASSIVES).find((id) => !PASSIVES[id].hidden)));
+    assert.ok(practicePick(game, 'relic', 'mlrs') && practicePick(game, 'relic', 'mlrs'));
+    assert.equal(relicCount(game, 'mlrs'), 2);
+    assert.equal(game.pendingLevels, 0);
+    assert.equal(game.pendingRelics, 0);
+    assert.ok(practiceRemove(game, 'weapon', 'laser'));
+    assert.equal(game.fusions.dronebase, undefined);
+    assert.equal(game.evolved.laser, undefined);
+    assert.equal(game.weapons.laser, 5);
+    assert.ok(practiceRemove(game, 'weapon', 'laser'));
+    assert.equal(game.weapons.laser, 4);
+    assert.ok(practiceRemove(game, 'weapon', 'broom'));
+    assert.equal(game.weapons.broom, undefined);
+    assert.equal(practicePick(createGame(seeded(83)), 'weapon', 'broom'), false);
   });
 
   it('보물 20점이면 우상을 바로 깨울 수 있다', () => {

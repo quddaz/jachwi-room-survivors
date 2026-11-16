@@ -1,5 +1,5 @@
 import { createMusic } from './audio.js';
-import { practiceDps, practiceIdol, practiceLevelUp, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -27,6 +27,9 @@ const joystick = document.querySelector('.joystick');
 const knob = document.querySelector('.joystick-knob');
 const levelupOverlay = document.querySelector('.levelup');
 const practiceHud = document.querySelector('.practice-hud');
+const practicePicker = document.querySelector('.practice-picker');
+let pickerOpen = false;
+let practiceTab = 'weapon';
 const pausedOverlay = document.querySelector('.paused');
 const banner = document.querySelector('.banner');
 
@@ -273,7 +276,7 @@ function drawStats() {
 function frame(now) {
   const elapsed = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (!paused) {
+  if (!paused && !pickerOpen) {
     const hp = game.player.hp;
     const kills = game.kills;
     const xp = game.xp;
@@ -328,8 +331,9 @@ function start(practice = false) {
   show('game');
   resize();
   practiceHud.hidden = !practice;
+  closePicker();
   if (practice) startPractice(game);
-  startWithRelic(game);
+  else startWithRelic(game);
   drawLoadout();
   // 주소 끝에 #debug를 붙이면 콘솔에서 게임 상태를 볼 수 있다.
   if (window.location.hash === '#debug') window.__game = game;
@@ -363,6 +367,49 @@ function drawResultItems() {
     </ul></section>`).join('');
 }
 
+function openPicker() {
+  pickerOpen = true;
+  practicePicker.hidden = false;
+  drawPicker();
+}
+
+function closePicker() {
+  pickerOpen = false;
+  practicePicker.hidden = true;
+  lastFrame = performance.now();
+}
+
+// 연습장 아이템 목록. 탭마다 전부 보여 주고, 가진 것은 단계와 빼기 버튼을 단다.
+function drawPicker() {
+  if (!game?.practice) return;
+  practicePicker.querySelectorAll('[data-practice-tab]').forEach((button) => button.classList.toggle('is-active', button.dataset.practiceTab === practiceTab));
+  practicePicker.querySelector('.practice-note').textContent = '누르면 한 단계 올리고, −는 한 단계 내려요';
+  const rows = {
+    weapon: () => Object.keys(WEAPONS).map((id) => ({ id, label: WEAPONS[id].label, icon: itemIcon(id, game.evolved[id]),
+      owned: Boolean(game.weapons[id]), level: game.evolved[id] ? '완성형' : game.weapons[id] ? `Lv ${game.weapons[id]}` : weaponTypeOf(id),
+      max: game.evolved[id] || (game.weapons[id] >= 5 && !EVOLUTIONS[id]) })),
+    evolve: () => Object.keys(EVOLUTIONS).map((id) => ({ id, label: EVOLUTIONS[id].label, icon: itemIcon(id, true),
+      owned: Boolean(game.evolved[id]), level: WEAPONS[id].label, max: Boolean(game.evolved[id]) })),
+    fusion: () => Object.keys(FUSIONS).map((id) => ({ id, label: FUSIONS[id].label, icon: itemIcon(id),
+      owned: Boolean(game.fusions[id]), level: FUSIONS[id].from.map((weapon) => WEAPONS[weapon].label).join(' + '), max: Boolean(game.fusions[id]) })),
+    passive: () => Object.keys(PASSIVES).filter((id) => !PASSIVES[id].hidden).map((id) => ({ id, label: PASSIVES[id].label, icon: itemIcon(id),
+      owned: Boolean(game.passives[id]), level: game.passives[id] ? `Lv ${game.passives[id]}` : '', max: false })),
+    relic: () => [
+      ...Object.keys(RELICS).map((id) => ({ id, label: RELICS[id].label, icon: itemIcon(id),
+        owned: Boolean(game.relics[id]), level: RELICS[id].stackable && game.relics[id] ? `x${relicCount(game, id)}` : RELICS[id].stackable ? '중첩' : '',
+        max: Boolean(game.relics[id]) && !RELICS[id].stackable })),
+      { id: 'idol', kind: 'idol', label: PASSIVES.idol.label, icon: itemIcon('idol'), owned: Boolean(game.passives.idol), level: '보물 20점', max: Boolean(game.passives.idol) },
+    ],
+  }[practiceTab]();
+  practicePicker.querySelector('.practice-items').innerHTML = rows.map((row) => {
+    const kind = row.kind ?? practiceTab;
+    return `<div class="practice-item${row.owned ? ' is-owned' : ''}${row.max ? ' is-max' : ''}" role="button" tabindex="0" data-practice-pick="${kind}:${row.id}">
+      ${row.icon}<span>${escapeHtml(row.label)}</span><em>${escapeHtml(row.level)}</em>
+      ${row.owned ? `<button class="practice-remove" type="button" aria-label="${escapeHtml(row.label)} 한 단계 내리기" data-practice-remove="${kind}:${row.id}">−</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
 let practiceShownAt = 0;
 function drawPractice(now) {
   if (now - practiceShownAt < 250) return;
@@ -375,6 +422,7 @@ async function finish() {
     cancelAnimationFrame(frameId);
     music.setPlaying(false);
     practiceHud.hidden = true;
+    closePicker();
     show('start');
     return;
   }
@@ -612,7 +660,7 @@ async function openRanking(season = SEASON) {
 
 // 화면 아무 곳이나 누른 자리가 조이스틱 중심이 된다.
 gameScreen.addEventListener('pointerdown', (event) => {
-  if (!game || paused || game.choices || event.target.closest('button')) return;
+  if (!game || paused || pickerOpen || game.choices || event.target.closest('button')) return;
   const box = gameScreen.getBoundingClientRect();
   touch = { id: event.pointerId, x: event.clientX, y: event.clientY };
   joystick.hidden = false;
@@ -654,11 +702,11 @@ window.addEventListener('keydown', (event) => {
     keys.add(move);
     event.preventDefault();
   }
+  if (event.code === 'Escape' && pickerOpen) { closePicker(); return; }
   if (event.code === 'Escape' && playing) setPaused(!paused);
   if (game?.choices && event.repeat) return;
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
-  if (playing && game.practice && !game.choices && (event.code === 'KeyL' || event.code === 'KeyT')) practiceLevelUp(game, event.code === 'KeyT');
-  if (playing && game.practice && !game.choices && event.code === 'KeyI') practiceIdol(game);
+  if (playing && game.practice && !game.choices && !paused && event.code === 'KeyB') { if (pickerOpen) closePicker(); else openPicker(); }
   if (event.code === 'KeyQ' && game?.choices && declineChoice(game)) drawChoices();
   const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
@@ -762,6 +810,24 @@ app.addEventListener('click', (event) => {
   if (action === 'home') show('start');
   if (action === 'retry') start(Boolean(game?.practice));
   if (action === 'practice') start(true);
+  if (action === 'practice-open' && game?.practice && !game.choices) openPicker();
+  if (action === 'practice-close') closePicker();
+  const tab = event.target.closest('[data-practice-tab]')?.dataset.practiceTab;
+  if (tab) { practiceTab = tab; drawPicker(); }
+  const removeButton = event.target.closest('[data-practice-remove]');
+  const pickButton = event.target.closest('[data-practice-pick]');
+  if (removeButton && game?.practice) {
+    const [kind, id] = removeButton.dataset.practiceRemove.split(':');
+    if (practiceRemove(game, kind, id)) { music.playEffect('select'); drawLoadout(); drawPicker(); }
+  } else if (pickButton && game?.practice) {
+    const [kind, id] = pickButton.dataset.practicePick.split(':');
+    if (practicePick(game, kind, id)) {
+      music.playEffect('select');
+      drawLoadout();
+      // 칸이 가득 차 교체 창이 뜨면 고르기 창을 닫고 교체 창을 보여 준다.
+      if (game.choices) closePicker(); else drawPicker();
+    } else practicePicker.querySelector('.practice-note').textContent = '더 받을 수 없어요. 칸이 가득 찼거나 이미 최고 단계예요';
+  }
   if (action === 'pause') setPaused(true);
   if (action === 'reroll') rerollChoices();
   if (action === 'decline-choice' && game && declineChoice(game)) drawChoices();
