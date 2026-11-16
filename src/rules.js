@@ -671,7 +671,7 @@ export const FUSIONS = {
   firelegion: {
     label: "불꽃 도끼 군단",
     icon: "firelegion",
-    description: "도끼병 넷이 모기향 불씨를 두른 거대한 도끼로 넓고 길게 내리친다",
+    description: "도끼병 넷이 거대한 불꽃 도끼로 넓고 길게 내리친다",
     primary: "toyaxe",
     power: 3.2,
     summonBoost: {"count": 4, "range": 1.8, "lineWidth": 64, "lineScale": 2.2, "coil": true},

@@ -859,32 +859,74 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
       ring(ctx,tipX,tipY,8+progress*12,'#fff4c2',3,Math.floor(progress*16));
       ctx.restore();
     } else if (effect.type === 'axescar') {
-      // 도끼병의 일직선 베기: 붉은 칼날 자국이 앞으로 뻗어 나가고 흩어진다.
-      const length = effect.length / WORLD_PER_PIXEL, half = Math.max(2, effect.half / WORLD_PER_PIXEL);
-      const reach = length * Math.min(1, progress / 0.22), fade = 1 - progress;
+      // 도끼 베기: 가운데가 두껍고 양끝이 날카로운 초승달 칼자국이 뻗어 나가고,
+      // 바닥에는 갈라진 금이 남고 파편이 옆으로 튄다. 진화와 합체는 더 크고, 합체는 붉은 불씨가 피어오른다.
+      const length = effect.length / WORLD_PER_PIXEL, half = Math.max(2, effect.half / WORLD_PER_PIXEL * (effect.coil ? 0.75 : effect.evolved ? 1.1 : 0.9));
+      const grow = Math.min(1, progress / 0.16), fade = 1 - progress;
+      const thin = progress < 0.3 ? 1 : 1 - (progress - 0.3) / 0.7;
       const dx = Math.cos(effect.angle), dy = Math.sin(effect.angle), nx = -dy, ny = dx;
-      const outer = effect.coil ? [62, 159, 106] : [220, 40, 40];
-      // 픽셀마다 선을 긋지 않고 겹친 사다리꼴 세 장으로 그린다(합체 도끼가 많아도 가볍게).
-      const bands = [[half, 0.65, `rgba(${outer[0]},${outer[1]},${outer[2]},${fade * 0.45})`],
-        [half * 0.6, 0.78, effect.coil ? `rgba(143,209,158,${fade * 0.9})` : `rgba(255,70,70,${fade * 0.9})`],
-        [half * 0.25, 0.92, effect.coil ? `rgba(255,190,90,${fade})` : `rgba(255,240,230,${fade})`]];
-      for (const [width, tipScale, color] of bands) {
-        const tip = reach * tipScale + reach * (1 - tipScale) * 0.5, tipWidth = width * 0.35;
+      const bend = (hash(effect.seed, 1) > 0.5 ? 1 : -1) * Math.min(half * 0.7, length * 0.07);
+      const palette = { rim: [90, 10, 15], body: [200, 30, 35], edge: [255, 110, 100], core: [255, 244, 236], crack: [70, 30, 25] };
+      const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${Math.max(0, a)})`;
+      const point = (t, side) => {
+        const along = length * t * grow;
+        const curve = bend * Math.sin(Math.PI * t);
+        return [x + dx * along + nx * (curve + side), y + dy * along + ny * (curve + side)];
+      };
+      const blade = (scale, color) => {
+        const steps = 14;
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(x + nx * width, y + ny * width);
-        ctx.lineTo(x + nx * tipWidth + dx * tip, y + ny * tipWidth + dy * tip);
-        ctx.lineTo(x - nx * tipWidth + dx * tip, y - ny * tipWidth + dy * tip);
-        ctx.lineTo(x - nx * width, y - ny * width);
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps, width = half * scale * thin * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.15)), 0.55);
+          const [px, py] = point(t, width);
+          if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+        }
+        for (let i = steps; i >= 0; i--) {
+          const t = i / steps, width = half * scale * thin * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.15)), 0.55);
+          const [px, py] = point(t, -width * 0.55);
+          ctx.lineTo(px, py);
+        }
         ctx.closePath();
         ctx.fill();
+      };
+      // 바닥 금: 칼자국보다 오래 남는 지그재그 균열과 잔가지
+      const crackFade = Math.min(1, fade * 1.6) * 0.75;
+      ctx.fillStyle = rgba(palette.crack, crackFade);
+      let [cx0, cy0] = point(0.05, 0);
+      for (let i = 1; i <= 10; i++) {
+        const t = 0.05 + i * 0.09, jag = (hash(effect.seed, i + 30) - 0.5) * half * 0.5;
+        const [cx1, cy1] = point(t, jag);
+        line(ctx, Math.round(cx0), Math.round(cy0), Math.round(cx1), Math.round(cy1), rgba(palette.crack, crackFade));
+        if (i % 3 === 0) {
+          const side = hash(effect.seed, i + 60) > 0.5 ? 1 : -1, twig = half * (0.5 + hash(effect.seed, i + 70) * 0.5);
+          line(ctx, Math.round(cx1), Math.round(cy1), Math.round(cx1 + (nx * side + dx * 0.6) * twig), Math.round(cy1 + (ny * side + dy * 0.6) * twig), rgba(palette.crack, crackFade * 0.8));
+        }
+        cx0 = cx1; cy0 = cy1;
       }
-      glow(ctx, x + dx * reach, y + dy * reach, half + 3, outer, 0.6 * fade);
-      for (let spark = 0; spark < 6; spark++) {
-        const at = hash(effect.seed, spark) * reach, side = (hash(effect.seed, spark + 9) - 0.5) * half * 2.4;
-        ctx.fillStyle = effect.coil ? (spark % 2 ? `rgba(255,178,31,${fade})` : `rgba(143,209,158,${fade})`)
-          : spark % 2 ? `rgba(255,200,180,${fade})` : `rgba(255,60,60,${fade})`;
-        ctx.fillRect(Math.round(x + dx * at + nx * side), Math.round(y + dy * at + ny * side - progress * 4), 1, 1);
+      if (thin > 0) {
+        blade(1.25, rgba(palette.rim, 0.55 * fade));
+        blade(1, rgba(palette.body, 0.85 * fade));
+        blade(0.6, rgba(palette.edge, 0.9 * fade));
+        blade(0.22, rgba(palette.core, fade));
+      }
+      // 옆으로 튀는 파편
+      for (let chip = 0; chip < 10; chip++) {
+        const t = 0.15 + hash(effect.seed, chip + 100) * 0.8, side = hash(effect.seed, chip + 120) > 0.5 ? 1 : -1;
+        const fly = half * (0.8 + hash(effect.seed, chip + 140) * 1.6) * Math.min(1, progress * 3);
+        const [px, py] = point(t, side * fly);
+        ctx.fillStyle = chip % 3 === 0 ? rgba(palette.core, fade) : rgba(palette.edge, fade);
+        ctx.fillRect(Math.round(px), Math.round(py - progress * progress * 6), chip % 2 ? 2 : 1, chip % 2 ? 2 : 1);
+      }
+      if (effect.coil) {
+        // 합체: 자국을 따라 붉은 불씨가 위로 피어오른다.
+        for (let ember = 0; ember < 14; ember++) {
+          const t = hash(effect.seed, ember + 200), rise = progress * (10 + hash(effect.seed, ember + 220) * 14);
+          const [px, py] = point(t, (hash(effect.seed, ember + 240) - 0.5) * half);
+          const sway = Math.sin(progress * 9 + ember) * 2;
+          ctx.fillStyle = ember % 3 ? rgba([255, 90, 60], fade) : rgba([255, 220, 170], fade);
+          ctx.fillRect(Math.round(px + sway), Math.round(py - rise), 1, 1);
+        }
       }
     } else if (effect.type === 'swordscar') {
       const radius = effect.radius / WORLD_PER_PIXEL;
