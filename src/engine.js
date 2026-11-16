@@ -386,8 +386,8 @@ export function describeChoice(game, choice) {
       const dragonLength = weapon.summon === 'dragon' && key === 'count';
       const text = dragonLength ? { ...WEAPON_TEXT[key], name: '몸통 마디' } : WEAPON_TEXT[key];
       const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
-      const scale = text.might ? might * weaponDamageScaleOf(game) * summonPower : 1;
-      const flat = key === 'damage' ? malletDamageOf(game) * summonPower + onHitDamageOf(game) : 0;
+      const scale = text.might ? might * weaponDamageScaleOf(game) * summonPower * (weapon.treasureScaling ? relicPowerOf(game) : 1) : 1;
+      const flat = key === 'damage' ? malletDamageOf(game) * summonPower * (weapon.treasureScaling ? relicPowerOf(game) : 1) + onHitDamageOf(game) : 0;
       const countBonus = key === 'count' && weapon.summon ? statsOf(game).summonCount : 0;
       const value = (level) => dragonLength ? weapon.segments + (values[level - 1] + countBonus - 1) * weapon.segmentsPerCount
         : values[level - 1] * scale + flat + countBonus;
@@ -1262,8 +1262,9 @@ function weaponValue(game, id, key) {
   const flat = key === 'damage' ? malletDamageOf(game) : 0;
   const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
   const summonPower = WEAPONS[id].summon && (key === 'damage' || key === 'dps') ? statsOf(game).summonPower : 1;
+  const treasurePower = WEAPONS[id].treasureScaling && key === 'damage' ? relicPowerOf(game) : 1;
   return (WEAPONS[id][key][game.weapons[id] - 1] * might
-    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower * summonPower;
+    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower * summonPower * treasurePower;
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -1566,7 +1567,9 @@ function updateSummons(game, dt) {
   const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot' && activeWeapon(game, id));
   game.summons = game.summons.filter(unit => ids.includes(unit.weapon));
   for (const id of ids) {
-    const weapon = WEAPONS[id], evolved = evolution(game, id);
+    const weapon = WEAPONS[id];
+    const owner = fusionForWeapon(game, id);
+    const evolved = evolution(game, id) ? { ...evolution(game, id), ...(owner ? FUSIONS[owner].summonBoost : {}) } : null;
     const lengthCount = (evolved?.count ?? weaponValue(game, id, 'count')) + stats.summonCount;
     const count = weapon.summon === 'dragon' ? 1 : lengthCount;
     const units = game.summons.filter(unit => unit.weapon === id).slice(0, count);
@@ -1591,6 +1594,7 @@ function updateSummons(game, dt) {
     units.forEach((unit, index) => {
       if (distance(unit, player) > 850) { unit.x = player.x; unit.y = player.y; unit.charging = false; unit.returning = false; }
       unit.evolved = Boolean(evolved);
+      unit.spriteId = owner ? FUSIONS[owner].icon : undefined;
       unit.attackIn = Math.max(0, unit.attackIn - dt);
       const melee = weapon.summon === 'melee' || weapon.summon === 'sword';
       const seek = melee ? weapon.seek * stats.summonRange : range;
@@ -1651,7 +1655,7 @@ function updateSummons(game, dt) {
           life: evolved?.scarSec ?? weapon.scarSec, evolved: Boolean(evolved), sound: 'slash' });
       } else if (weapon.summon === 'melee') {
         if (distance(target, unit) > range + target.radius) return;
-        const cleave = evolved?.cleave ? evolved.cleave * stats.area : 0;
+        const cleave = (evolved?.cleave ?? weapon.cleave ?? 0) * stats.area;
         if (cleave) {
           for (const enemy of near(game, target.x, target.y, cleave)) {
             if (!enemy.dead && distance(enemy, target) <= cleave + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
@@ -1668,7 +1672,7 @@ function updateSummons(game, dt) {
           game.shots.push({ weapon: id, kind: seed ? 'seed' : 'summon', x: unit.x, y: unit.y,
             vx: Math.cos(angle) * weapon.bulletSpeed, vy: Math.sin(angle) * weapon.bulletSpeed,
             damage, life: (range + 100) / weapon.bulletSpeed, radius: (seed ? 6 : 4) * stats.projectile,
-            scale: stats.projectile, hit: new Set(), pierce: evolved?.pierce ?? 0, slows: true,
+            scale: stats.projectile, hit: new Set(), pierce: evolved?.pierce ?? weapon.pierce ?? 0, slows: true,
             pop: seed ? weaponValue(game, id, 'radius') * stats.area : 0, popColor: 'teal', popSound: seed ? 'impact' : undefined });
         }
       }
@@ -1677,8 +1681,61 @@ function updateSummons(game, dt) {
   }
 }
 
+// 보물 계열 무기는 보물 피해 배율을 함께 받지만 보물의 추가 발동은 발생시키지 않는다.
+function fireTreasureWeapons(game, dt) {
+  const stats = statsOf(game), origin = game.player;
+  for (const [id, weapon] of Object.entries(WEAPONS)) {
+    if (!weapon.pattern || !activeWeapon(game, id) || !ready(game, id, dt)) continue;
+    const evolved = evolution(game, id), owner = fusionForWeapon(game, id);
+    const boost = owner ? FUSIONS[owner].patternBoost : 1;
+    const reach = weaponValue(game, id, 'range') * stats.area * boost;
+    const radius = weapon.radius ? weaponValue(game, id, 'radius') * stats.area * boost : reach;
+    const count = Math.min(12, (evolved?.count ?? (weapon.count ? weaponValue(game, id, 'count') : 1)) + (owner ? 3 : 0));
+    const damage = weaponValue(game, id, 'damage');
+    const targets = nearestEnemies(game, count, reach);
+    if (!targets.length) continue;
+    const angle = Math.atan2(targets[0].y - origin.y, targets[0].x - origin.x);
+    const hit = (enemy, from = origin) => damageWeaponHit(game, enemy, damage, true, from);
+    const visual = (point, size, extra = {}) => addEffect(game, { weapon: id, type: 'fortune', pattern: weapon.pattern, x: point.x, y: point.y, radius: size, life: .4, sound: 'impact', ...extra });
+    if (weapon.pattern === 'chain') {
+      const points = [{ x: origin.x, y: origin.y }];
+      let previous = origin;
+      const remaining = new Set(targets);
+      while (remaining.size) {
+        const target = [...remaining].sort((a,b) => distance(a,previous) - distance(b,previous))[0];
+        remaining.delete(target); hit(target, previous); points.push({ x: target.x, y: target.y }); previous = target;
+      }
+      visual(origin, radius, { route: points, life: .3 });
+    } else if (weapon.pattern === 'stamp') {
+      for (const target of targets.slice(0, evolved ? (owner ? 3 : 2) : 1)) {
+        for (const enemy of near(game, target.x, target.y, radius)) {
+          if (!enemy.dead && distance(enemy, target) <= radius + enemy.radius) hit(enemy, target);
+        }
+        visual(target, radius);
+      }
+    } else if (weapon.pattern === 'pulse') {
+      for (const enemy of near(game, origin.x, origin.y, reach)) {
+        if (!enemy.dead && distance(enemy, origin) <= reach + enemy.radius) hit(enemy);
+      }
+      visual(origin, reach);
+    } else {
+      const cross = weapon.pattern === 'cross';
+      const direction = cross ? game.time * .65 : angle;
+      const arc = cross ? Math.PI * 2 : 1.6;
+      for (let n = 0; n < (cross ? 4 : count); n++) {
+        const heading = direction + (cross ? n * Math.PI / 2 : (n / (count - 1) - .5) * arc);
+        const end = { x: origin.x + Math.cos(heading) * reach, y: origin.y + Math.sin(heading) * reach };
+        // 연출에 쓰는 선과 같은 선분으로 판정한다. 한 발은 적 하나를 한 번만 때린다.
+        for (const { enemy } of sweepHits(game, origin, end, cross ? radius * .45 : 12 * stats.projectile)) hit(enemy);
+        visual(origin, cross ? radius * .45 : 12 * stats.projectile, { end, life: cross ? .35 : .22 });
+      }
+    }
+  }
+}
+
 function fireWeapons(game, dt) {
   buildGrid(game);
+  fireTreasureWeapons(game, dt);
   const { player } = game;
   const { area, projectile } = statsOf(game);
   // 독침 기관총으로 합체하면 살충제는 따로 뿌리지 않는다.

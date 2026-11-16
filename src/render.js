@@ -942,6 +942,51 @@ function drawEffects(ctx, game, toBuffer) {
       // 치명타 숫자는 더 높이 튀어 오른다.
       const rise = effect.crit ? 4 + Math.sin(Math.min(1, progress * 2.5) * Math.PI) * 6 + progress * 10 : progress * 10;
       if (progress < 0.85 || Math.floor(effect.age * 30) % 2 === 0) drawNumber(ctx, effect.value, x, Math.round(y - 4 - rise), color);
+    } else if (effect.type === 'fortune') {
+      const radius = effect.radius / WORLD_PER_PIXEL;
+      ctx.save(); ctx.globalAlpha = 1 - progress * .7;
+      if (effect.pattern === 'pulse') {
+        // 종을 중심으로 두 겹의 소리 파문이 퍼진다.
+        for (let n = 0; n < 2; n++) ring(ctx, x, y, radius * Math.max(0, Math.min(1, progress * 2 - n * .25)), n ? '#fff4c2' : '#e8a33a', 2, 0);
+        ctx.drawImage(icon('handbell', Math.floor(progress * 4)), x - 8, y - 10 - Math.sin(progress * Math.PI) * 3);
+      } else if (effect.pattern === 'stamp') {
+        const size = radius * (.7 + progress * .3);
+        ctx.strokeStyle = '#e8a33a'; ctx.lineWidth = 2;
+        ctx.strokeRect(Math.round(x - size), Math.round(y - size), Math.round(size * 2), Math.round(size * 2));
+        line(ctx, x - size * .6, y, x, y + size * .5, '#fff4c2');
+        line(ctx, x, y + size * .5, x + size * .6, y - size * .5, '#fff4c2');
+        if (progress < .6) ctx.drawImage(icon('seal'), x - 8, y - 12 - (1 - progress / .6) * 18);
+      } else if (effect.pattern === 'chain') {
+        const count = Math.min(effect.route.length - 1, Math.ceil(progress * effect.route.length * 3));
+        for (let n = 1; n <= count; n++) {
+          const [ax, ay] = toBuffer(effect.route[n - 1]), [bx, by] = toBuffer(effect.route[n]);
+          line(ctx, ax, ay, bx, by, '#ffcf3f');
+          disc(ctx, bx, by, 3, '#fff4c2');
+        }
+        ctx.drawImage(icon('compass'), x - 8, y - 8);
+      } else {
+        const [ex, ey] = toBuffer(effect.end);
+        const dx = ex - x, dy = ey - y;
+        if (effect.pattern === 'fan') {
+          // 동전마다 이동 잔상을 남겨 전기와 구분한다.
+          for (let n = 0; n < 3; n++) {
+            const t = Math.max(0, progress - n * .12);
+            const cx = Math.round(x + dx * t), cy = Math.round(y + dy * t);
+            disc(ctx, cx, cy, n ? 2 : 4, n ? '#e8a33a' : '#ffcf3f');
+            if (!n) line(ctx, cx, cy - 2, cx, cy + 2, '#fff4c2');
+          }
+        } else {
+          // 십자 모래 바람은 가는 픽셀 띠로 흐른다.
+          const length = Math.hypot(dx,dy) || 1;
+          for (let n = 0; n < 20; n++) {
+            const t = (n / 20 + progress * .7) % 1;
+            const side = Math.sin(n * 2.4 + progress * 8) * radius;
+            ctx.fillStyle = n % 2 ? '#fff4c2' : '#e8a33a';
+            ctx.fillRect(Math.round(x + dx * t - dy / length * side), Math.round(y + dy * t + dx / length * side), 2, 2);
+          }
+        }
+      }
+      ctx.restore();
     } else if (effect.type === 'ring') {
       const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
       const radius = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
@@ -1746,7 +1791,7 @@ export function render(ctx, game, width, height, time) {
     }
     const firing = game.time < (unit.muzzleUntil ?? 0);
     const frame = firing ? 1 : Math.floor(time * (drone ? 16 : 8)) % ITEM_FRAMES;
-    const spriteId = unit.evolved ? EVOLUTIONS[unit.weapon].icon : unit.weapon;
+    const spriteId = unit.spriteId ?? (unit.evolved ? EVOLUTIONS[unit.weapon].icon : unit.weapon);
     ctx.save(); ctx.translate(Math.round(x), Math.round(y + bob));
     if (Math.cos(unit.angle) < 0) ctx.scale(-1, 1);
     ctx.drawImage(icon(spriteId, frame), -8, -10); ctx.restore();
