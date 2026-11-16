@@ -891,7 +891,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         ctx.fill();
       };
       // 바닥 금: 칼자국보다 오래 남는 지그재그 균열과 잔가지
-      const crackFade = Math.min(1, fade * 1.6) * 0.75;
+      const crackFade = Math.min(1, fade * 1.6) * 0.45;
       ctx.fillStyle = rgba(palette.crack, crackFade);
       let [cx0, cy0] = point(0.05, 0);
       for (let i = 1; i <= 10; i++) {
@@ -905,10 +905,10 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         cx0 = cx1; cy0 = cy1;
       }
       if (thin > 0) {
-        blade(1.25, rgba(palette.rim, 0.55 * fade));
-        blade(1, rgba(palette.body, 0.85 * fade));
-        blade(0.6, rgba(palette.edge, 0.9 * fade));
-        blade(0.22, rgba(palette.core, fade));
+        blade(1.25, rgba(palette.rim, 0.25 * fade));
+        blade(1, rgba(palette.body, 0.4 * fade));
+        blade(0.6, rgba(palette.edge, 0.45 * fade));
+        blade(0.22, rgba(palette.core, 0.6 * fade));
       }
       // 옆으로 튀는 파편
       for (let chip = 0; chip < 10; chip++) {
