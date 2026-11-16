@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-  applyBuild, laserDrones, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
+  applyBuild, applyCharacter, laserDrones, practiceDps, practiceIdol, practiceLevelUp, startPractice, relicCount, sawBlades, topSpinners, choose, createGame, rollRelics, damageEnemy, describeChoice, formatTime, reroll, rollChoices, startWithRelic, statSheet, statsOf, update,
 } from '../src/engine.js';
 import { fetchRanking, rankBest, SEASON, SEASONS, submitRecord } from '../src/leaderboard.js';
 import { BALL_LIGHTNING, BOSS_EVERY_SEC, BOSS_SPEED, bossStatsOf, BOSSES, BUILD, buildEfficiency, difficultyAt, normalizeBuild, DROP_LIMIT, ELITE, eliteFrom, ENEMIES, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_RELICS, MAX_WEAPONS, RELICS, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext } from '../src/rules.js';
@@ -1891,5 +1891,40 @@ describe('도끼병 일직선 베기', () => {
     assert.equal(side.hp, 1e7);
     assert.equal(back.hp, 1e7);
     assert.ok(game.effects.some((effect) => effect.type === 'axescar'));
+  });
+});
+
+describe('연습장', () => {
+  it('적이 새로 나오지 않고 허수아비는 제자리에서 죽지 않으며 오리도 다치지 않는다', () => {
+    const game = startPractice(createGame(seeded(81)));
+    game.weapons = { spray: 5 };
+    const dummy = game.enemies.find((enemy) => enemy.dummy);
+    const spot = { x: dummy.x, y: dummy.y };
+    const hp = game.player.hp;
+    for (let frame = 0; frame < 60 * 70; frame += 1) update(game, 1 / 60);
+    assert.equal(game.enemies.length, 1);
+    assert.equal(game.enemies[0], dummy);
+    assert.deepEqual({ x: dummy.x, y: dummy.y }, spot);
+    assert.ok(game.player.hp >= hp);
+    assert.ok(practiceDps(game) > 0);
+  });
+
+  it('원할 때 레벨업과 보물 선택을 열 수 있다', () => {
+    const game = startPractice(createGame(seeded(82)));
+    assert.ok(practiceLevelUp(game));
+    update(game, 1 / 60);
+    assert.ok(game.choices);
+    assert.equal(practiceLevelUp(createGame(seeded(83))), false);
+  });
+
+  it('보물 20점이면 우상을 바로 깨울 수 있다', () => {
+    const plain = startPractice(createGame(seeded(84)));
+    assert.equal(practiceIdol(plain), false);
+    const game = createGame(seeded(85));
+    applyCharacter(game, 'hunter');
+    applyBuild(game, { treasure: 20 });
+    startPractice(game);
+    assert.ok(practiceIdol(game));
+    assert.equal(game.passives.idol, 1);
   });
 });

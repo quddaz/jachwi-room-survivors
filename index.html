@@ -46,7 +46,7 @@
             <div class="map-picker" role="group" aria-label="맵 고르기"></div>
           </div>
           <div class="start-crew"><label class="field-label" for="crew-name">크루 이름</label><input id="crew-name" class="field" name="crewName" maxlength="12" autocomplete="nickname" placeholder="어떤 이름으로 도전할까요?" required /><p class="field-error" role="alert"></p></div>
-          <div class="start-go"><p class="start-summary"></p><button class="button button-primary" type="submit">시작하기</button></div>
+          <div class="start-go"><p class="start-summary"></p><button class="button button-primary" type="submit">시작하기</button><button class="button button-ghost practice-start" type="button" data-action="practice">연습장</button></div>
         </form>
 
         <div class="start-links">
@@ -83,6 +83,7 @@
           </div>
         </header>
         <div class="boss-bars"></div>
+        <div class="practice-hud" hidden><b class="practice-dps">0</b><span>초당 피해 (최근 5초)</span><small><kbd>L</kbd> 레벨업 <kbd>T</kbd> 보물 <kbd>I</kbd> 우상 <kbd>Esc</kbd> 메뉴</small></div>
         <div class="loadout"></div>
         <aside class="stats" aria-label="내 능력치">
           <button class="stats-toggle" type="button" data-action="stats">능력치</button>

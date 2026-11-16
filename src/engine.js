@@ -552,7 +552,59 @@ function makeElite(enemy) {
   return enemy;
 }
 
+// 연습장: 적이 새로 나오지 않고, 움직이지 않는 허수아비 하나만 둔다.
+export const PRACTICE = { dummyGap: 180, dpsWindow: 5 };
+
+export function startPractice(game) {
+  game.practice = true;
+  game.practiceLog = [];
+  placeDummy(game);
+  return game;
+}
+
+function placeDummy(game) {
+  const x = game.player.x + PRACTICE.dummyGap, y = game.player.y;
+  return spawnEnemy(game, 'roach', x, y, { dummy: true, anchorX: x, anchorY: y, hp: 1e12, maxHp: 1e12, speed: 0, damage: 0, xp: 0, radius: 18 });
+}
+
+// 최근 몇 초 동안 허수아비가 받은 초당 피해
+export function practiceDps(game) {
+  if (!game.practice) return 0;
+  const from = game.time - PRACTICE.dpsWindow;
+  game.practiceLog = game.practiceLog.filter((hit) => hit.t >= from);
+  const total = game.practiceLog.reduce((sum, hit) => sum + hit.amount, 0);
+  return total / Math.min(PRACTICE.dpsWindow, Math.max(1, game.time));
+}
+
+// 연습장에서는 적을 잡지 않으니 지도 조각 대신 바로 우상을 깨운다. 실전처럼 보물 20점이 있어야 한다.
+export function practiceIdol(game) {
+  if (!game.practice || game.over || game.passives.idol) return false;
+  if (!perk(game, 'treasure', 20)) {
+    addEffect(game, { type: 'banner', text: '우상은 보물 20점이 있어야 깨어나요', life: 1.6 });
+    return false;
+  }
+  for (const id of SECRET_MAPS) delete game.passives[id];
+  game.passives.idol = 1;
+  addEffect(game, { type: 'relic-awaken', id: 'idol', x: game.player.x, y: game.player.y, life: 2 });
+  addEffect(game, { type: 'banner', text: '고대 우상 각성', life: 2, sound: 'chest' });
+  return true;
+}
+
+export function practiceLevelUp(game, relicToo = false) {
+  if (!game.practice || game.over) return false;
+  if (relicToo) game.pendingRelics += 1;
+  else game.pendingLevels += 1;
+  return true;
+}
+
+function keepDummy(game) {
+  let dummy = game.enemies.find((enemy) => enemy.dummy && !enemy.dead);
+  if (!dummy) dummy = placeDummy(game);
+  dummy.x = dummy.anchorX; dummy.y = dummy.anchorY; dummy.kx = 0; dummy.ky = 0;
+}
+
 function spawn(game, dt) {
+  if (game.practice) return;
   const difficulty = difficultyAt(game.time);
   // 정예가 한 종류씩 풀릴 때마다 알려 준다.
   while (game.eliteUnlocked < ELITE.order.length && game.time >= eliteFrom(ELITE.order[game.eliteUnlocked])) {
@@ -621,6 +673,7 @@ function movePlayer(game, dt, input) {
 // ranged는 탄막이나 떨어지는 쓰레기처럼 날아온 피해다(우산이 막는다).
 function damagePlayer(game, amount, ranged = false) {
   const { player } = game;
+  if (game.practice) return false;
   if (player.invulnerable > 0 || game.time < game.shieldUntil) return false;
   if (ranged) amount *= 1 - (relic(game, 'umbrella')?.guard ?? 0);
   // 아무리 센 공격도 한 번에 최대 체력의 일정 비율까지만 깎는다.
@@ -1076,6 +1129,10 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
   if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
   enemy.hp -= amount;
+  if (enemy.dummy) {
+    game.practiceLog.push({ t: game.time, amount });
+    enemy.hp = enemy.maxHp;
+  }
   // 얼음틀: 한 대씩 때리는 공격만 얼린다(매 순간 조금씩 닿는 공격은 빼고).
   const ice = relic(game, 'icetray');
   if (hitEffects && ice && !enemy.boss && amount >= 3 && game.random() < ice.chance) freezeSec = Math.max(freezeSec, ice.freezeSec);
@@ -2923,6 +2980,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   movePlayer(game, dt, input);
   spawn(game, dt);
   moveEnemies(game, dt);
+  if (game.practice) keepDummy(game);
   fireWeapons(game, dt);
   updateProjectiles(game, dt);
   contactDamage(game);

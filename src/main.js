@@ -1,5 +1,5 @@
 import { createMusic } from './audio.js';
-import { inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { practiceDps, practiceIdol, practiceLevelUp, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, render } from './render.js';
 import {
@@ -26,6 +26,7 @@ const nameInput = document.querySelector('#crew-name');
 const joystick = document.querySelector('.joystick');
 const knob = document.querySelector('.joystick-knob');
 const levelupOverlay = document.querySelector('.levelup');
+const practiceHud = document.querySelector('.practice-hud');
 const pausedOverlay = document.querySelector('.paused');
 const banner = document.querySelector('.banner');
 
@@ -296,6 +297,7 @@ function frame(now) {
   drawHud();
   drawChoices();
   drawStats();
+  if (game.practice) drawPractice(now);
   if (game.over) {
     finish();
     return;
@@ -303,7 +305,7 @@ function frame(now) {
   frameId = requestAnimationFrame(frame);
 }
 
-function start() {
+function start(practice = false) {
   music.reset();
   heardObjects = new WeakSet();
   music.unlock();
@@ -325,6 +327,8 @@ function start() {
   joystick.hidden = true;
   show('game');
   resize();
+  practiceHud.hidden = !practice;
+  if (practice) startPractice(game);
   startWithRelic(game);
   drawLoadout();
   // 주소 끝에 #debug를 붙이면 콘솔에서 게임 상태를 볼 수 있다.
@@ -359,7 +363,21 @@ function drawResultItems() {
     </ul></section>`).join('');
 }
 
+let practiceShownAt = 0;
+function drawPractice(now) {
+  if (now - practiceShownAt < 250) return;
+  practiceShownAt = now;
+  practiceHud.querySelector('.practice-dps').textContent = Math.round(practiceDps(game)).toLocaleString('ko-KR');
+}
+
 async function finish() {
+  if (game.practice) {
+    cancelAnimationFrame(frameId);
+    music.setPlaying(false);
+    practiceHud.hidden = true;
+    show('start');
+    return;
+  }
   cancelAnimationFrame(frameId);
   music.setPlaying(false);
   music.playEffect('gameover');
@@ -639,6 +657,8 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Escape' && playing) setPaused(!paused);
   if (game?.choices && event.repeat) return;
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
+  if (playing && game.practice && !game.choices && (event.code === 'KeyL' || event.code === 'KeyT')) practiceLevelUp(game, event.code === 'KeyT');
+  if (playing && game.practice && !game.choices && event.code === 'KeyI') practiceIdol(game);
   if (event.code === 'KeyQ' && game?.choices && declineChoice(game)) drawChoices();
   const pick = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Numpad1: 0, Numpad2: 1, Numpad3: 2, Numpad4: 3 }[event.code];
   if (game?.choices && pick !== undefined && pick < game.choices.length) {
@@ -740,7 +760,8 @@ app.addEventListener('click', (event) => {
   const codex = event.target.closest('[data-codex]')?.dataset.codex;
   if (codex) openRecipes(codex);
   if (action === 'home') show('start');
-  if (action === 'retry') start();
+  if (action === 'retry') start(Boolean(game?.practice));
+  if (action === 'practice') start(true);
   if (action === 'pause') setPaused(true);
   if (action === 'reroll') rerollChoices();
   if (action === 'decline-choice' && game && declineChoice(game)) drawChoices();

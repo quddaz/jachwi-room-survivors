@@ -153,6 +153,13 @@ img { display: block; max-width: 100%; }
 .hp-fill { height: 100%; background: var(--color-bad); transform-origin: left; }
 .time-value { padding: 4px 14px; border-radius: 999px; background: rgb(255 255 255 / 90%); font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .pause { width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgb(255 255 255 / 90%); font-weight: 900; cursor: pointer; pointer-events: auto; }
+.practice-hud { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 50%; display: grid; justify-items: center; gap: 2px; padding: 8px 16px; border-radius: 12px; background: rgba(42, 28, 20, 0.72); color: #fff; transform: translateX(-50%); pointer-events: none; }
+.practice-hud[hidden] { display: none; }
+.practice-hud b { font-size: 26px; line-height: 1; color: #ffe08a; }
+.practice-hud span { font-size: 12px; opacity: 0.85; }
+.practice-hud small { font-size: 11px; opacity: 0.75; }
+.practice-hud kbd { padding: 0 4px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; font: inherit; }
+.practice-start { margin-top: 8px; width: 100%; }
 .boss-bars { position: absolute; top: calc(env(safe-area-inset-top) + 62px); left: 50%; display: grid; gap: 6px; width: min(100% - 48px, 520px); transform: translateX(-50%); pointer-events: none; }
 .boss-bar { text-align: center; }
 .boss-bars .boss-bar + .boss-bar .boss-name { margin-bottom: 2px; padding: 1px 8px; font-size: 11px; }
