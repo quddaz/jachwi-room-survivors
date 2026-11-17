@@ -211,8 +211,11 @@ function malletDamageOf(game) {
 // 새 고정 피해는 공격력·진화·합체 배율과 치명타를 적용한 뒤 한 번 더한다.
 // 독·화상·장판처럼 프레임마다 계산하는 지속 피해와 공격 보물에는 붙이지 않는다.
 function onHitDamageOf(game) {
-  return (passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
-    + passiveValue(game, 'counterweight', 'hitDamage') + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage')) * fixedPowerOf(game);
+  const base = passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
+    + passiveValue(game, 'counterweight', 'hitDamage');
+  // 레벨 성장은 세 패시브의 고정 피해에만 적용한다. 고무망치와 보물·캐릭터 보너스는 별도다.
+  const growth = 1 + Math.max(0, game.level - 1) * passiveValue(game, 'counterweight', 'fixedGrowth');
+  return (base * growth + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage')) * fixedPowerOf(game);
 }
 
 function flatDamageOf(game) {
@@ -339,6 +342,8 @@ const PASSIVE_TEXT = {
   weaponPenalty: ['무기 기본 피해', (value) => percent(-value)],
   attackPenalty: ['공격력 감소', (value) => percent(-value)],
   hitDamage: ['타격당 고정 피해', (value) => `+${number(value)}`],
+  fixedGrowth: ['캐릭터 레벨당 패시브 고정 피해', value => `+${number(value * 100)}%`],
+  fixedSplash: ['8회 적중 시 주변 고정 피해', value => `${number(value * 100)}%(원래 대상 제외)`],
   relicPower: ['보물 피해', percent],
   inheritedRelicPower: ['지도 효과 계승', percent],
   relicRepeats: ['보물 발동', value => `${value+1}회`],
@@ -1139,6 +1144,21 @@ function critBlast(game, source, amount, master = false) {
 
 function damageWeaponHit(game, enemy, amount, slows = false, from = game.player) {
   damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
+  const splash = passiveValue(game, 'counterweight', 'fixedSplash');
+  if (!splash) enemy.fixedDischargeHits = 0;
+  else if (!enemy.dead) {
+    enemy.fixedDischargeHits = (enemy.fixedDischargeHits ?? 0) + 1;
+    if (enemy.fixedDischargeHits >= PASSIVES.counterweight.dischargeHits) {
+      enemy.fixedDischargeHits = 0;
+      const radius = PASSIVES.counterweight.dischargeRadius * statsOf(game).area;
+      const damage = onHitDamageOf(game) * splash;
+      for (const other of near(game, enemy.x, enemy.y, radius)) {
+        if (other === enemy || other.dead || distance(other, enemy) > radius + other.radius) continue;
+        damageEnemy(game, other, 0, false, enemy, damage, { hitEffects: false, canCrit: false });
+      }
+      addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius, color: 'spark', life: .25, sound: 'zap' });
+    }
+  }
   const resonator = relic(game, 'resonator');
   if (!resonator) { enemy.resonatorHits = 0; return; }
   if (enemy.dead) return;

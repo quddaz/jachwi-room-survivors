@@ -52,12 +52,12 @@ describe('공속 전용 고정 피해 패시브', () => {
     const game = quiet();
     game.relics = { mallet: true };
     game.passives = { precision: 5 };
-    assert.equal(statsOf(game).flatDamage, 60);
+    assert.equal(statsOf(game).flatDamage, 120);
     assert.equal(statsOf(game).critChance, 0);
     applyBuild(game, { haste: 20, crit: 10 });
     game.passives = { ...game.passives, clover: 10 };
-    // 60% + 4.8% - 20% = 44.8% -> 8 * 20 + 60.
-    assert.equal(statsOf(game).flatDamage, 220);
+    // 60% + 4.8% - 20% = 44.8% -> 8 * 20 + 120.
+    assert.equal(statsOf(game).flatDamage, 280);
     delete game.relics.mallet;
     near(statsOf(game).critChance, 0.448);
   });
@@ -72,7 +72,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     shot(game, enemy);
     update(game, 1 / 60);
     // 2.2% + 보스 10% - 20%는 0%이므로 치명타가 나오지 않는다.
-    near(10000 - enemy.hp, 10 + 60);
+    near(10000 - enemy.hp, 10 + 120);
   });
 
   it('경량 기어는 무기 기본 피해만 줄이고 공격력과 고정 피해는 유지한다', () => {
@@ -84,8 +84,8 @@ describe('공속 전용 고정 피해 패시브', () => {
     update(game, 1 / 60);
     near(statsOf(game).might, 2);
     near(statsOf(game).weaponDamageScale, 0.25);
-    near(10000 - enemy.hp, WEAPONS.broom.damage[0] * 2 * 0.25 + 30);
-    assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes('피해 40'));
+    near(10000 - enemy.hp, WEAPONS.broom.damage[0] * 2 * 0.25 + 120);
+    assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes('피해 130'));
   });
 
   it('두 패시브의 추가 피해는 타격당 한 번 더하고 치명타로 늘리지 않는다', () => {
@@ -96,8 +96,8 @@ describe('공속 전용 고정 피해 패시브', () => {
     game.random = () => 0;
     shot(game, enemy);
     update(game, 1 / 60);
-    near(10000 - enemy.hp, 10 * 2.75 + 90);
-    assert.equal(statsOf(game).flatDamage, 90);
+    near(10000 - enemy.hp, 10 * 2.75 + 240);
+    assert.equal(statsOf(game).flatDamage, 240);
   });
 
   it('독침 기관총은 한 적에게 발사당 두 발까지만 고정 피해를 더한다', () => {
@@ -126,7 +126,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     plain.weapons = {};
     plain.shots.forEach((shot) => { shot.pierce = 0; });
     for (let frame = 0; frame < 60; frame += 1) update(plain, 1 / 60);
-    near(10000 - enemy.hp, (10000 - other.hp) * 0.25 + 2 * 30);
+    near(10000 - enemy.hp, (10000 - other.hp) * 0.25 + 2 * 120);
   });
 
   it('지속 피해에는 추가 피해를 붙이지 않고 프레임 간격에도 영향을 받지 않는다', () => {
@@ -171,16 +171,16 @@ describe('공속 전용 고정 피해 패시브', () => {
     }
     near(statsOf(game).might, 0.5);
     near(statsOf(game).weaponDamageScale, 0.25);
-    assert.equal(statsOf(game).flatDamage, 355);
+    assert.equal(statsOf(game).flatDamage, 620);
   });
 
   it('레벨업 카드와 도감에는 각 레벨의 이익과 불이익을 함께 표시한다', () => {
     const game = quiet();
-    assert.deepEqual(passiveLines('precision', 1), ['치명타 확률 감소 4%p', '타격당 고정 피해 +12']);
-    assert.deepEqual(passiveLines('lightgear', 5), ['무기 기본 피해 -75%', '타격당 고정 피해 +30']);
+    assert.deepEqual(passiveLines('precision', 1), ['치명타 확률 감소 4%p', '타격당 고정 피해 +24']);
+    assert.deepEqual(passiveLines('lightgear', 5), ['무기 기본 피해 -75%', '타격당 고정 피해 +120']);
     game.passives = { precision: 1, lightgear: 1 };
-    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'precision', level: 2 }), ['치명타 확률 감소 4%p → 8%p', '타격당 고정 피해 +12 → +24']);
-    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'lightgear', level: 2 }), ['무기 기본 피해 -15% → -30%', '타격당 고정 피해 +6 → +12']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'precision', level: 2 }), ['치명타 확률 감소 4%p → 8%p', '타격당 고정 피해 +24 → +48']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'lightgear', level: 2 }), ['무기 기본 피해 -15% → -30%', '타격당 고정 피해 +24 → +48']);
   });
 
   it('균형추는 현재 공격력과 이동·저체력 버프가 바뀔 때 감소량도 다시 계산한다', () => {
@@ -196,7 +196,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     near(statsOf(game).might, 0.65);
     game.player.hp = 100;
     game.passives.counterweight = 1;
-    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'counterweight', level: 2 }), ['공격력 +70% → +40%', '타격당 고정 피해 +9 → +18']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'counterweight', level: 2 }), ['공격력 +70% → +40%', '타격당 고정 피해 +32 → +64', '캐릭터 레벨당 패시브 고정 피해 +0.2% → +0.4%', '8회 적중 시 주변 고정 피해 0%(원래 대상 제외) → 0%(원래 대상 제외)']);
   });
 
   it('두 감소 패시브가 최대여도 고무망치와 패시브 고정 피해는 그대로 더한다', () => {
@@ -207,8 +207,8 @@ describe('공속 전용 고정 피해 패시브', () => {
     game.weapons = { broom: 1 };
     const enemy = target(game, 50);
     update(game, 1 / 60);
-    assert.equal(statsOf(game).flatDamage, 375);
-    near(10000 - enemy.hp, WEAPONS.broom.damage[0] * 2 * 0.25 * 0.25 + 300 + 30 + 45);
+    assert.equal(statsOf(game).flatDamage, 580);
+    near(10000 - enemy.hp, WEAPONS.broom.damage[0] * 2 * 0.25 * 0.25 + 300 + 120 + 160);
   });
 
   it('보물 피해에는 균형추의 공격력 감소만 적용하고 경량 기어 감소는 적용하지 않는다', () => {

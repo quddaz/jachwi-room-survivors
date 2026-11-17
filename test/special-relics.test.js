@@ -49,18 +49,18 @@ describe('고정 피해 보물',()=>{
  it('저울로 늘어난 타격 고정 피해는 치명타와 공격력으로 증폭되지 않는다',()=>{
   const g=quiet();g.relics.precisionscale=true;g.passives={precision:5,protein:10,clover:10,hotsauce:5};g.random=()=>0;
   const e=target(g);shot(g,e);update(g,DT);
-  near(e.maxHp-e.hp,10*2.75+(60+20)*1.25);
+  near(e.maxHp-e.hp,10*2.75+(120+20)*1.25);
  });
  it('공진 못은 같은 적을 여섯 번 때릴 때만 고정 피해를 한 번 추가한다',()=>{
   const g=quiet();g.relics.resonator=true;g.passives.precision=1;const e=target(g);
-  for(let n=0;n<5;n++){shot(g,e);update(g,DT);}near(e.maxHp-e.hp,5*(10+12));
-  shot(g,e);update(g,DT);near(e.maxHp-e.hp,6*(10+12)+12*2);assert.equal(e.resonatorHits,0);
+  for(let n=0;n<5;n++){shot(g,e);update(g,DT);}near(e.maxHp-e.hp,5*(10+24));
+  shot(g,e);update(g,DT);near(e.maxHp-e.hp,6*(10+24)+24*2);assert.equal(e.resonatorHits,0);
   assert.equal(g.shots.length,0);
  });
  it('공진 못의 추가 고정 피해는 치명타가 터지지 않고 공격 간에 재귀 발동하지 않는다',()=>{
   const g=quiet();g.relics.resonator=true;g.passives={precision:1,clover:10,hotsauce:5};g.random=()=>0;const e=target(g);
   for(let n=0;n<12;n++){shot(g,e);update(g,DT);}
-  near(e.maxHp-e.hp,12*(10*2.75+12)+2*(12*2));assert.equal(e.resonatorHits,0);
+  near(e.maxHp-e.hp,12*(10*2.75+24)+2*(24*2));assert.equal(e.resonatorHits,0);
  });
  it('여러 적의 연타 수는 공유하지 않고 지속 피해는 연타를 쌓지 않는다',()=>{
   const g=quiet({dehumidifier:1});g.relics.resonator=true;g.passives.precision=1;const a=target(g,40),b=target(g,80);

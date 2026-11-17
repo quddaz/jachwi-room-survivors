@@ -492,11 +492,11 @@ export const PASSIVES = {
   windup: { label: '태엽 열쇠', description: '보물이 더 자주 발동한다', relicHaste: [0.08, 0.16, 0.24, 0.32, 0.4], treasureOnly: true },
   // 공속 패시브: 패널티와 고정 피해가 함께 성장한다.
   precision: { label: '정밀 스프링', hasteOnly: true, description: '치확을 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
-    critPenalty: [0.04, 0.08, 0.12, 0.16, 0.2], hitDamage: [12, 24, 36, 48, 60] },
+    critPenalty: [0.04, 0.08, 0.12, 0.16, 0.2], hitDamage: [24, 48, 72, 96, 120] },
   lightgear: { label: '경량 기어', hasteOnly: true, description: '무기 기본 피해를 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
-    weaponPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [6, 12, 18, 24, 30] },
-  counterweight: { label: '균형추', hasteOnly: true, description: '현재 공격력을 낮추고 타격당 고정 피해를 더한다(추가 피해는 치명타·공격력 증폭과 지속 피해 적용 제외)',
-    attackPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [9, 18, 27, 36, 45] },
+    weaponPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [24, 48, 72, 96, 120] },
+  counterweight: { label: '균형추', hasteOnly: true, description: '공격력을 낮추는 대신 고정 피해를 더하고 세 패시브의 피해가 캐릭터 레벨에 비례해 성장한다. 5레벨부터 같은 적 8회 타격 시 주변에 추가 고정 피해의 40% 방출(원래 적 제외, 연쇄 발동 없음)',
+    attackPenalty: [0.15, 0.3, 0.45, 0.6, 0.75], hitDamage: [32, 64, 96, 128, 160], fixedGrowth: [0.002, 0.004, 0.006, 0.008, 0.01], fixedSplash: [0, 0, 0, 0, 0.4], dischargeHits: 8, dischargeRadius: 90 },
   summoncrest: { label: '소환 휘장', summonOnly: true, description: '소환 20점 전용. 소환 피해를 레벨마다 +12%, 최대 +60% 올린다', summonPower: [0.12, 0.24, 0.36, 0.48, 0.6] },
   summonwhistle: { label: '증원 호루라기', summonOnly: true, description: '소환 20점 전용. 각 소환 무기의 소환수를 레벨마다 한 명, 최대 세 명 추가한다', summonCount: [1, 2, 3] },
 };

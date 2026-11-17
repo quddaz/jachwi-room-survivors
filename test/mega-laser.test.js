@@ -70,7 +70,7 @@ describe('메가 레이저', () => {
       const enemy = target(game);
       run(game, 4, fps);
       const base = WEAPONS.laser.damage[4] * EVOLUTIONS.laser.damage;
-      close(enemy.maxHp - enemy.hp, base * (FUSIONS.spinlaser.impact + FUSIONS.spinlaser.dps * 3) + 60, 0.001);
+      close(enemy.maxHp - enemy.hp, base * (FUSIONS.spinlaser.impact + FUSIONS.spinlaser.dps * 3) + 120, 0.001);
       // 충격 피해 숫자 한 번 외에는 지속 피해 숫자/파편이 쌓이지 않는다.
       assert.ok(game.effects.filter(effect => effect.type === 'number').length <= 1);
     }

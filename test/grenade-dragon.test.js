@@ -41,14 +41,14 @@ describe('마린 수류탄', () => {
     near(side.hp, side.maxHp);
     moved.x += 300;
     run(game, 24);
-    near(side.maxHp - side.hp, 96);
+    near(side.maxHp - side.hp, 108);
     near(moved.hp, moved.maxHp);
     near(outside.hp, outside.maxHp);
     near(game.player.hp, statsOf(game).maxHp);
     assert.equal(game.shots.length, 0);
     assert.ok(game.effects.some(effect => effect.type === 'bomb'));
     run(game, 20);
-    near(side.maxHp - side.hp, 96);
+    near(side.maxHp - side.hp, 108);
   });
   it('소독 강습대의 수류탄은 착탄 지점에 소독 장판을 남긴다', () => {
     const game = quiet({ robot: 5, bleach: 5 });game.evolved = { robot: true, bleach: true };game.fusions.bleachbot = true;
@@ -90,9 +90,9 @@ describe('소환 수에 따라 길어지는 용', () => {
   it('몸통 여러 마디가 겹쳐도 같은 적은 주기당 한 번 맞고 고정 피해도 한 번만 더한다', () => {
     const game = quiet({ toydragon: 1 });game.passives.precision = 1;
     const enemy = target(game, -60);update(game, DT);
-    near(enemy.maxHp - enemy.hp, 18 + 12);
+    near(enemy.maxHp - enemy.hp, 18 + 24);
     run(game, 10);
-    near(enemy.maxHp - enemy.hp, 30);
+    near(enemy.maxHp - enemy.hp, 42);
   });
   it('길이 카드와 완성형을 제공하고 무기를 바꾸면 머리·몸통을 함께 정리한다', () => {
     const game = quiet({ toydragon: 1 });update(game, DT);
