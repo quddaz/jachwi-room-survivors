@@ -38,7 +38,7 @@ describe('공속 전용 고정 피해 패시브', () => {
       game.fusions = { shockshower: true, bomber: true };
       game.passives = Object.fromEntries(Object.keys(PASSIVES).filter((id) => !PASSIVES[id].hasteOnly).map((id) => [id, passiveMaxLevel(id)]));
       const offered = rollChoices(game).filter((choice) => ['precision', 'lightgear', 'counterweight'].includes(choice.id));
-      assert.deepEqual(offered.map((choice) => choice.id).sort(), build.haste === 20 ? ['counterweight', 'lightgear', 'precision'] : []);
+      assert.deepEqual(offered.map((choice) => choice.id).sort(), build.haste === 20 ? ['counterweight', 'lightgear'] : []);
       assert.ok(offered.every((choice) => choice.kind === 'passive' && choice.level === 1));
       assert.ok(rollRelics(game).every((choice) => !['precision', 'lightgear', 'counterweight'].includes(choice.id)));
       game.passives.precision = 5;
@@ -48,21 +48,21 @@ describe('공속 전용 고정 피해 패시브', () => {
     }
   });
 
-  it('치확 감소는 고무망치 전환 전에 적용하고 음수로 내려가지 않는다', () => {
+  it('정밀 스프링은 치확을 깎지 않고 고무망치 전환량도 줄이지 않는다', () => {
     const game = quiet();
     game.relics = { mallet: true };
     game.passives = { precision: 5 };
-    assert.equal(statsOf(game).flatDamage, 120);
+    assert.equal(statsOf(game).flatDamage, 0);
     assert.equal(statsOf(game).critChance, 0);
     applyBuild(game, { haste: 20, crit: 10 });
     game.passives = { ...game.passives, clover: 10 };
-    // 60% + 4.8% - 20% = 44.8% -> 8 * 20 + 120.
-    assert.equal(statsOf(game).flatDamage, 280);
+    // 60% + 4.8% = 64.8% -> 12 * 20. 정밀 스프링은 고정 피해를 자체 제공하지 않는다.
+    assert.equal(statsOf(game).flatDamage, 240);
     delete game.relics.mallet;
-    near(statsOf(game).critChance, 0.448);
+    near(statsOf(game).critChance, 0.648);
   });
 
-  it('치확 감소는 보스 약점 포착까지 합산한 뒤 적용한다', () => {
+  it('정밀 스프링이 있어도 보스 약점 포착의 치명타 확률은 유지한다', () => {
     const game = quiet();
     applyBuild(game, { crit: 5 });
     game.passives = { ...game.passives, precision: 5 };
@@ -71,8 +71,8 @@ describe('공속 전용 고정 피해 패시브', () => {
     enemy.boss = true;
     shot(game, enemy);
     update(game, 1 / 60);
-    // 2.2% + 보스 10% - 20%는 0%이므로 치명타가 나오지 않는다.
-    near(10000 - enemy.hp, 10 + 120);
+    // 2.2% + 보스 10%로 치명타가 나오며 자체 고정 피해는 없다.
+    near(10000 - enemy.hp, 10 * statsOf(game).critDamage);
   });
 
   it('경량 기어는 무기 기본 피해만 줄이고 공격력과 고정 피해는 유지한다', () => {
@@ -88,7 +88,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     assert.ok(describeChoice(game, { kind: 'weapon', id: 'broom', level: 1 }).includes('피해 130'));
   });
 
-  it('두 패시브의 추가 피해는 타격당 한 번 더하고 치명타로 늘리지 않는다', () => {
+  it('정밀 스프링은 고정 피해만 한 번 더하고 치명타로 늘리지 않는다', () => {
     const game = quiet();
     game.passives = { ...game.passives, precision: 5, lightgear: 5 };
     game.passives = { ...game.passives, clover: 10, hotsauce: 5, protein: 10 };
@@ -97,7 +97,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     shot(game, enemy);
     update(game, 1 / 60);
     near(10000 - enemy.hp, 10 * 2.75 + 240);
-    assert.equal(statsOf(game).flatDamage, 240);
+    assert.equal(statsOf(game).flatDamage, 120);
   });
 
   it('독침 기관총은 한 적에게 발사당 두 발까지만 고정 피해를 더한다', () => {
@@ -171,15 +171,15 @@ describe('공속 전용 고정 피해 패시브', () => {
     }
     near(statsOf(game).might, 0.5);
     near(statsOf(game).weaponDamageScale, 0.25);
-    assert.equal(statsOf(game).flatDamage, 620);
+    assert.equal(statsOf(game).flatDamage, 580);
   });
 
   it('레벨업 카드와 도감에는 각 레벨의 이익과 불이익을 함께 표시한다', () => {
     const game = quiet();
-    assert.deepEqual(passiveLines('precision', 1), ['치명타 확률 감소 4%p', '타격당 고정 피해 +24']);
+    assert.deepEqual(passiveLines('precision', 1), ['고정 피해 추가 발동 확률 +10%']);
     assert.deepEqual(passiveLines('lightgear', 5), ['무기 기본 피해 -75%', '타격당 고정 피해 +120']);
     game.passives = { precision: 1, lightgear: 1 };
-    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'precision', level: 2 }), ['치명타 확률 감소 4%p → 8%p', '타격당 고정 피해 +24 → +48']);
+    assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'precision', level: 2 }), ['고정 피해 추가 발동 확률 +10% → +20%']);
     assert.deepEqual(describeChoice(game, { kind: 'passive', id: 'lightgear', level: 2 }), ['무기 기본 피해 -15% → -30%', '타격당 고정 피해 +24 → +48']);
   });
 

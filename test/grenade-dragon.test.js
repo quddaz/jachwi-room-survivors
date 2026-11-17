@@ -33,7 +33,7 @@ describe('마린 수류탄', () => {
   });
   it('착탄 지점을 고정하고 비행·신관 시간이 지난 뒤 주변에 한 번만 피해를 준다', () => {
     const game = quiet(), moved = target(game, 100), side = target(game, 150), outside = target(game, 300);
-    game.passives.precision = 1;
+    game.passives.lightgear = 1;
     game.shots.push({ weapon: 'robot', kind: 'grenade', owner: 50, x: game.player.x, y: game.player.y,
       fromX: game.player.x, fromY: game.player.y, toX: moved.x, toY: moved.y, age: 0,
       flightSec: 0.65, life: 0.85, arcHeight: 52, blast: 90, damage: 84 });
@@ -88,11 +88,11 @@ describe('소환 수에 따라 길어지는 용', () => {
     assert.ok([head, ...head.spine].every(part => Number.isFinite(part.x) && Number.isFinite(part.y)));
   });
   it('몸통 여러 마디가 겹쳐도 같은 적은 주기당 한 번 맞고 고정 피해도 한 번만 더한다', () => {
-    const game = quiet({ toydragon: 1 });game.passives.precision = 1;
+    const game = quiet({ toydragon: 1 });game.passives.lightgear = 1;
     const enemy = target(game, -60);update(game, DT);
-    near(enemy.maxHp - enemy.hp, 18 + 24);
+    near(enemy.maxHp - enemy.hp, 18 * .85 + 24);
     run(game, 10);
-    near(enemy.maxHp - enemy.hp, 42);
+    near(enemy.maxHp - enemy.hp, 18 * .85 + 24);
   });
   it('길이 카드와 완성형을 제공하고 무기를 바꾸면 머리·몸통을 함께 정리한다', () => {
     const game = quiet({ toydragon: 1 });update(game, DT);

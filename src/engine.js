@@ -195,14 +195,14 @@ function maxHpOf(game) {
 // 모은 치명타 확률. 고무망치가 있으면 치명타는 안 터지고 이 값이 고정 피해로 바뀐다.
 function rawCritChance(game) {
   return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0)
-    + buildValue(game, 'critChance') + characterBonus(game, 'critChance') - passiveValue(game, 'precision', 'critPenalty');
+    + buildValue(game, 'critChance') + characterBonus(game, 'critChance');
 }
 
 function critChanceOf(game, bonus = 0) {
   return relic(game, 'mallet') ? 0 : Math.max(0, rawCritChance(game) + bonus);
 }
 
-// 고무망치 전환은 치명타 확률 감소까지 적용한 뒤 계산한다.
+// 고무망치는 아이템·능력치의 치명타 확률을 고정 피해로 전환한다.
 function malletDamageOf(game) {
   const mallet = relic(game, 'mallet');
   return mallet ? Math.floor(Math.max(0, rawCritChance(game) - characterBonus(game,'critChance')) / mallet.step + 1e-9) * mallet.flat * fixedPowerOf(game) : 0;
@@ -211,9 +211,9 @@ function malletDamageOf(game) {
 // 새 고정 피해는 공격력·진화·합체 배율과 치명타를 적용한 뒤 한 번 더한다.
 // 독·화상·장판처럼 프레임마다 계산하는 지속 피해와 공격 보물에는 붙이지 않는다.
 function onHitDamageOf(game) {
-  const base = passiveValue(game, 'precision', 'hitDamage') + passiveValue(game, 'lightgear', 'hitDamage')
+  const base = passiveValue(game, 'lightgear', 'hitDamage')
     + passiveValue(game, 'counterweight', 'hitDamage');
-  // 레벨 성장은 세 패시브의 고정 피해에만 적용한다. 고무망치와 보물·캐릭터 보너스는 별도다.
+  // 레벨 성장은 경량 기어·균형추의 고정 피해에만 적용한다. 고무망치와 보물·캐릭터 보너스는 별도다.
   const growth = 1 + Math.max(0, game.level - 1) * passiveValue(game, 'counterweight', 'fixedGrowth');
   return (base * growth + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage')) * fixedPowerOf(game);
 }
@@ -342,6 +342,7 @@ const PASSIVE_TEXT = {
   weaponPenalty: ['무기 기본 피해', (value) => percent(-value)],
   attackPenalty: ['공격력 감소', (value) => percent(-value)],
   hitDamage: ['타격당 고정 피해', (value) => `+${number(value)}`],
+  fixedEchoChance: ['고정 피해 추가 발동 확률', percent],
   fixedGrowth: ['캐릭터 레벨당 패시브 고정 피해', value => `+${number(value * 100)}%`],
   fixedSplash: ['8회 적중 시 주변 고정 피해', value => `${number(value * 100)}%(원래 대상 제외)`],
   relicPower: ['보물 피해', percent],
@@ -1143,7 +1144,13 @@ function critBlast(game, source, amount, master = false) {
 }
 
 function damageWeaponHit(game, enemy, amount, slows = false, from = game.player) {
-  damageEnemy(game, enemy, amount, slows, from, onHitDamageOf(game));
+  if (enemy.dead) return;
+  const fixed = onHitDamageOf(game), totalFixed = flatDamageOf(game);
+  const chance = passiveValue(game, 'precision', 'fixedEchoChance');
+  const echoed = totalFixed > 0 && chance > 0 && game.random() < chance;
+  // 한 번의 타격 안에 고정 피해만 더한다. 연타·광역·치명타를 다시 발동하지 않는다.
+  damageEnemy(game, enemy, amount, slows, from, fixed + (echoed ? totalFixed : 0));
+  if (echoed) addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 24, color: 'spark', life: .18 });
   const splash = passiveValue(game, 'counterweight', 'fixedSplash');
   if (!splash) enemy.fixedDischargeHits = 0;
   else if (!enemy.dead) {

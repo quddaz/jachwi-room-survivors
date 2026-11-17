@@ -13,7 +13,7 @@ function allBut(g,ids) {g.relics=Object.fromEntries(Object.keys(RELICS).filter(i
 describe('전용 보물 등장 조건',()=>{
  it('고정은 공속 20점, 소환은 소환 20점부터 나온다',()=>{
   for(const tree of ['haste','summon'])for(const points of [19,20]) {
-   const g=quiet();applyBuild(g,{[tree]:points});g.passives.precision=1;
+   const g=quiet();applyBuild(g,{[tree]:points});g.passives.lightgear=1;
    const ids=tree==='haste'?['precisionscale','resonator']:['baton','marchdrum'];allBut(g,ids);
    const found=offers(g);for(const id of ids)assert.equal(found.has(id),points===20,id);
   }
@@ -42,28 +42,28 @@ describe('전용 보물 등장 조건',()=>{
 
 describe('고정 피해 보물',()=>{
  it('정밀 저울은 고무망치와 패시브 고정 피해를 모두 올린다',()=>{
-  const g=quiet();g.relics={mallet:true};g.passives={clover:10,precision:5};
+  const g=quiet();g.relics={mallet:true};g.passives={clover:10,lightgear:5};
   const before=statsOf(g).flatDamage;g.relics.precisionscale=true;
   near(statsOf(g).flatDamage,(before+20)*1.25);
  });
  it('저울로 늘어난 타격 고정 피해는 치명타와 공격력으로 증폭되지 않는다',()=>{
-  const g=quiet();g.relics.precisionscale=true;g.passives={precision:5,protein:10,clover:10,hotsauce:5};g.random=()=>0;
+  const g=quiet();g.relics.precisionscale=true;g.passives={lightgear:5,protein:10,clover:10,hotsauce:5};g.random=()=>0;
   const e=target(g);shot(g,e);update(g,DT);
   near(e.maxHp-e.hp,10*2.75+(120+20)*1.25);
  });
  it('공진 못은 같은 적을 여섯 번 때릴 때만 고정 피해를 한 번 추가한다',()=>{
-  const g=quiet();g.relics.resonator=true;g.passives.precision=1;const e=target(g);
+  const g=quiet();g.relics.resonator=true;g.passives.lightgear=1;const e=target(g);
   for(let n=0;n<5;n++){shot(g,e);update(g,DT);}near(e.maxHp-e.hp,5*(10+24));
   shot(g,e);update(g,DT);near(e.maxHp-e.hp,6*(10+24)+24*2);assert.equal(e.resonatorHits,0);
   assert.equal(g.shots.length,0);
  });
  it('공진 못의 추가 고정 피해는 치명타가 터지지 않고 공격 간에 재귀 발동하지 않는다',()=>{
-  const g=quiet();g.relics.resonator=true;g.passives={precision:1,clover:10,hotsauce:5};g.random=()=>0;const e=target(g);
+  const g=quiet();g.relics.resonator=true;g.passives={lightgear:1,clover:10,hotsauce:5};g.random=()=>0;const e=target(g);
   for(let n=0;n<12;n++){shot(g,e);update(g,DT);}
   near(e.maxHp-e.hp,12*(10*2.75+24)+2*(24*2));assert.equal(e.resonatorHits,0);
  });
  it('여러 적의 연타 수는 공유하지 않고 지속 피해는 연타를 쌓지 않는다',()=>{
-  const g=quiet({dehumidifier:1});g.relics.resonator=true;g.passives.precision=1;const a=target(g,40),b=target(g,80);
+  const g=quiet({dehumidifier:1});g.relics.resonator=true;g.passives.lightgear=1;const a=target(g,40),b=target(g,80);
   for(let n=0;n<5;n++){shot(g,a);update(g,DT);}shot(g,b);update(g,DT);
   assert.equal(a.resonatorHits,5);assert.equal(b.resonatorHits,1);
  });

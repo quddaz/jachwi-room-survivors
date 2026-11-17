@@ -66,11 +66,11 @@ describe('메가 레이저', () => {
   it('30·60·120 FPS 모두 같은 총 피해를 주며 고정 피해는 최초 충격에만 더한다', () => {
     for (const fps of [30, 60, 120]) {
       const game = arena();
-      game.passives = { precision: 5 };
+      game.passives = { lightgear: 1 };
       const enemy = target(game);
       run(game, 4, fps);
       const base = WEAPONS.laser.damage[4] * EVOLUTIONS.laser.damage;
-      close(enemy.maxHp - enemy.hp, base * (FUSIONS.spinlaser.impact + FUSIONS.spinlaser.dps * 3) + 120, 0.001);
+      close(enemy.maxHp - enemy.hp, base * .85 * (FUSIONS.spinlaser.impact + FUSIONS.spinlaser.dps * 3) + 24, 0.001);
       // 충격 피해 숫자 한 번 외에는 지속 피해 숫자/파편이 쌓이지 않는다.
       assert.ok(game.effects.filter(effect => effect.type === 'number').length <= 1);
     }
