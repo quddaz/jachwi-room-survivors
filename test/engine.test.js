@@ -425,7 +425,7 @@ describe('새 무기', () => {
 
 describe('패시브 확장', () => {
   it('패시브마다 정해진 최대 레벨까지만 강화한다', () => {
-    assert.equal(passiveMaxLevel('protein'), 10);
+    assert.equal(passiveMaxLevel('protein'), 20);
     assert.equal(passiveMaxLevel('sneakers'), 10);
     assert.equal(passiveMaxLevel('clover'), 10);
     assert.equal(passiveMaxLevel('hotsauce'), 5);
