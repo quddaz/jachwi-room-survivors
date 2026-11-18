@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { VFX, drawCombatBeam, drawFlameJet, drawCombatPulse, drawCombatLightning, drawCombatTrail, drawCombatDebris, drawSwordScar } from '../src/combat-vfx.js';
+import { VFX, drawCombatBeam, drawFlameJet, drawCombatPulse, drawCombatLightning, drawCombatTrail, drawCombatDebris, drawSwordScar, drawFrostShard, drawFrostHit } from '../src/combat-vfx.js';
 
 function context() {
   const stack = [];
@@ -29,6 +29,8 @@ describe('전투 연출의 렌더링 경계', () => {
           ctx => drawCombatTrail(ctx,20,20,0,0,'poison',2,progress),
           ctx => drawCombatDebris(ctx,20,20,progress,VFX.physical,7,20,true),
           ctx => drawSwordScar(ctx,20,20,radius,-1,Math.PI*1.4,progress,true,4),
+          ctx => drawFrostHit(ctx,20,20,radius,progress,-1),
+          ctx => drawFrostShard(ctx,20,20,240,-80,2),
         ];
         for (const paint of paints) {
           const ctx = context();paint(ctx);

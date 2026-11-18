@@ -2672,7 +2672,14 @@ function updateProjectiles(game, dt) {
         shot.life = 0;
         break;
       }
-      if (shot.kind === 'ice') damageEnemy(game, enemy, shot.damage, shot.slows ?? true, shot);
+      if (shot.kind === 'ice') {
+        if (game.time >= (enemy.frostVfxUntil ?? 0)) {
+          enemy.frostVfxUntil = game.time + .09;
+          addEffect(game, { type: 'frosthit', x: impact.x, y: impact.y, radius: Math.max(16, enemy.radius * 1.8),
+            angle: Math.atan2(shot.vy, shot.vx), life: .28 });
+        }
+        damageEnemy(game, enemy, shot.damage, shot.slows ?? true, shot);
+      }
       else damageWeaponHit(game, enemy, shot.damage, shot.slows ?? true, shot);
       if (shot.bomb) {
         // 파리채 폭격기: 비행기가 맞힌 자리를 파리채가 함께 내려친다.

@@ -1,4 +1,4 @@
-import { drawCombatBeam, drawFlameJet, drawCombatPulse, drawCombatLightning, drawCombatTrail, drawCombatDebris, drawSwordScar } from './combat-vfx.js';
+import { drawCombatBeam, drawFlameJet, drawCombatPulse, drawCombatLightning, drawCombatTrail, drawCombatDebris, drawSwordScar, drawFrostShard, drawFrostHit } from './combat-vfx.js';
 import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
@@ -1109,6 +1109,10 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         const sx = Math.round(x + Math.cos(angle) * dist), sy = Math.round(y + Math.sin(angle) * dist);
         ctx.fillRect(sx - 1, sy, 3, 1); ctx.fillRect(sx, sy - 1, 1, 3);
       }
+    } else if (effect.type === 'frosthit') {
+      drawFrostHit(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,effect.angle);
+    } else if (effect.type === 'ring' && ['bubble','water'].includes(effect.color)) {
+      drawCombatPulse(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,effect.color==='bubble'?'bubble':'water',effect.seed);
     } else if (effect.type === 'ring') {
       const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
       const radius = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
@@ -1636,16 +1640,7 @@ export function render(ctx, game, width, height, time) {
       continue;
     }
     if (shot.kind === 'ice') {
-      // 정수기 얼음 조각: 날아가는 쪽으로 뾰족한 하늘색 마름모
-      const pace = Math.hypot(shot.vx, shot.vy) || 1;
-      const fx = shot.vx / pace;
-      const fy = shot.vy / pace;
-      line(ctx, Math.round(x - fx * 4), Math.round(y - fy * 4), Math.round(x + fx * 3), Math.round(y + fy * 3), '#8fd0ff');
-      ctx.fillStyle = '#d3f3ff';
-      ctx.fillRect(Math.round(x - fy), Math.round(y + fx), 1, 1);
-      ctx.fillRect(Math.round(x + fy), Math.round(y - fx), 1, 1);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(Math.round(x + fx * 2), Math.round(y + fy * 2), 1, 1);
+      drawFrostShard(ctx,x,y,shot.vx,shot.vy,shot.scale??1);
       continue;
     }
     if (shot.kind === 'staple') {

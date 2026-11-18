@@ -149,27 +149,72 @@ export function drawSwordScar(ctx,x,y,radius,angle,sweep,progress,evolved=false,
 }
 
 export function drawCombatPulse(ctx,x,y,radius,progress,kind='fire',seed=0) {
-  const palette=VFX[kind]??VFX.fire, ease=1-(1-progress)**3;
-  const reach=Math.max(1,radius*ease), fade=(1-progress)**1.3;
+  const palette=kind==='bubble'?['#52668d','#b4dcf4','#ffffff']:(VFX[kind]??VFX.fire);
+  const ease=1-(1-progress)**3,reach=Math.max(1,radius*ease),fade=(1-progress)**.8;
   ctx.save();
-  // 적이 보이도록 중심을 비우고 끊어진 이중 충격파와 적은 파편만 남긴다.
-  ctx.globalAlpha=fade*.85;
+  // 짙은 바깥선과 밝은 안쪽 날을 붙여 밝은 바닥에서도 충격파가 읽힌다.
   for(let n=0;n<8;n++) {
-    const start=n*Math.PI/4+.08;
-    arc(ctx,x,y,reach,start,start+.62,palette[1],1);
-    arc(ctx,x,y,Math.max(1,reach-2),start+.07,start+.48,palette[2],.5);
+    const start=n*Math.PI/4+.04,end=start+.66;
+    ctx.globalAlpha=fade*.85;arc(ctx,x,y,reach,start,end,palette[0],1.5);
+    ctx.globalAlpha=fade;arc(ctx,x,y,Math.max(1,reach-1),start,end,palette[1],1);
+    ctx.globalAlpha=fade*.95;arc(ctx,x,y,Math.max(1,reach-1.5),start+.03,end-.03,palette[2],.75);
+  }
+  if(progress<.55) {
+    ctx.globalAlpha=(1-progress/.55)*.65;
+    arc(ctx,x,y,reach*.65,0,Math.PI*2,palette[1],.75);
   }
   for(let n=0;n<8;n++) {
-    const a=n*Math.PI/4+noise(seed,n)*.25, at=reach*(.8+noise(seed,n+8)*.25);
-    const px=x+Math.cos(a)*at, py=y+Math.sin(a)*at-Math.sin(progress*Math.PI)*(kind==='fire'?5:2);
-    ctx.globalAlpha=fade;ctx.fillStyle=palette[0];dot(ctx,px-1,py,3,2);
-    ctx.fillStyle=palette[1];dot(ctx,px-1,py-1,2,2);ctx.fillStyle=palette[2];dot(ctx,px,py-1,.5,1);
+    const angle=n*Math.PI/4+noise(seed,n)*.22,at=reach*(.8+noise(seed,n+8)*.18);
+    const px=x+Math.cos(angle)*at,py=y+Math.sin(angle)*at-Math.sin(progress*Math.PI)*4;
+    const size=(1-progress)*2+.5;
+    ctx.globalAlpha=fade*.9;
+    stroke(ctx,px,py,px+Math.cos(angle)*3,py+Math.sin(angle)*3,palette[0],size+1);
+    stroke(ctx,px,py-.5,px+Math.cos(angle)*2,py+Math.sin(angle)*2-.5,palette[1],size);
+    ctx.fillStyle=palette[2];dot(ctx,px,py-.5,.75);
   }
-  if(progress<.15) {
-    const size=2+progress*16;
-    ctx.globalAlpha=(1-progress/.15)*.85;
-    stroke(ctx,x-size,y,x+size,y,palette[2],1);
-    stroke(ctx,x,y-size,x,y+size,palette[2],1);
+  if(progress<.22) {
+    const flash=Math.min(9,2+radius*.12)*(1-progress/.22);
+    ctx.globalAlpha=(1-progress/.22)*.95;
+    stroke(ctx,x-flash,y,x+flash,y,palette[2],1.5);
+    stroke(ctx,x,y-flash,x,y+flash,palette[2],1);
+    stroke(ctx,x-flash*.6,y-flash*.6,x+flash*.6,y+flash*.6,palette[1],.75);
+  }
+  ctx.restore();
+}
+
+export function drawFrostShard(ctx,x,y,vx,vy,scale=1) {
+  const angle=Math.atan2(vy,vx);
+  ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.rotate(angle);
+  ctx.globalAlpha*=.45;
+  stroke(ctx,-10*scale,0,-3*scale,0,'#8fdbea',.75);
+  ctx.globalAlpha=1;
+  for(let along=-4;along<=5;along++) {
+    const half=Math.max(.25,(1-Math.abs(along-.5)/5)*2)*scale;
+    ctx.fillStyle='#3d668e';dot(ctx,along*scale,-half-.5,scale+.5,half*2+1);
+    ctx.fillStyle=along<0?'#9fd8ea':'#d2f3f4';dot(ctx,along*scale,-half,scale,half*2);
+  }
+  ctx.fillStyle='#ffffff';dot(ctx,-scale,-.5,4*scale,.75);
+  ctx.restore();
+}
+
+export function drawFrostHit(ctx,x,y,radius,progress,angle=0) {
+  const ease=1-(1-progress)**2,reach=Math.max(3,radius*(.4+ease*.6)),fade=(1-progress)**.8;
+  ctx.save();
+  // 여섯 갈래 결정과 가지 끝을 짧게 펼치고, 가운데는 곧바로 비운다.
+  for(let n=0;n<6;n++) {
+    const a=angle+n*Math.PI/3,inner=progress<.2?0:reach*.25;
+    const sx=x+Math.cos(a)*inner,sy=y+Math.sin(a)*inner;
+    const ex=x+Math.cos(a)*reach,ey=y+Math.sin(a)*reach;
+    ctx.globalAlpha=fade*.8;stroke(ctx,sx,sy,ex,ey,'#436c97',1.5);
+    ctx.globalAlpha=fade;stroke(ctx,sx,sy,ex,ey,'#a9e7ef',1);
+    stroke(ctx,sx,sy,ex,ey,'#ffffff',.5);
+    for(const side of [-1,1]) {
+      const bx=x+Math.cos(a)*reach*.65,by=y+Math.sin(a)*reach*.65;
+      stroke(ctx,bx,by,bx+Math.cos(a+side*.8)*reach*.25,by+Math.sin(a+side*.8)*reach*.25,'#b8e7f1',.5);
+    }
+  }
+  if(progress<.2) {
+    ctx.globalAlpha=(1-progress/.2)*.9;ctx.fillStyle='#ffffff';dot(ctx,x-1,y-1,2);
   }
   ctx.restore();
 }
