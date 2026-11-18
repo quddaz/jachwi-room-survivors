@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>자취방 서바이벌 · 도트 검수</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#171e2b;color:#f3eadb;font:14px system-ui}main{max-width:1100px;margin:auto;padding:24px}h1{font-size:24px;margin:0 0 8px}p{color:#a8b7c8;line-height:1.6}h2{margin:28px 0 12px;font-size:18px}button,select{background:#2d3b51;color:#fff;border:1px solid #526078;padding:8px 14px;border-radius:8px;cursor:pointer}nav{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:10px}.card{display:grid;place-items:center;gap:8px;padding:12px 6px;background:#232e40;border:1px solid #34445d;border-radius:12px;text-align:center;font-size:12px}.card canvas{width:96px;height:96px;image-rendering:pixelated}.items{grid-template-columns:repeat(auto-fit,minmax(76px,1fr))}.items .card canvas{width:64px;height:64px}.scene{width:100%;image-rendering:pixelated;display:block;border:1px solid #536479;border-radius:8px}button[aria-pressed="true"]{background:#477293;border-color:#9acbd8}output{display:block;color:#a8dbb1;font-size:13px;margin:12px 0}small{color:#9cacc0}.scene-wrap{max-width:900px}
+</style>
+<main>
+  <h1>자취방 서바이벌 · 도트 검수</h1>
+  <p>캐릭터, 일반 적, 보스, 아이콘의 원본·애니메이션과 실제 월드 크기를 함께 확인합니다.</p>
+  <nav><button id="motion">애니메이션 멈춤</button><select id="map" aria-label="맵"><option value="room">자취방</option><option value="bathroom">욕실</option><option value="kitchen">부엌</option><option value="rooftop">옥상</option></select><button id="busy">밀집 전투 보기</button></nav>
+  <output id="status">검수 중…</output>
+  <div class="scene-wrap"><canvas class="scene" id="scene" width="1080" height="640"></canvas></div>
+  <h2>실제 무기 공격</h2>
+  <p>실제 게임과 같은 공격·배경·배율입니다. 무기를 고르면 완성형 또는 합체 공격을 재생합니다.</p>
+  <nav id="effect-modes" aria-label="공격 고르기"></nav><output id="effect-note"></output>
+  <div class="scene-wrap"><canvas class="scene" id="effect-scene" width="1080" height="640"></canvas></div>
+  <h2>직업별 복덕이</h2><div class="grid" id="characters"></div>
+  <h2>일반 몬스터</h2><div class="grid" id="enemies"></div>
+  <h2>보스</h2><div class="grid" id="bosses"></div>
+  <h2>무기 · 패시브 · 보물</h2><div class="grid items" id="items"></div>
+</main>
+<script type="module">
+import { duckSprite, sprite, icon, ITEM_IDS, ITEM_FRAMES } from '../src/sprites.js';
+import { CREATURE_FRAMES, WALK_FRAMES } from '../src/pixel-art.js';
+import { render, RENDER_SCALE, PIXEL } from '../src/render.js';
+import { createGame, applyBuild, applyCharacter, startPractice, practicePick, update } from '../src/engine.js';
+import { ENEMIES, BOSSES, CHARACTERS, WEAPONS, PASSIVES, RELICS } from '../src/rules.js';
+const entries = [], status = document.querySelector('#status');
+window.addEventListener('error', event => {status.textContent = `오류: ${event.message}`;});
+function card(parent, label, draw) {
+  const node = document.createElement('div');node.className = 'card';
+  const canvas = document.createElement('canvas');canvas.width = canvas.height = 96;
+  const text = document.createElement('span');text.textContent = label;
+  node.append(canvas,text);document.querySelector(parent).append(node);entries.push({canvas,draw});
+}
+try {
+  for (const [id, item] of Object.entries(CHARACTERS)) card('#characters', item.label, time => duckSprite(id, `duckWalk${Math.floor(time * 10) % WALK_FRAMES}`));
+  for (const [kind,item] of Object.entries(ENEMIES)) {
+    const name = kind === 'scrap' ? 'scrap' : `${kind}A`;
+    card('#enemies', item.label, time => sprite(kind === 'scrap' ? name : `${kind}${'ABCD'[Math.floor(time * 6) % CREATURE_FRAMES]}`));
+  }
+  for (const boss of BOSSES) card('#bosses', boss.label, time => sprite(`${boss.kind}${Math.floor(time * 4) % 2 ? 'A' : 'B'}`));
+  for (const id of ITEM_IDS) card('#items', WEAPONS[id]?.label ?? PASSIVES[id]?.label ?? RELICS[id]?.label ?? id, time => icon(id, Math.floor(time * 6) % ITEM_FRAMES));
+  let playing = true, busy = false, time = 0, last = performance.now(), rendered = 0, elapsed = 0;
+  const scene = document.querySelector('#scene'), ctx = scene.getContext('2d'), game = createGame(() => .7);
+  const effectScene=document.querySelector('#effect-scene'),effectCtx=effectScene.getContext('2d');
+  let effectGame;
+  applyCharacter(game, 'summoner');applyBuild(game, {summon:20,haste:10});startPractice(game);
+  game.spawnCarry = -1e8;game.nextBossAt = game.nextSwarmAt = game.nextXp = Infinity;
+  game.player.hp = 100;game.enemies = [];
+  function populate(count = 20) {
+    game.enemies = [];
+    const kinds = Object.keys(ENEMIES);
+    for (let n = 0; n < count; n++) {
+      const kind = kinds[n % kinds.length], angle = n * 2.399, radius = 120 + (n % 7) * 48;
+      const x = game.player.x + Math.cos(angle) * radius, y = game.player.y + Math.sin(angle) * radius;
+      game.enemies.push({ id:game.nextId++,kind,x,y,anchorX:x,anchorY:y,dummy:true,hp:1e12,maxHp:1e12,speed:0,damage:0,xp:0,radius:18,timer:0,kx:0,ky:0,vx:0,vy:0 });
+    }
+  }
+  const modes=[
+    ['화염 · 업소용 열풍기','evolve','dryer'],
+    ['번개 · 벼락 파리채','evolve','zapper'],
+    ['메가 레이저','fusion','spinlaser'],
+    ['폭발 · 거품 폭탄','evolve','detergent'],
+    ['냉기 · 정수기','relic','purifier'],
+    ['독침 기관총','fusion','poisongun'],
+    ['기사 · 검흔 수호자','evolve','toyknight'],
+  ];
+  function selectAttack(mode) {
+    effectGame=createGame(()=>.7);startPractice(effectGame);effectGame.weapons={};effectGame.enemies=[];
+    effectGame.nextBossAt=effectGame.nextSwarmAt=effectGame.nextXp=Infinity;effectGame.spawnCarry=-1e8;
+    effectGame.map=game.map;
+    for(let n=0;n<7;n++) {
+      const x=effectGame.player.x+100+(n%3)*65,y=effectGame.player.y+(Math.floor(n/3)-1)*75;
+      effectGame.enemies.push({id:effectGame.nextId++,kind:'trash',x,y,anchorX:x,anchorY:y,dummy:true,hp:1e12,maxHp:1e12,speed:0,damage:0,xp:0,radius:14,timer:0,kx:0,ky:0,vx:0,vy:0});
+    }
+    practicePick(effectGame,mode[1],mode[2]);
+    document.querySelector('#effect-note').textContent=mode[0]+' · 실제 공격 크기';
+    for(const button of document.querySelectorAll('#effect-modes button')) button.setAttribute('aria-pressed',String(button.textContent===mode[0]));
+    resizeScenes();
+  }
+  function resizeScenes() {
+    for(const [canvas,model] of [[scene,game],[effectScene,effectGame]]) {
+      const width=Math.max(64,Math.ceil(canvas.getBoundingClientRect().width/PIXEL)),height=Math.ceil(width*640/1080);
+      canvas.width=width*RENDER_SCALE;canvas.height=height*RENDER_SCALE;
+      if(model){model.view={halfW:width,halfH:height};model.viewRadius=Math.hypot(width,height);}
+    }
+  }
+  for(const mode of modes) {
+    const button=document.createElement('button');button.type='button';button.textContent=mode[0];button.onclick=()=>selectAttack(mode);
+    document.querySelector('#effect-modes').append(button);
+  }
+  window.addEventListener('resize',resizeScenes);selectAttack(modes[0]);
+  populate();game.weapons = {};
+  document.querySelector('#motion').onclick = event => {playing = !playing;event.target.textContent = playing ? '애니메이션 멈춤' : '애니메이션 재생';};
+  document.querySelector('#map').onchange = event => {game.map = effectGame.map = event.target.value;};
+  document.querySelector('#busy').onclick = event => {
+    busy = !busy;rendered = 0;elapsed = 0;populate(busy ? 200 : 20);game.weapons = {};game.evolved = {};game.fusions = {};
+    if (busy) for (const id of ['toydragon','toyknight','toydrone','spray','ball','dryer']) { for(let n=0;n<5;n++) practicePick(game,'weapon',id);practicePick(game,'evolve',id); }
+    event.target.textContent = busy ? '일반 전투 보기' : '밀집 전투 보기';
+  };
+  function frame(now) {
+    const dt = Math.max(0,Math.min((now-last)/1000,.04));last = now;
+    if (playing) {time += dt;update(game, dt);update(effectGame,dt);}
+    const before = performance.now();
+    render(ctx,game,scene.width/RENDER_SCALE,scene.height/RENDER_SCALE,time);
+    const duration = performance.now() - before;
+    render(effectCtx,effectGame,effectScene.width/RENDER_SCALE,effectScene.height/RENDER_SCALE,time);
+    for (const {canvas,draw} of entries) {
+      const image = draw(time), context = canvas.getContext('2d');
+      context.clearRect(0,0,96,96);context.imageSmoothingEnabled = false;
+      const ratio = image.pixelRatio ?? 1, scale = Math.min(3,80/(image.width/ratio),80/(image.height/ratio));
+      const width = image.width/ratio*scale,height = image.height/ratio*scale;
+      context.drawImage(image,Math.round((96-width)/2),Math.round((96-height)/2),width,height);
+    }
+    rendered++;elapsed += duration;
+    if(rendered % 30 === 0) status.textContent = `${entries.length}종 정상 표시 · ${game.enemies.length}마리 · 월드 렌더 평균 ${(elapsed/rendered).toFixed(2)}ms · ${scene.width}×${scene.height}`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+} catch(error) {status.textContent = `오류: ${error.message}`;throw error;}
+</script>
+</html>

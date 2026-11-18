@@ -1,7 +1,7 @@
 import { createMusic } from './audio.js';
 import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
-import { PIXEL, render } from './render.js';
+import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
   BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf,
 } from './rules.js';
@@ -114,10 +114,10 @@ function escapeHtml(text) {
 
 function resize() {
   const box = gameScreen.getBoundingClientRect();
-  // 화면의 1/PIXEL 크기 버퍼에 그리고 CSS로 키워 도트가 또렷하게 보이게 한다.
+  // 월드 시야는 유지하고 두 배 버퍼에 그려 반 칸 도트의 디테일을 보존한다.
   viewport = { width: Math.ceil(box.width / PIXEL), height: Math.ceil(box.height / PIXEL) };
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  canvas.width = viewport.width * RENDER_SCALE;
+  canvas.height = viewport.height * RENDER_SCALE;
   canvas.style.width = `${viewport.width * PIXEL}px`;
   canvas.style.height = `${viewport.height * PIXEL}px`;
   // 넓은 화면에서는 적이 화면 밖에서 나오도록 보이는 범위를 알려 준다.

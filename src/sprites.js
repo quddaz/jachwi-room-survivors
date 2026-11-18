@@ -1,3 +1,5 @@
+import { ART_COLORS, ART_DENSITY, IMPACT_ART, IMPACT_FRAMES, PIXEL_ACTORS, materialPixels } from './pixel-art.js';
+
 // 도트 스프라이트. 글자 하나가 픽셀 하나이고, 색은 아래 팔레트에서 고른다.
 const PALETTE = {
   K: '#1b1410', W: '#ffffff', w: '#e6dccb', O: '#ffb21f', o: '#e8871a', B: '#5f86cf', b: '#8fb1e9',
@@ -9,7 +11,8 @@ const PALETTE = {
   A: '#f0608a', E: '#7fe9ff', i: '#d3f3ff', u: '#7a2620', z: '#c4c9d1', h: '#2a2a30', F: '#e8a33a', f: '#b8731f',
   s: '#fff1d6', j: '#5dff9a',
 };
-const OUTLINE = '#2a1c14';
+Object.assign(PALETTE, ART_COLORS);
+const OUTLINE = '#293247';
 
 const ART = {
   duckA: [
@@ -2736,19 +2739,22 @@ function makeCanvas(width, height) {
   return canvas;
 }
 
-// 글자 격자를 캔버스로 바꾸고, 바깥에 1픽셀 외곽선을 두른다.
-function build(rows, { outline = true, scale = 1, overlay = null } = {}) {
+// 글자 격자를 캔버스로 바꾸고 월드 한 칸 너비의 외곽선을 두른다.
+function build(rows, { outline = true, scale = 1, overlay = null, density = 1 } = {}) {
   const height = rows.length;
   const width = Math.max(...rows.map((row) => row.length));
-  const pad = outline ? 1 : 0;
+  const pad = outline ? density : 0;
   const canvas = makeCanvas((width + pad * 2) * scale, (height + pad * 2) * scale);
+  canvas.pixelRatio = density;
   const ctx = canvas.getContext('2d');
   const filled = (x, y) => y >= 0 && y < height && x >= 0 && x < rows[y].length && rows[y][x] !== '.';
   if (outline) {
+    const steps = Array.from({ length: density }, (_, n) => n + 1);
     ctx.fillStyle = OUTLINE;
-    for (let y = -1; y <= height; y += 1) {
-      for (let x = -1; x <= width; x += 1) {
-        if (!filled(x, y) && (filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1))) {
+    for (let y = -pad; y < height + pad; y += 1) {
+      for (let x = -pad; x < width + pad; x += 1) {
+        if (!filled(x, y) && steps.some(step =>
+          filled(x - step, y) || filled(x + step, y) || filled(x, y - step) || filled(x, y + step))) {
           ctx.fillRect((x + pad) * scale, (y + pad) * scale, scale, scale);
         }
       }
@@ -2774,6 +2780,7 @@ function build(rows, { outline = true, scale = 1, overlay = null } = {}) {
 
 function flipped(source) {
   const canvas = makeCanvas(source.width, source.height);
+  canvas.pixelRatio = source.pixelRatio ?? 1;
   const ctx = canvas.getContext('2d');
   ctx.translate(source.width, 0);
   ctx.scale(-1, 1);
@@ -2783,6 +2790,7 @@ function flipped(source) {
 
 function tinted(source, color) {
   const canvas = makeCanvas(source.width, source.height);
+  canvas.pixelRatio = source.pixelRatio ?? 1;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(source, 0, 0);
   ctx.globalCompositeOperation = 'source-atop';
@@ -2791,30 +2799,10 @@ function tinted(source, color) {
   return canvas;
 }
 
-// 원래 오리의 얼굴·몸통을 유지하고 직업별 장비만 덧그린다.
-for (const role of ['normal', 'summoner', 'hunter', 'gunner']) {
-  for (const frame of ['duckA', 'duckB', 'duckBlink']) {
-    const rows = Array.from({ length: 22 }, () => Array(22).fill('.'));
-    ART[frame].forEach((row, y) => [...row].forEach((pixel, x) => { rows[y + 4][x + 4] = pixel; }));
-    const rect = (x, y, width, height, color) => {
-      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) rows[y + dy][x + dx] = color;
-    };
-    const bob = frame === 'duckB' ? 1 : 0;
-    if (role === 'summoner') {
-      for (let layer = 0; layer < 5; layer++) rect(10 - Math.floor(layer / 2), layer + bob, 1 + layer, 1, layer % 2 ? 'V' : 'v');
-      rect(6, 5 + bob, 10, 1, 'v');rect(10, 3 + bob, 2, 1, 'Y');
-      rect(4, 12, 3, 5, 'v');rect(5, 12, 2, 3, 'V');
-      rect(19, 10, 1, 9, 'N');rect(18, 7, 3, 3, 'E');rect(19, 7, 1, 1, 'W');
-    } else if (role === 'hunter') {
-      rect(7, 2 + bob, 7, 3, 'N');rect(8, 2 + bob, 5, 2, 'n');rect(7, 4 + bob, 7, 1, 'Y');rect(5, 5 + bob, 12, 1, 'N');
-      rect(3, 11, 3, 6, 'N');rect(3, 12, 2, 4, 'n');rect(7, 15, 8, 1, 'N');rect(11, 15, 2, 1, 'Y');
-    } else if (role === 'gunner') {
-      rect(6, 5 + bob, 9, 1, 'R');rect(4, 6 + bob, 3, 1, 'r');rect(4, 7 + bob, 1, 2, 'R');
-      rect(7, 15, 8, 1, 'N');rect(10, 15, 2, 1, 'Y');rect(15, 12, 2, 4, 'D');rect(16, 11, 3, 2, 'z');
-      rect(7, 12, 1, 2, 'Y');rect(8, 13, 1, 2, 'Y');rect(9, 14, 1, 2, 'Y');
-    }
-    ART[`character_${role}_${frame}`] = rows.map(row => row.join(''));
-  }
+// 시작 화면·도감·월드가 같은 원본 도트와 애니메이션을 공유한다.
+Object.assign(ART, PIXEL_ACTORS);
+function buildArt(name, scale = 1) {
+  return build(PIXEL_ACTORS[name] ?? materialPixels(ART[name]), { scale, density: ART_DENSITY });
 }
 const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
@@ -2826,7 +2814,7 @@ const cache = new Map();
 export function sprite(name, { flip = false, tint = null, scale = 1 } = {}) {
   const key = `${name}|${flip}|${tint}|${scale}`;
   if (!cache.has(key)) {
-    let canvas = build(ART[name], { scale });
+    let canvas = buildArt(name, scale);
     if (flip) canvas = flipped(canvas);
     if (tint) canvas = tinted(canvas, tint);
     cache.set(key, canvas);
@@ -2836,7 +2824,7 @@ export function sprite(name, { flip = false, tint = null, scale = 1 } = {}) {
 
 function buildItem(id, frame, scale = 1) {
   const [body, overlay] = (ITEMS[id] ?? ITEMS.box)(frame % ITEM_FRAMES);
-  return build(body, { scale, overlay });
+  return build(materialPixels(body), { scale, overlay: materialPixels(overlay, false), density: ART_DENSITY });
 }
 
 // 드라이기 아이콘과 폭발 연출이 동일한 불꽃 도트 4프레임을 공유한다.
@@ -2844,6 +2832,14 @@ export function dryerFlame(frame = 0) {
   const index=((Math.floor(frame)%ITEM_FRAMES)+ITEM_FRAMES)%ITEM_FRAMES;
   const key=`dryer-flame|${index}`;
   if(!cache.has(key))cache.set(key,build(DRYER_FLAMES[index],{outline:false}));
+  return cache.get(key);
+}
+
+// 타격은 짧은 섬광→빈 중심의 파편으로 끝나는 여섯 프레임을 공유한다.
+export function impactSprite(kind, progress) {
+  const frame = Math.max(0, Math.min(IMPACT_FRAMES - 1, Math.floor(progress * IMPACT_FRAMES)));
+  const key = `impact|${kind}|${frame}`;
+  if (!cache.has(key)) cache.set(key, build((IMPACT_ART[kind] ?? IMPACT_ART.physical)[frame], { outline: false, density: ART_DENSITY }));
   return cache.get(key);
 }
 
@@ -2859,7 +2855,7 @@ const urlCache = new Map();
 // HUD에 쓰는 확대한 스프라이트(적 그림 등) 이미지 주소
 export function iconUrl(id) {
   if (!urlCache.has(id)) {
-    const source = ITEMS[id] ? buildItem(id, 0, 4) : build(ART[id], { scale: 4 });
+    const source = ITEMS[id] ? buildItem(id, 0, 4) : buildArt(id, 4);
     urlCache.set(id, source.toDataURL());
   }
   return urlCache.get(id);
