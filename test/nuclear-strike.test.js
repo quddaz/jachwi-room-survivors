@@ -41,8 +41,8 @@ describe('다연장 미사일 핵 지원',()=>{
  });
  it('기존 미사일이 공격 개수 제한에 도달해도 이미 예고한 핵은 취소되지 않는다',()=>{
   const g=scene();g.nuclearIn=0;update(g,DT);const nuclear=nukes(g)[0];
-  g.relicAttacks.push(...Array.from({length:63},(_,n)=>({type:'firework',id:'firecracker',age:0,seed:1e4+n,x:100,y:100,radius:1,damage:0,life:10})));
-  g.fireIn=0;update(g,DT);assert.ok(g.relicAttacks.includes(nuclear));assert.equal(g.relicAttacks.length,64);
+  g.relicAttacks.push(...Array.from({length:191},(_,n)=>({type:'firework',id:'firecracker',age:0,seed:1e4+n,x:100,y:100,radius:1,damage:0,life:10})));
+  g.fireIn=0;update(g,DT);assert.ok(g.relicAttacks.includes(nuclear));assert.equal(g.relicAttacks.length,192);
  });
 });
 describe('보물 20점 리롤',()=>{

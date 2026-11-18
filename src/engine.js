@@ -3251,14 +3251,28 @@ function updateNuclearStrike(game, dt) {
   addEffect(game,{type:'banner',text:'핵미사일 낙하! 지원 사격 도착',life:NUCLEAR_STRIKE.warningSec,sound:'nuclearWarning'});
 }
 
-// 공격 상태는 판정과 연출이 함께 읽는다. 긴 파티클 목록 대신 최대 64개의 공격만 유지한다.
+// 공격 상태는 판정과 연출이 함께 읽는다. 긴 파티클 목록 대신 정해진 개수만 유지한다.
+// 다연장과 우상이 겹치면 다음 주기의 폭죽이 앞 주기 로켓이 떨어지기 전에 쌓이므로 넉넉히 둔다.
+const MAX_RELIC_ATTACKS = 192;
+
 function queueRelicAttack(game, attack) {
   game.relicAttacks ??= [];
-  if (game.relicAttacks.length >= 64) {
+  if (game.relicAttacks.length >= MAX_RELIC_ATTACKS) {
     const oldest=game.relicAttacks.findIndex(queued=>queued.type!=='nuclear');
-    game.relicAttacks.splice(Math.max(0,oldest),1);
+    const [dropped]=game.relicAttacks.splice(Math.max(0,oldest),1);
+    // 그래도 넘치면 떨어지는 중인 로켓을 그냥 지우지 않고 그 자리에서 바로 터뜨린다.
+    if(dropped?.type==='firework')detonateFirework(game,dropped);
   }
   game.relicAttacks.push({age:0,seed:game.nextId++,...attack});
+}
+
+function detonateFirework(game, attack) {
+  for(const enemy of near(game,attack.x,attack.y,attack.radius)) {
+    if(!enemy.dead&&distance(enemy,attack)<attack.radius+enemy.radius)damageEnemy(game,enemy,attack.damage,true,attack);
+  }
+  addEffect(game,{type:'nova',x:attack.x,y:attack.y,radius:attack.radius,life:.5});
+  addEffect(game,{type:'burst',x:attack.x,y:attack.y,color:'gold',count:24,life:.6,big:true,sound:'impact'});
+  game.shake=Math.max(game.shake,.018);
 }
 
 function updateRelicAttacks(game, dt) {
@@ -3289,12 +3303,7 @@ function updateRelicAttacks(game, dt) {
       }
     } else if(attack.type==='firework') {
       if(attack.age>=attack.life) {
-        for(const enemy of near(game,attack.x,attack.y,attack.radius)) {
-          if(!enemy.dead&&distance(enemy,attack)<attack.radius+enemy.radius)damageEnemy(game,enemy,attack.damage,true,attack);
-        }
-        addEffect(game,{type:'nova',x:attack.x,y:attack.y,radius:attack.radius,life:.5});
-        addEffect(game,{type:'burst',x:attack.x,y:attack.y,color:'gold',count:24,life:.6,big:true,sound:'impact'});
-        game.shake=Math.max(game.shake,.018);continue;
+        detonateFirework(game,attack);continue;
       }
     } else if(attack.type==='coolwave') {
       const outer=attack.radius*Math.min(1,attack.age/attack.life);

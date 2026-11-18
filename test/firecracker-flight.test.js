@@ -23,3 +23,19 @@ it('다연장 중첩의 마지막 로켓까지 빠른 낙하를 적용한다',()
  const shots=volley({stacks:5});
  assert.equal(shots.length,28);near(shots.at(-1).life,(RELICS.firecracker.aimSec+27*RELICS.firecracker.gapSec)/fall);
 });
+it('다음 주기 폭죽이 쌓여도 앞서 쏜 로켓은 사라지지 않고 모두 터진다',()=>{
+ const g=createGame(()=>.99);applyBuild(g,{treasure:20});g.weapons={};g.relics={firecracker:true,mlrs:6};g.passives.idol=1;
+ g.fireIn=0;g.spawnCarry=-1e9;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;
+ const queued=new Set();let blasts=0;
+ // 주기마다 바로 다시 쏘게 해서 앞 주기 로켓이 떨어지기 전에 새 로켓이 쌓이게 한다.
+ for(let frame=0;frame<60*8;frame++){
+  if(frame%60===0)g.fireIn=0;
+  update(g,1/60);
+  for(const attack of g.relicAttacks)if(attack.type==='firework')queued.add(attack.seed);
+  blasts+=g.effects.filter(effect=>effect.type==='nova'&&effect.age===0).length;
+ }
+ g.fireIn=1e9;
+ for(let frame=0;frame<60*6;frame++){update(g,1/60);blasts+=g.effects.filter(effect=>effect.type==='nova'&&effect.age===0).length;}
+ assert.ok(queued.size>64);
+ assert.equal(blasts,queued.size);
+});
