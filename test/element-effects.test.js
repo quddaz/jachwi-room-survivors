@@ -89,3 +89,17 @@ describe('속성 효과', () => {
     assert.ok(!(enemy.burnUntil > game.time));
   });
 });
+
+describe('치명 폭발과 속성', () => {
+  it('치명 폭발은 맞힌 무기의 속성 효과를 주변 적에게 퍼뜨리지 않는다', async () => {
+    const { applyBuild } = await import('../src/engine.js');
+    const game = quiet(() => 0);
+    applyBuild(game, { crit: 20 });
+    const source = target(game, { hp: 1, maxHp: 1 });
+    const adjacent = target(game, { x: source.x + 40 });
+    game.gridFresh = false;
+    hit(game, source, ['fire']);
+    assert.ok(adjacent.hp < adjacent.maxHp);
+    assert.equal(adjacent.burnUntil, undefined);
+  });
+});

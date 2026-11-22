@@ -1166,7 +1166,10 @@ function critBlast(game, source, amount, master = false) {
   const blast = perk(game, 'crit', master ? 20 : 10);
   if (!blast || game.critBlasting) return;
   const radius = blast.blastRadius * (1 + passiveValue(game, 'shatterlens', 'critBlastArea'));
+  // 폭발은 무기 타격이 아니므로 맞힌 무기의 속성 효과를 주변에 퍼뜨리지 않는다.
+  const element = game.hitElement;
   game.critBlasting = true;
+  game.hitElement = null;
   for (const enemy of near(game, source.x, source.y, radius)) {
     if (enemy !== source && !enemy.dead && distance(enemy, source) < radius + enemy.radius) {
       damageEnemy(game, enemy, amount * blast.blastShare, false, source, 0,
@@ -1174,6 +1177,7 @@ function critBlast(game, source, amount, master = false) {
     }
   }
   game.critBlasting = false;
+  game.hitElement = element;
   // 피해는 매 치명타마다 적용하고, 같은 적의 겹치는 연출만 짧게 묶는다.
   if (master && game.time < (source.nextMasterBlastVisualAt ?? -Infinity)) return;
   if (master) source.nextMasterBlastVisualAt = game.time + blast.blastVisualEverySec;
