@@ -11,9 +11,11 @@ export const CHARACTERS = {
     stats: ['보물 슬롯 +1', '보물 20점이면 최대 7칸'], maxRelics: 1 },
   gunner: { label: '총잡이 오리', description: '빠른 연사와 고정 피해를 사용하는 사수',
     stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8', '전체 고정 피해 +25%'], attackSpeed: 0.15, hitDamage: 8, fixedPower: 0.25 },
+  alchemist: { label: '연금술사 오리', description: '열기와 독, 속성 반응으로 적을 녹이는 연구자',
+    stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer' },
 };
 
-// 능력치 투자. 게임을 시작할 때 모두 같은 30점을 네 파트에 나눈다(파트당 최대 20).
+// 능력치 투자. 게임을 시작할 때 모두 같은 30점을 다섯 파트에 나눈다(파트당 최대 20).
 // 포인트마다 오르는 기본 수치는 작고, 핵심은 5·10·20점에 열리는 능력이다.
 // 같은 점수에 효율도 조금씩 올라 20점이면 기본 수치가 1.4배가 된다.
 export const BUILD_POINTS = 30;
@@ -24,7 +26,7 @@ export const BUILD = {
     perks: {
       5: { name: '약점 포착', text: '보스·정예에게 치명타 확률 +10%', eliteCrit: 0.1 },
       10: { name: '치명 폭발', text: '치명타로 쓰러뜨린 적이 터져 주변에 그 피해의 40%', blastShare: 0.4, blastRadius: 70 },
-      20: { name: '급소 마스터', text: '치명타 피해 +50%, 치명타마다 적중 피해의 30% 광역 폭발, 맞은 적 0.8초 기절(보스 제외). 기절·빙결 해제 후 1.2초 재발동 면역', critDamage: 0.5, stun: 0.8, blastShare: 0.3, blastRadius: 90, blastVisualEverySec: 0.1 },
+      20: { name: '급소 마스터', text: '치명타 확률 +70%p, 치명타 피해 +50%, 치명 전용 장비 해금. 치확 100% 초과분으로 추가 치명타 배율 적용. 치명타마다 피해 30% 광역 폭발, 0.8초 기절(보스 제외, 해제 후 1.2초 면역)', critChance: 0.7, critDamage: 0.5, stun: 0.8, blastShare: 0.3, blastRadius: 90, blastVisualEverySec: 0.1 },
     } },
   haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.005 },
     perks: {
@@ -44,6 +46,13 @@ export const BUILD = {
       5: { name: '보물 하나 더', text: '시작할 때 보물을 하나 더 골라요', relics: 1 },
       10: { name: '반짝반짝', text: '보물 피해 +30%, 보물 발동 주기 -30%', relicPower: 0.3, relicHaste: 0.3 },
       20: { name: '보물 사냥꾼', text: '보물 6칸, 공격 보물과 보물 패시브가 나와요. 리롤 +1회, 일반 몹 처치 시 0.02% 확률로 보물상자. 대신 무기는 1칸', maxRelics: 3, offers: 1, maxWeapons: 1, rerolls: 1, chestChance: 0.0002, chestLimit: 2 },
+    } },
+  // 기존 저장 배분의 우선순위를 보존하도록 마지막에 추가한다.
+  dot: { label: '지속·속성', icon: 'thermos', per: { dotPower: 0.015, elementalPower: 0.01 },
+    perks: {
+      5: { name: '농도 조절', text: '지속 피해 +15%', dotPower: 0.15 },
+      10: { name: '속성 연구', text: '화염·냉기·번개·독·물 속성 피해 +20%', elementalPower: 0.2 },
+      20: { name: '연금술 완성', text: '보스·정예에게 지속 피해 +25%, 지속·속성 전용 패시브와 보물 해금', dotElitePower: 0.25 },
     } },
 };
 
@@ -215,6 +224,42 @@ export function weaponTypeOf(id) {
   if (fused) return fused.primary ? weaponTypeOf(fused.primary) : '소환';
   return '';
 }
+
+// 공격 모양(투사체·연쇄)과 빌드 계열은 별도다. 완성형은 기본 무기 ID를 쓴다.
+export const WEAPON_CATEGORIES = { strike: '타격', dot: '지속', summon: '소환', treasure: '보물', elemental: '속성' };
+export const ELEMENTS = { fire: '화염', ice: '냉기', lightning: '번개', poison: '독', water: '물' };
+const DOT_WEAPONS = new Set(['bleach', 'dehumidifier', 'dryer', 'poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser']);
+const WEAPON_ELEMENTS = {
+  spray: ['poison'], bleach: ['poison'], dryer: ['fire'], dehumidifier: ['fire'], coil: ['fire'],
+  zapper: ['lightning'], detergent: ['water'], towel: ['water'], microwave: ['fire'], shower: ['water'],
+  thunderdragons: ['lightning'], stormcrane: ['lightning'], stormcompass: ['lightning'], thunderball: ['lightning'],
+  shockshower: ['water', 'lightning'], firelegion: ['fire'], firering: ['fire'], dryoven: ['fire'],
+  poisongun: ['poison'], bleachbot: ['poison'], thorngarden: ['poison'],
+};
+export function weaponElementsOf(id) {
+  if (Object.hasOwn(WEAPON_ELEMENTS, id)) return [...WEAPON_ELEMENTS[id]];
+  const fusion = Object.hasOwn(FUSIONS, id) ? FUSIONS[id] : null;
+  return fusion ? [...new Set(fusion.from.flatMap(weaponElementsOf))] : [];
+}
+export function weaponCategoriesOf(id) {
+  const weapon = Object.hasOwn(WEAPONS, id) ? WEAPONS[id] : null;
+  const fusion = Object.hasOwn(FUSIONS, id) ? FUSIONS[id] : null;
+  if (!weapon && !fusion) return [];
+  const primary = weapon ?? WEAPONS[fusion.primary ?? fusion.from.find(part => WEAPONS[part].summon) ?? fusion.from[0]];
+  const categories = [];
+  if (primary.summon) categories.push('summon');
+  if (primary.treasureScaling) categories.push('treasure');
+  if (DOT_WEAPONS.has(id)) categories.push('dot');
+  if (weaponElementsOf(id).length) categories.push('elemental');
+  return categories.length ? categories : ['strike'];
+}
+export const weaponCategoryOf = id => weaponCategoriesOf(id)[0] ?? '';
+
+// 보물도 속성 피해 계산에 같은 정의를 사용한다. 중복 속성은 배율을 중첩하지 않는다.
+export const RELIC_ELEMENTS = {
+  match: 'fire', heatpad: 'fire', firecracker: 'fire', freshener: 'poison',
+  outlet: 'lightning', purifier: 'ice', pas: 'ice', humidifier: 'water',
+};
 
 export const WEAPONS = {
   papercrane: {
@@ -468,6 +513,15 @@ export const SECRET_MAPS = ['mapnorth', 'mapsouth', 'mapwest', 'mapeast'];
 // 네 조각을 합한 적 처치당 확률. 일반 소모품과 따로 굴리고 정예·우상 보정을 받지 않는다.
 export const SECRET_MAP_DROP_CHANCE = 0.0004;
 export const PASSIVES = {
+  sights: { label: '붉은 조준경', critOnly: true, description: '치명 20점 전용. 치명타 확률을 높인다', critChance: [0.03, 0.06, 0.09, 0.12, 0.15] },
+  redink: { label: '급소 잉크', critOnly: true, description: '치명 20점 전용. 치명타 한 방의 위력을 높인다', critDamage: [0.15, 0.3, 0.45, 0.6, 0.75] },
+  shatterlens: { label: '파쇄 렌즈', critOnly: true, description: '치명 20점 전용. 치명 폭발의 반경을 넓힌다', critBlastArea: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  catalyst: { label: '반응 촉매', dot20Only: true, description: '지속·속성 20점 전용. 독·화상·장판과 연속 피해를 강화한다', dotPower: [0.12, 0.24, 0.36, 0.48, 0.6] },
+  spectrum: { label: '분광 시약', dot20Only: true, description: '지속·속성 20점 전용. 속성 무기와 속성 공격 보물의 피해를 높인다. 고정 피해 제외', elementalPower: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  corrosion: { label: '부식 용액', dot20Only: true, description: '지속·속성 20점 전용. 보스·정예에게 주는 지속 피해를 높인다', dotElitePower: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  displaystand: { label: '진열 받침대', treasureOnly: true, description: '보물 20점 전용. 공격 보물의 범위와 사거리를 넓힌다', relicRange: [0.06, 0.12, 0.18, 0.24, 0.3] },
+  appraisal: { label: '감정 수첩', treasureOnly: true, description: '보물 20점 전용. 캐릭터 레벨마다 보물 피해가 추가로 오른다', relicLevelPower: [0.004, 0.008, 0.012, 0.016, 0.02] },
+  collection: { label: '수집 도감', treasureOnly: true, description: '보물 20점 전용. 사용 중인 보물 슬롯 하나마다 보물 피해가 오른다', relicSlotPower: [0.02, 0.04, 0.06, 0.08, 0.1] },
   mapnorth: { label:'상단 지도',description:'잃어버린 지도의 위쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
   mapsouth: { label:'하단 지도',description:'잃어버린 지도의 아래쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
   mapwest: { label:'왼쪽 지도',description:'잃어버린 지도의 왼쪽 조각',hidden:true,treasureOnly:true,relicPower:[0.15] },
@@ -779,6 +833,18 @@ export const NUCLEAR_STRIKE = {
 // 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
 // stats는 카드에 적는 정확한 효과다.
 export const RELICS = {
+  rubyglass: { label: '루비 안경', critOnly: true, category: 'crit', description: '급소를 더 쉽게, 더 깊게 찌른다',
+    stats: ['치명 20점 전용', '치명타 확률 +15%p · 치명타 피해 +40%'], critChance: 0.15, critDamage: 0.4 },
+  redthread: { label: '운명의 실', critOnly: true, category: 'crit', description: '네 번째 직접 공격의 치명 단계를 하나 더 올린다',
+    stats: ['치명 20점 전용', '직접 타격 적중 4회마다 치명 배율 1회 추가(기존 치명타와 중첩)', '지속 피해·추가 고정 피해·치명 폭발은 횟수 제외', '고무망치 보유 시 확정 치명타 비활성화'], everyHits: 4 },
+  prism: { label: '오색 프리즘', dot20Only: true, category: 'dot', description: '속성 무기와 공격 보물의 속성 에너지를 응축한다',
+    stats: ['지속·속성 20점 전용', '화염·냉기·번개·독·물 속성 피해 +45%', '여러 속성이 있어도 한 번만 적용 · 고정 피해 제외'], elementalPower: 0.45 },
+  contagion: { label: '전염 플라스크', dot20Only: true, category: 'dot', description: '독·화상에 걸린 적이 쓰러지면 주변에 옮긴다',
+    stats: ['지속·속성 20점 전용', '처치 시 반경 140 안의 최대 3명에게 남은 독·화상 전염', '초당 피해 65%, 남은 시간 최대 3초', '전염된 적은 재전염 불가 · 장판·출혈은 전염하지 않음'], radius: 140, targets: 3, power: 0.65, maxSec: 3 },
+  jewelcase: { label: '보석 진열함', treasureOnly: true, category: 'treasure', description: '보물을 모을수록 소장품이 강해진다',
+    stats: ['보물 20점 전용', '사용 중인 보물 슬롯 하나마다 보물 피해 +8%', '이 보물도 슬롯 수에 포함'], relicSlotPower: 0.08 },
+  expedition: { label: '탐험가의 나침반', treasureOnly: true, category: 'treasure', description: '멀리 있는 적까지 공격 보물이 닿는다',
+    stats: ['보물 20점 전용', '공격 보물의 범위·사거리 +45%', '무기 범위에는 적용하지 않음'], relicRange: 0.45 },
   twin: { label: '쌍둥이 노즐', description: '날아가는 무기를 두 번씩 쏜다',
     stats: ['살충제·슬리퍼·세제 거품·돌돌이·스테이플러·레이저·종이비행기 2번 발사', '두 번째 발사는 피해 -50%'],
     weapons: ['spray', 'slipper', 'detergent', 'roller', 'stapler', 'laser', 'paperplane'], echoSec: 0.12, echoDamage: 0.5 },

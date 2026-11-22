@@ -947,7 +947,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
       if (effect.color === 'crit' && progress < 0.6) drawCentered(ctx, impactSprite('critical', progress / 0.6), x, y);
       drawCombatDebris(ctx,x,y,progress,colors,effect.seed,effect.count,effect.big);
     } else if (effect.type === 'number') {
-      const color = effect.crit ? '#ffd68a' : effect.value >= 60 ? '#ead4a2' : '#f5efdc';
+      const color = effect.critTiers > 1 ? '#ff8cba' : effect.crit ? '#ffd68a' : effect.value >= 60 ? '#ead4a2' : '#f5efdc';
       const rise = effect.crit ? Math.sin(Math.min(1,progress*2)*Math.PI)*3 + progress*11 : progress*9;
       ctx.save();ctx.globalAlpha=Math.min(1,(1-progress)*3);
       drawNumber(ctx,effect.value,x,Math.round(y-4-rise),color);ctx.restore();

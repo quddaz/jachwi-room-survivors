@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf,
+  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -235,7 +235,7 @@ function drawChoices() {
       : treasure ? `보물을 하나 골라 주세요 (${owned + 1}/${maxRelicsOf(game)})` : '하나를 골라 주세요';
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
-    const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponTypeOf(choice.id) : '';
+    const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
     const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
       : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
@@ -316,6 +316,7 @@ function start(practice = false) {
   game = createGame();
   game.map = selectedMap;
   applyCharacter(game, selectedCharacter);
+  game.weapons = { [CHARACTERS[selectedCharacter].starter ?? 'spray']: 1 };
   applyBuild(game, selectedBuild);
   paused = false;
   carry = 0;
@@ -386,7 +387,7 @@ function drawPicker() {
   practicePicker.querySelector('.practice-note').textContent = '누르면 한 단계 올리고, −는 한 단계 내려요';
   const rows = {
     weapon: () => Object.keys(WEAPONS).map((id) => ({ id, label: WEAPONS[id].label, icon: itemIcon(id, game.evolved[id]),
-      owned: Boolean(game.weapons[id]), level: game.evolved[id] ? '완성형' : game.weapons[id] ? `Lv ${game.weapons[id]}` : weaponTypeOf(id),
+      owned: Boolean(game.weapons[id]), level: game.evolved[id] ? '완성형' : game.weapons[id] ? `Lv ${game.weapons[id]}` : weaponBadge(id),
       max: game.evolved[id] || (game.weapons[id] >= 5 && !EVOLUTIONS[id]) })),
     evolve: () => Object.keys(EVOLUTIONS).map((id) => ({ id, label: EVOLUTIONS[id].label, icon: itemIcon(id, true),
       owned: Boolean(game.evolved[id]), level: WEAPONS[id].label, max: Boolean(game.evolved[id]) })),
@@ -461,22 +462,29 @@ const statLine = (id, key, unit = '', scale = 1) => {
   const show = (value) => `${Math.round(value * scale * 100) / 100}${unit}`;
   return `${show(values[0])} → ${show(values[values.length - 1])}`;
 };
+const weaponBadge = id => [...new Set([
+  ...weaponCategoriesOf(id).map(category => WEAPON_CATEGORIES[category]),
+  ...weaponElementsOf(id).map(element => ELEMENTS[element]), weaponTypeOf(id),
+].filter(Boolean))].join(' · ');
+let weaponCategoryFilter = 'all';
+const categoryMatches = id => weaponCategoryFilter === 'all' || weaponCategoriesOf(id).includes(weaponCategoryFilter);
+const categoryFilters = () => `<div class="weapon-filters" aria-label="무기 계열">${Object.entries({all:'전체', ...WEAPON_CATEGORIES}).map(([id,label]) => `<button type="button" class="season-tab${id === weaponCategoryFilter ? ' is-active' : ''}" data-weapon-category="${id}" aria-pressed="${id === weaponCategoryFilter}">${label}</button>`).join('')}</div>`;
 const CODEX_TABS = [
   ['fusion', '합체', () => {
     const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
     return `<p class="ranking-note">두 무기를 모두 5레벨까지 올려 <b>완성형</b>으로 만들면, 레벨업 선택지 맨 앞에 <b>합체</b>가 나와요. 합체하면 재료 두 무기의 개별 공격은 사라지고, 더 강한 합체 공격만 나가요. 같은 재료를 다른 합체에 다시 쓸 수 없어요. 한 판에 <b>최대 ${MAX_FUSIONS}개</b>까지 만들 수 있어요.</p>
-      <ol class="recipe-list">${Object.entries(FUSIONS).map(([id, fusion]) => `
+      ${categoryFilters()}<ol class="recipe-list">${Object.entries(FUSIONS).filter(([id]) => categoryMatches(id)).map(([id, fusion]) => `
         <li class="recipe">
           <div class="recipe-formula">${part(fusion.from[0])}<span class="recipe-op">+</span>${part(fusion.from[1])}<span class="recipe-op">→</span>
-            <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span></span></div>
+            <span class="recipe-part is-result">${itemIcon(id)}<span>${escapeHtml(fusion.label)}</span><small>${weaponBadge(id)}</small></span></div>
           <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
         </li>`).join('')}</ol>`;
   }],
-  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 지속 피해 전용은 관련 무기·합체나 성냥이 있어야 나와요.</p>
+  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 보온병·농축 앰플은 관련 무기·합체나 성냥이 있어야 나와요. 루비 안경·운명의 실은 치명 20점, 오색 프리즘·전염 플라스크는 지속·속성 20점에서 열려요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
-      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
+      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.critOnly ? ' <small>치명 20점</small>' : relic.dot20Only ? ' <small>지속·속성 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
   ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. ${Object.values(WEAPONS).filter(weapon => weapon.summon).map(weapon => weapon.label).join('·')}은 소환 능력치를 받아요. 행운 동전·손종·나침반·보물 도장·모래시계는 보물 피해 증가도 적용돼요. 보물 20점 빌드도 시작 무기와 무기 강화·교체를 사용할 수 있어요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
-    <ul class="evolve-list">${Object.entries(WEAPONS).map(([id, weapon]) => {
+    ${categoryFilters()}<ul class="evolve-list">${Object.entries(WEAPONS).filter(([id]) => categoryMatches(id)).map(([id, weapon]) => {
       const lines = [
         weapon.damage && `피해 ${statLine(id, 'damage')}`,
         weapon.finisher && `완성형부터 처치 시 ${weapon.finisher.label}: 피해 ${weapon.finisher.damage}배 · 개체당 ${weapon.finisher.cooldown}초 쿨타임`,
@@ -486,13 +494,13 @@ const CODEX_TABS = [
           ? `몸통 마디 ${weapon.segments} → ${weapon.segments + (weapon.count.at(-1) - 1) * weapon.segmentsPerCount} · 소환 수 +1마다 ${weapon.segmentsPerCount}마디 추가`
           : `개수 ${statLine(id, 'count')}`),
       ].filter(Boolean);
-      return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)}</b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
+      return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)} <small class="weapon-category">${weaponBadge(id)}</small></b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
         <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;
     }).join('')}</ul>`],
-  ['passive', '패시브', () => `<p class="ranking-note">무기와 함께 레벨업 선택지에 나와요. 치명타 피해(핫소스)는 네잎클로버를 가진 뒤에만 나오고, 보물 패시브(광택제, 태엽 열쇠)는 보물 파트 20점, 고정 피해 패시브(정밀 스프링, 경량 기어, 균형추)는 공속 파트 20점이어야 나와요. 소환 휘장·증원 호루라기는 소환 파트 20점부터 나와요.</p>
+  ['passive', '패시브', () => `<p class="ranking-note">무기와 함께 레벨업 선택지에 나와요. 치명타 피해(핫소스)는 네잎클로버를 가진 뒤에만 나오고, 보물 패시브(광택제, 태엽 열쇠)는 보물 파트 20점, 고정 피해 패시브(정밀 스프링, 경량 기어, 균형추)는 공속 파트 20점이어야 나와요. 소환 휘장·증원 호루라기는 소환 파트 20점부터 나와요. 붉은 조준경·급소 잉크·파쇄 렌즈는 치명 20점, 반응 촉매·분광 시약·부식 용액은 지속·속성 20점부터 나와요. 보물 20점에는 진열 받침대·감정 수첩·수집 도감도 열려요.</p>
     <ul class="evolve-list">${Object.entries(PASSIVES).filter(([,passive])=>!passive.hidden).map(([id, passive]) => {
       const max = Object.values(passive).find(Array.isArray).length;
-      return `<li>${itemIcon(id)}<span><b>${escapeHtml(passive.label)} <small>최대 ${max}레벨${passive.treasureOnly ? ' · 보물 20점' : passive.hasteOnly ? ' · 공속 20점' : passive.summonOnly ? ' · 소환 20점' : ''}</small></b><em>${escapeHtml(passive.description)}</em>
+      return `<li>${itemIcon(id)}<span><b>${escapeHtml(passive.label)} <small>최대 ${max}레벨${passive.treasureOnly ? ' · 보물 20점' : passive.hasteOnly ? ' · 공속 20점' : passive.summonOnly ? ' · 소환 20점' : passive.critOnly ? ' · 치명 20점' : passive.dot20Only ? ' · 지속·속성 20점' : ''}</small></b><em>${escapeHtml(passive.description)}</em>
         <i>1레벨: ${escapeHtml(passiveLines(id, 1).join(', '))}</i><i>${max}레벨: ${escapeHtml(passiveLines(id, max).join(', '))}</i></span></li>`;
     }).join('')}</ul>`],
   ['enemy', '적', () => `<p class="ranking-note">시간이 갈수록 체력, 공격력, 속도, 수가 끝없이 늘어요. 한 번에 받는 피해는 최대 체력의 ${Math.round(PLAYER.maxHitShare * 100)}%를 넘지 않아요.
@@ -506,7 +514,7 @@ const CODEX_TABS = [
   ['character', '캐릭터', () => `<p class="ranking-note">캐릭터 보너스는 능력치 30점과 별도로 적용돼요. 시작 전에 하나를 고르고, 다음 판에도 같은 캐릭터로 시작해요.</p>
     <ul class="evolve-list">${Object.entries(CHARACTERS).map(([id, character]) => `
       <li><img class="px codex-sprite" src="${duckIconUrl(id)}" alt=""><span><b>${escapeHtml(character.label)}</b><em>${escapeHtml(character.description)}</em>${character.stats.map(line => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
-  ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 네 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 포인트마다 기본 수치가 조금 오르고, <b>5·10·20점</b>에 그 파트만의 능력이 열려요.</p>
+  ['build', '능력치', () => `<p class="ranking-note">시작할 때 모두 같은 <b>${BUILD_POINTS}점</b>을 다섯 파트에 나눠요(파트당 최대 ${BUILD_MAX}). 포인트마다 기본 수치가 조금 오르고, <b>5·10·20점</b>에 그 파트만의 능력이 열려요.</p>
     <ul class="evolve-list">${Object.entries(BUILD).map(([tree, def]) => `
       <li>${itemIcon(def.icon)}<span><b>${def.label}</b><em>1점당: ${escapeHtml(buildEffect(tree, 1))}</em>
         ${Object.entries(def.perks).map(([at, perk]) => `<i class="${Number(at) === BUILD_MAX ? 'is-evolve' : ''}">${at}점 ${escapeHtml(perk.name)}: ${escapeHtml(perk.text)}</i>`).join('')}</span></li>`).join('')}</ul>`],
@@ -528,7 +536,7 @@ function openRecipes(tab = codexTab) {
   document.querySelector('.screen-recipes').scrollTop = 0;
 }
 
-// 시작 화면의 능력치 투자. 모두 같은 30점을 네 파트에 나누고, 나눈 대로 다음 판에도 기억한다.
+// 시작 화면의 능력치 투자. 모두 같은 30점을 다섯 파트에 나누고, 나눈 대로 다음 판에도 기억한다.
 let selectedBuild = normalizeBuildSafe();
 
 function normalizeBuildSafe(raw) {
@@ -540,6 +548,8 @@ function normalizeBuildSafe(raw) {
 }
 
 const BUILD_TEXT = {
+  dotPower: ['지속 피해', value => `+${Math.round(value * 1000) / 10}%`],
+  elementalPower: ['속성 피해', value => `+${Math.round(value * 100)}%`],
   critChance: ['치명타 확률', (value) => `+${Math.round(value * 1000) / 10}%`],
   critDamage: ['치명타 피해', (value) => `+${Math.round(value * 100)}%`],
   summonPower: ['소환 피해', (value) => `+${Math.round(value * 100)}%`],
@@ -560,8 +570,8 @@ function buildEffect(tree, points) {
   return Object.entries(BUILD[tree].per).map(([key, per]) => `${BUILD_TEXT[key][0]} ${BUILD_TEXT[key][1](per * points * efficiency)}`).join(', ');
 }
 
-const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10} })[role] ?? {});
-const balancedBuild = () => normalizeBuild({crit:10,haste:10,summon:5,treasure:5});
+const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10},alchemist:{dot:20,haste:10} })[role] ?? {});
+const balancedBuild = () => normalizeBuild({crit:6,haste:6,summon:6,treasure:6,dot:6});
 const sameBuild = (a,b) => Object.keys(BUILD).every(key=>a[key]===b[key]);
 function drawStartSummary() {
   const used=Object.values(selectedBuild).reduce((sum,value)=>sum+value,0);
@@ -806,6 +816,8 @@ app.addEventListener('click', (event) => {
   }
   const codex = event.target.closest('[data-codex]')?.dataset.codex;
   if (codex) openRecipes(codex);
+  const category = event.target.closest('[data-weapon-category]')?.dataset.weaponCategory;
+  if (category && (category === 'all' || Object.hasOwn(WEAPON_CATEGORIES, category))) { weaponCategoryFilter = category; openRecipes(codexTab); }
   if (action === 'home') show('start');
   if (action === 'retry') start(Boolean(game?.practice));
   if (action === 'practice') start(true);

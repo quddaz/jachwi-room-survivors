@@ -1,5 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  weaponElementsOf, RELIC_ELEMENTS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -103,12 +104,27 @@ const perk = (game, tree, at) => ((game.build?.[tree] ?? 0) >= at ? BUILD[tree].
 // 보물이 직접 주는 피해의 배율: 보물 파트, 광택제, 보물 파트 10점
 function relicPowerOf(game) {
   return 1 + buildValue(game, 'relicPower') + passiveValue(game, 'polish', 'relicPower') + (perk(game, 'treasure', 10)?.relicPower ?? 0) + SECRET_MAPS.reduce((sum,id)=>sum+passiveValue(game,id,'relicPower'),0)
-    + passiveValue(game,'idol','inheritedRelicPower') + passiveValue(game,'idol','relicPower');
+    + passiveValue(game,'idol','inheritedRelicPower') + passiveValue(game,'idol','relicPower')
+    + Math.max(0, game.level - 1) * passiveValue(game, 'appraisal', 'relicLevelPower')
+    + relicSlotsUsed(game) * (passiveValue(game, 'collection', 'relicSlotPower') + (relic(game, 'jewelcase')?.relicSlotPower ?? 0));
+}
+
+function elementalPowerOf(game) {
+  return 1 + buildValue(game, 'elementalPower') + (perk(game, 'dot', 10)?.elementalPower ?? 0)
+    + characterBonus(game, 'elementalPower') + passiveValue(game, 'spectrum', 'elementalPower')
+    + (relic(game, 'prism')?.elementalPower ?? 0);
+}
+
+function dotPowerOf(game) {
+  return 1 + buildValue(game, 'dotPower') + (perk(game, 'dot', 5)?.dotPower ?? 0)
+    + characterBonus(game, 'dotPower') + passiveValue(game, 'catalyst', 'dotPower')
+    + (relic(game, 'thermos')?.dotPower ?? 0);
 }
 
 // 보물이 직접 주는 피해. 공격력, 레벨, 보물 피해에 비례해서 후반에도 쓸모 있다.
-function relicDamage(game, base) {
-  return base * mightOf(game) * relicPowerOf(game) * (1 + RELIC_LEVEL_SCALE * (game.level - 1));
+function relicDamage(game, base, id) {
+  return base * mightOf(game) * relicPowerOf(game) * (1 + RELIC_LEVEL_SCALE * (game.level - 1))
+    * (RELIC_ELEMENTS[id] ? elementalPowerOf(game) : 1);
 }
 
 // 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
@@ -123,7 +139,7 @@ function relicEvery(game, sec) {
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  return radius * statsOf(game).area;
+  return radius * statsOf(game).area * (1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0));
 }
 
 function hasDotSource(game) {
@@ -141,6 +157,8 @@ function buildUnlocked(game, def) {
   return (!def.treasureOnly || Boolean(perk(game, 'treasure', 20)))
     && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)))
     && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
+    && (!def.critOnly || Boolean(perk(game, 'crit', 20)))
+    && (!def.dot20Only || Boolean(perk(game, 'dot', 20)))
     && (!def.dotOnly || hasDotSource(game))
     && (!def.requiresFixedDamage || flatDamageOf(game) > 0)
     && (!def.requiresRelic || Boolean(game.relics[def.requiresRelic]))
@@ -195,7 +213,8 @@ function maxHpOf(game) {
 // 모은 치명타 확률. 고무망치가 있으면 치명타는 안 터지고 이 값이 고정 피해로 바뀐다.
 function rawCritChance(game) {
   return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0)
-    + buildValue(game, 'critChance') + characterBonus(game, 'critChance');
+    + buildValue(game, 'critChance') + characterBonus(game, 'critChance') + (perk(game, 'crit', 20)?.critChance ?? 0)
+    + passiveValue(game, 'sights', 'critChance') + (relic(game, 'rubyglass')?.critChance ?? 0);
 }
 
 function critChanceOf(game, bonus = 0) {
@@ -224,7 +243,8 @@ function flatDamageOf(game) {
 
 function critDamageOf(game) {
   return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0) + buildValue(game, 'critDamage')
-    + (perk(game, 'crit', 20)?.critDamage ?? 0) + characterBonus(game, 'critDamage');
+    + (perk(game, 'crit', 20)?.critDamage ?? 0) + characterBonus(game, 'critDamage')
+    + passiveValue(game, 'redink', 'critDamage') + (relic(game, 'rubyglass')?.critDamage ?? 0);
 }
 
 function cornered(game) {
@@ -269,7 +289,10 @@ export function statsOf(game) {
     relicPower: relicPowerOf(game),
     relicRepeats: 1 + passiveValue(game,'idol','relicRepeats'),
     dropBonus: passiveValue(game,'idol','dropBonus'),
-    dotPower: 1 + (relic(game, 'thermos')?.dotPower ?? 0),
+    dotPower: dotPowerOf(game),
+    elementalPower: elementalPowerOf(game),
+    dotElitePower: 1 + (perk(game, 'dot', 20)?.dotElitePower ?? 0) + passiveValue(game, 'corrosion', 'dotElitePower'),
+    relicRange: 1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0),
     summonPower: (1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower')) * (1 + (relic(game, 'baton')?.power ?? 0)),
     summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
     summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
@@ -311,10 +334,14 @@ export function statSheet(game) {
     ['경험치', percent(stats.xpGain - 1)],
     ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
+    ...(stats.critChance >= 1 ? [['다중 치명', `${Math.floor(stats.critChance)}회 보장 · ${Math.round((stats.critChance % 1) * 1000) / 10}%로 ${Math.floor(stats.critChance) + 1}회`]] : []),
     ...(stats.summonPower > 1 ? [['소환 피해', percent(stats.summonPower - 1)], ['소환 이동 속도', percent(stats.summonSpeed - 1)]] : []),
     ...(stats.summonHaste > 1 ? [['소환 공격 속도', percent(stats.summonHaste - 1)]] : []),
     ...(stats.summonCount ? [['추가 소환수', `+${stats.summonCount}`]] : []),
     ...(stats.dotPower > 1 ? [['지속 피해', percent(stats.dotPower - 1)]] : []),
+    ...(stats.elementalPower > 1 ? [['속성 피해', percent(stats.elementalPower - 1)]] : []),
+    ...(stats.dotElitePower > 1 ? [['보스·정예 지속 피해', percent(stats.dotElitePower - 1)]] : []),
+    ...(stats.relicRange > 1 ? [['보물 범위·사거리', percent(stats.relicRange - 1)]] : []),
     ...(game.relics.concentrate ? [['농축 피해', `최대 ${percent(RELICS.concentrate.power)}`]] : []),
     ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
@@ -325,6 +352,13 @@ export function statSheet(game) {
 
 // 패시브 효과를 사람이 읽는 말로. [이름, 값을 글로 바꾸는 함수]
 const PASSIVE_TEXT = {
+  dotPower: ['지속 피해', percent],
+  elementalPower: ['속성 피해', percent],
+  dotElitePower: ['보스·정예 지속 피해', percent],
+  critBlastArea: ['치명 폭발 반경', percent],
+  relicRange: ['보물 범위·사거리', percent],
+  relicLevelPower: ['캐릭터 레벨당 보물 피해', value => `+${number(value * 100)}%`],
+  relicSlotPower: ['보물 슬롯당 보물 피해', percent],
   summonPower: ['소환 피해', percent],
   summonCount: ['소환수', value => `+${number(value)}`],
   speed: ['이동 속도', percent],
@@ -392,7 +426,7 @@ export function describeChoice(game, choice) {
       const dragonLength = weapon.summon === 'dragon' && key === 'count';
       const text = dragonLength ? { ...WEAPON_TEXT[key], name: '몸통 마디' } : WEAPON_TEXT[key];
       const summonPower = weapon.summon ? statsOf(game).summonPower : 1;
-      const scale = text.might ? might * weaponDamageScaleOf(game) * summonPower * (weapon.treasureScaling ? relicPowerOf(game) : 1) : 1;
+      const scale = text.might ? might * weaponDamageScaleOf(game) * (weaponElementsOf(fusionForWeapon(game, choice.id) ?? choice.id).length ? elementalPowerOf(game) : 1) * summonPower * (weapon.treasureScaling ? relicPowerOf(game) : 1) : 1;
       const flat = key === 'damage' ? malletDamageOf(game) * summonPower * (weapon.treasureScaling ? relicPowerOf(game) : 1) + onHitDamageOf(game) : 0;
       const countBonus = key === 'count' && weapon.summon ? statsOf(game).summonCount : 0;
       const value = (level) => dragonLength ? weapon.segments + (values[level - 1] + countBonus - 1) * weapon.segmentsPerCount
@@ -1128,9 +1162,10 @@ function separate(enemies) {
 function critBlast(game, source, amount, master = false) {
   const blast = perk(game, 'crit', master ? 20 : 10);
   if (!blast || game.critBlasting) return;
+  const radius = blast.blastRadius * (1 + passiveValue(game, 'shatterlens', 'critBlastArea'));
   game.critBlasting = true;
-  for (const enemy of near(game, source.x, source.y, blast.blastRadius)) {
-    if (enemy !== source && !enemy.dead && distance(enemy, source) < blast.blastRadius + enemy.radius) {
+  for (const enemy of near(game, source.x, source.y, radius)) {
+    if (enemy !== source && !enemy.dead && distance(enemy, source) < radius + enemy.radius) {
       damageEnemy(game, enemy, amount * blast.blastShare, false, source, 0,
         master ? { canCrit: false, hitEffects: false, showHit: false } : undefined);
     }
@@ -1139,7 +1174,7 @@ function critBlast(game, source, amount, master = false) {
   // 피해는 매 치명타마다 적용하고, 같은 적의 겹치는 연출만 짧게 묶는다.
   if (master && game.time < (source.nextMasterBlastVisualAt ?? -Infinity)) return;
   if (master) source.nextMasterBlastVisualAt = game.time + blast.blastVisualEverySec;
-  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: blast.blastRadius, color: 'crit', life: 0.3, sound: master ? 'impact' : undefined });
+  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius, color: 'crit', life: 0.3, sound: master ? 'impact' : undefined });
   if (master) addEffect(game, { type: 'burst', x: source.x, y: source.y, color: 'crit', count: 8, life: 0.25 });
 }
 
@@ -1180,7 +1215,8 @@ function damageWeaponHit(game, enemy, amount, slows = false, from = game.player)
 // 지속 피해도 치명타 피해는 받지만 타격 기절·빙결·성냥은 발동시키지 않는다.
 function damageOverTime(game, enemy, amount, from = game.player, span = game.stepDt ?? 1 / 60) {
   if (enemy.dead || amount <= 0) return;
-  let power = 1 + (relic(game, 'thermos')?.dotPower ?? 0);
+  let power = dotPowerOf(game);
+  if (enemy.boss || enemy.elite) power *= 1 + (perk(game, 'dot', 20)?.dotElitePower ?? 0) + passiveValue(game, 'corrosion', 'dotElitePower');
   const amp = relic(game, 'concentrate');
   if (amp) {
     const start = game.time - span;
@@ -1206,8 +1242,19 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
   const weakSpot = (enemy.boss || enemy.elite) && !relic(game, 'mallet') ? perk(game, 'crit', 5)?.eliteCrit ?? 0 : 0;
   const chance = critChanceOf(game, weakSpot);
-  const crit = canCrit && chance > 0 && game.random() < chance;
-  if (crit) amount *= critDamageOf(game);
+  const thread = relic(game, 'redthread');
+  let guaranteed = false;
+  if (thread && canCrit && hitEffects && amount > 0 && !game.critBlasting && !relic(game, 'mallet')) {
+    game.threadHits = (game.threadHits ?? 0) + 1;
+    guaranteed = game.threadHits % thread.everyHits === 0;
+  }
+  // 100%마다 치명 배율 한 번을 보장하고 나머지 확률로 한 번 더 적용한다.
+  // 130% → 1회 보장 + 30%로 2회, 200% → 2회 보장. 고정 피해는 이후에 더한다.
+  const whole = Math.floor(chance + 1e-12);
+  const remainder = Math.max(0, chance - whole);
+  const tiers = canCrit ? whole + (remainder > 0 && game.random() < remainder ? 1 : 0) + (guaranteed ? 1 : 0) : 0;
+  const crit = tiers > 0;
+  if (crit) amount *= critDamageOf(game) ** tiers;
   amount += flatBonus;
   let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
   if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
@@ -1225,12 +1272,12 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   if (hitEffects && match && amount >= 3 && game.random() < match.chance) {
     relicCue(game,'match',enemy);
     enemy.burnUntil = game.time + match.burnSec;
-    enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps) * (game.passives.idol ? 2 : 1));
+    enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps, 'match') * (game.passives.idol ? 2 : 1));
   }
   enemy.hitFlash = 0.1;
   if (showHit && amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
-      life: crit ? 0.8 : 0.6, crit });
+      life: crit ? 0.8 : 0.6, crit, critTiers: tiers });
     if (crit) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'crit', count: 6, life: 0.35 });
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: 3, life: 0.3 });
   }
@@ -1253,8 +1300,40 @@ function dropGem(game, x, y, value) {
   game.gems.push({ x, y, value, pulled: false });
 }
 
+// 원본의 남은 시간만 복사하고 피해를 즉시 주지 않아 처치·폭발 재귀를 만들지 않는다.
+function spreadAilments(game, source) {
+  const flask = relic(game, 'contagion');
+  if (!flask || source.dotContagion) return;
+  const active = ['burn', 'poison'].filter(type => source[`${type}Until`] > game.time && source[`${type}Dps`] > 0);
+  if (!active.length) return;
+  const radius = flask.radius * statsOf(game).area;
+  let count = 0;
+  for (const enemy of near(game, source.x, source.y, radius)) {
+    if (enemy === source || enemy.dead || distance(enemy, source) > radius + enemy.radius) continue;
+    let infected = false;
+    for (const type of active) {
+      const dps = source[`${type}Dps`] * flask.power;
+      // 더 강한 기존 상태와 그 지속 시간은 덮어쓰지 않는다.
+      if (enemy[`${type}Until`] > game.time && enemy[`${type}Dps`] >= dps) continue;
+      enemy[`${type}Dps`] = dps;
+      enemy[`${type}Until`] = game.time + Math.min(flask.maxSec, source[`${type}Until`] - game.time);
+      infected = true;
+    }
+    if (infected) {
+      enemy.dotContagion = true;
+      count += 1;
+      if (count >= flask.targets) break;
+    }
+  }
+  if (count) {
+    relicCue(game, 'contagion', source);
+    addEffect(game, { type: 'ring', x: source.x, y: source.y, radius, color: 'poison', life: 0.35 });
+  }
+}
+
 function killEnemy(game, enemy) {
   enemy.dead = true;
+  spreadAilments(game, enemy);
   game.kills += 1;
   if (enemy.kind === 'milk' && !enemy.exploded) {
     // 상한 우유는 쓰러져도 터진다. 이미 부풀던 중이면 그 폭발이 그대로 터지고, 아니면 잠시 뒤 그 자리에서 터진다.
@@ -1403,8 +1482,9 @@ function weaponValue(game, id, key) {
   const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
   const summonPower = WEAPONS[id].summon && (key === 'damage' || key === 'dps') ? statsOf(game).summonPower : 1;
   const treasurePower = WEAPONS[id].treasureScaling && key === 'damage' ? relicPowerOf(game) : 1;
+  const element = (key === 'damage' || key === 'dps') && weaponElementsOf(owner ?? id).length ? elementalPowerOf(game) : 1;
   return (WEAPONS[id][key][game.weapons[id] - 1] * might
-    * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower * summonPower * treasurePower;
+    * element * (typeof scale === 'number' && key !== 'count' && key !== 'chains' ? scale : 1) + flat) * echo * fusionPower * summonPower * treasurePower;
 }
 
 function nearestEnemies(game, count, maxDistance = 560) {
@@ -3160,7 +3240,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
         const spot = target ?? {x:game.player.x+Math.cos(angle)*200,y:game.player.y+Math.sin(angle)*200};
         queueRelicAttack(game,{type:'firework',id:'firecracker',x:clamp(spot.x,0,ARENA.width),y:clamp(spot.y,0,ARENA.height),
           fromX:game.player.x,fromY:game.player.y,life:(firecracker.aimSec+index*firecracker.gapSec)/fallSpeed,
-          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage+RELICS.mlrs.damage*relicCount(game,'mlrs'))*castPower});
+          radius:relicReach(game,firecracker.radius),damage:relicDamage(game,firecracker.damage+RELICS.mlrs.damage*relicCount(game,'mlrs'),'firecracker')*castPower});
       }
     }
   }
@@ -3408,7 +3488,7 @@ function updateSummonMist(game, dt) {
       else coverage.set(enemy.id, { enemy, source: unit, stacks: 1 });
     }
   }
-  const damage = relicDamage(game, mist.dps) * statsOf(game).summonPower * elapsed;
+  const damage = relicDamage(game, mist.dps, 'humidifier') * statsOf(game).summonPower * elapsed;
   for (const { enemy, source, stacks } of coverage.values()) damageOverTime(game, enemy, damage * stacks, source, elapsed);
 }
 
@@ -3419,7 +3499,7 @@ function updateDamageRelics(game, dt) {
   if (pas) {
     for (const castPower of relicCastPowers(game,'pas','pasIn',dt)) {
       queueRelicAttack(game,{type:'coolwave',id:'pas',x:player.x,y:player.y,life:pas.waveSec,
-        radius:relicReach(game,pas.radius),damage:relicDamage(game,pas.damage)*castPower,hit:new Set()});
+        radius:relicReach(game,pas.radius),damage:relicDamage(game,pas.damage,'pas')*castPower,hit:new Set()});
     }
   }
   const heat = relic(game, 'heatpad');
@@ -3427,7 +3507,7 @@ function updateDamageRelics(game, dt) {
     for (const castPower of relicCastPowers(game,'heatpad','heatIn',dt)) {
       queueRelicAttack(game,{type:'heat',id:'heatpad',x:player.x,y:player.y,angle:player.heading??0,life:heat.zoneSec,
         halfWidth:relicReach(game,heat.radius),halfHeight:relicReach(game,heat.halfHeight),tickSec:heat.tickSec,
-        damage:relicDamage(game,heat.damage)*castPower/(heat.zoneSec/heat.tickSec),nextTick:0});
+        damage:relicDamage(game,heat.damage,'heatpad')*castPower/(heat.zoneSec/heat.tickSec),nextTick:0});
     }
   }
   const fresh = relic(game, 'freshener');
@@ -3438,7 +3518,7 @@ function updateDamageRelics(game, dt) {
       queueRelicAttack(game,{type:'perfume',id:'freshener',x:clamp(target?.x??player.x+Math.cos(angle)*180,0,ARENA.width),
         y:clamp(target?.y??player.y+Math.sin(angle)*180,0,ARENA.height),life:fresh.zoneSec,
         radius:relicReach(game,fresh.radius),tickSec:fresh.tickSec,
-        damage:relicDamage(game,fresh.damage)*castPower/(fresh.zoneSec/fresh.tickSec),nextTick:0});
+        damage:relicDamage(game,fresh.damage,'freshener')*castPower/(fresh.zoneSec/fresh.tickSec),nextTick:0});
     }
   }
   const pin = relic(game, 'clothespin');
@@ -3481,7 +3561,7 @@ function updateDamageRelics(game, dt) {
         // 대상이 많아도 각 줄의 연쇄는 1.5초 안에 끝난다.
         const hopSec=Math.min(outlet.hopSec,1.5/Math.max(1,targets.length));
         if(targets.length)queueRelicAttack(game,{type:'chain',id:'outlet',stream,x:player.x,y:player.y,targets,nextHop:0,hopSec,
-          life:targets.length*hopSec+0.05,damage:relicDamage(game,outlet.damage)*castPower});
+          life:targets.length*hopSec+0.05,damage:relicDamage(game,outlet.damage,'outlet')*castPower});
       }
       if(relicCount(game,'adapter')>=BALL_LIGHTNING.stacks) {
         const aim=firstTarget ?? nearestEnemies(game,1,relicReach(game,outlet.range))[0];
@@ -3489,7 +3569,7 @@ function updateDamageRelics(game, dt) {
         queueRelicAttack(game,{type:'orb',id:'outlet',x:player.x,y:player.y,vx:Math.cos(angle)*BALL_LIGHTNING.speed,
           vy:Math.sin(angle)*BALL_LIGHTNING.speed,life:BALL_LIGHTNING.lifeSec,nextTick:0,
           zapRadius:relicReach(game,BALL_LIGHTNING.zapRadius),burstRadius:relicReach(game,BALL_LIGHTNING.burstRadius),
-          zapDamage:relicDamage(game,BALL_LIGHTNING.zapDamage)*castPower,burstDamage:relicDamage(game,BALL_LIGHTNING.burstDamage)*castPower});
+          zapDamage:relicDamage(game,BALL_LIGHTNING.zapDamage,'outlet')*castPower,burstDamage:relicDamage(game,BALL_LIGHTNING.burstDamage,'outlet')*castPower});
         addEffect(game,{type:'ring',x:player.x,y:player.y,radius:40,color:'spark',life:.3,sound:'zap'});
       }
     }
@@ -3519,7 +3599,7 @@ function updateDamageRelics(game, dt) {
     for (const castPower of relicCastPowers(game,'purifier','purifierIn',dt)) {
       queueRelicAttack(game,{type:'iceburst',id:'purifier',x:player.x,y:player.y,
         life:(purifier.volleys-1)*purifier.burstGap+0.1,nextVolley:0,
-        damage:relicDamage(game,purifier.damage)*castPower,reach:relicReach(game,1)});
+        damage:relicDamage(game,purifier.damage,'purifier')*castPower,reach:relicReach(game,1)});
     }
   }
   // 과충전이 시작될 때 알려 준다.

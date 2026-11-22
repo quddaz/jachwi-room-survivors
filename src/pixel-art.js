@@ -84,6 +84,14 @@ function duck(role, frame, blink = false, idle = false) {
     g.line(17, 21 + lift, 28, 34 + lift, 'N', 3);
     for (let n = 0; n < 4; n++) g.rect(18 + n * 3, 23 + n * 3 + lift, 2, 3, 'Y').set(18 + n * 3, 23 + n * 3 + lift, 'W');
     g.rect(30, 30 + lift, 4, 7, '4').rect(31, 27 + lift, 7, 4, 'd').rect(31, 27 + lift, 6, 1, 'W');
+  } else if (role === 'alchemist') {
+    // 머리 위 고글, 초록 앞치마, 손에 든 유리 플라스크.
+    g.rect(15, 5 + lift, 19, 3, 'x').rect(18, 4 + lift, 6, 5, '4').rect(26, 4 + lift, 6, 5, '4');
+    g.rect(19, 5 + lift, 4, 2, 'E').rect(27, 5 + lift, 4, 2, 'T').set(19, 5 + lift, 'W');
+    g.line(21, 22 + lift, 26, 25 + lift, 'x', 2).rect(23, 25 + lift, 8, 11, 'G').rect(24, 25 + lift, 5, 8, 'g');
+    g.rect(25, 29 + lift, 4, 3, 'W').set(26, 30 + lift, 'G');
+    g.rect(34, 23 + lift, 4, 6, '6').ellipse(36, 33 + lift, 5, 6, '7').ellipse(36, 32 + lift, 4, 5, 'E');
+    g.ellipse(36, 34 + lift, 3, 3, 'G').rect(34, 23 + lift, 4, 2, 'N').set(34, 30 + lift, 'W');
   }
   return g.rows();
 }
@@ -202,7 +210,7 @@ function creature(kind, frame) {
 }
 
 export const PIXEL_ACTORS = {};
-for (const role of ['normal', 'summoner', 'hunter', 'gunner']) {
+for (const role of ['normal', 'summoner', 'hunter', 'gunner', 'alchemist']) {
   for (let frame = 0; frame < WALK_FRAMES; frame++) PIXEL_ACTORS[`character_${role}_duckWalk${frame}`] = duck(role, frame);
   for (let frame = 0; frame < 4; frame++) PIXEL_ACTORS[`character_${role}_duckIdle${frame}`] = duck(role, frame, frame === 3, true);
   PIXEL_ACTORS[`character_${role}_duckA`] = duck(role, 0);

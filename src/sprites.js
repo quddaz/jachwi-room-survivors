@@ -2804,7 +2804,7 @@ Object.assign(ART, PIXEL_ACTORS);
 function buildArt(name, scale = 1) {
   return build(PIXEL_ACTORS[name] ?? materialPixels(ART[name]), { scale, density: ART_DENSITY });
 }
-const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner'].includes(role) ? role : 'normal'}_${frame}`;
+const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
 export const duckIconUrl = role => iconUrl(characterFrame(role, 'duckA'));
 
@@ -2966,6 +2966,43 @@ for (const [id, [baseId, kind, outline = 'f']] of Object.entries(UPGRADED)) {
     shimmerOutline(rows, fx, frame, kind === 'plus' ? ['Y', 'W'] : ['Y', 'O']);
     if (kind === 'plus') plusBadge(fx, frame);
     else FUSION_DECOR[kind](fx, frame);
+  });
+}
+
+// 신규 빌드 장비는 실루엣과 계열 색을 함께 구분한다. 모두 기존 16×16·4프레임 규격이다.
+for (const [id, shape, color, accent] of [
+  ['sights', 'lens', 'R', 'Y'], ['redink', 'bottle', 'r', 'R'], ['shatterlens', 'prism', 'R', 'W'],
+  ['catalyst', 'bottle', 'G', 'j'], ['spectrum', 'bottle', 'V', 'E'], ['corrosion', 'bottle', 'x', 'g'],
+  ['displaystand', 'case', 'n', 'Y'], ['appraisal', 'book', 'N', 'Y'], ['collection', 'book', 'f', 'E'],
+  ['rubyglass', 'lens', 'f', 'R'], ['redthread', 'thread', 'R', 'Y'], ['prism', 'prism', 'V', 'E'],
+  ['contagion', 'flask', 'G', 'j'], ['jewelcase', 'case', 'f', 'V'], ['expedition', 'compass', 'Y', 'B'],
+]) {
+  ITEMS[id] = item([], (body, fx, frame) => {
+    if (shape === 'lens') {
+      body.ellipse(4, 8, 3, 3, color).ellipse(11, 8, 3, 3, color).rect(7, 7, 2, 2, 'f');
+      body.rect(3, 7, 3, 2, accent).rect(10, 7, 3, 2, accent).set(3, 7, 'W');
+    } else if (shape === 'bottle' || shape === 'flask') {
+      body.rect(6, 2, 4, 2, 'N').rect(6, 4, 4, 4, 'i');
+      if (shape === 'flask') body.ellipse(8, 10, 5, 4, 'E').ellipse(8, 11, 4, 2, color);
+      else body.rect(4, 7, 8, 7, 'i').rect(5, 9, 6, 4, color).rect(6, 10, 4, 2, accent);
+      body.set(5, 8, 'W'); fx.set(8 + frame % 2, 10 - frame % 3, accent);
+    } else if (shape === 'prism') {
+      for (let y = 2; y < 14; y++) body.rect(8 - Math.min(y - 1, 14 - y), y, 2 * Math.min(y - 1, 14 - y), 1, color);
+      body.line(8, 2, 5, 11, 'W').line(8, 2, 11, 11, accent).line(5, 11, 11, 11, 'Y');
+    } else if (shape === 'book') {
+      body.rect(3, 2, 11, 12, color).rect(3, 3, 2, 10, 'f').rect(6, 4, 6, 7, 's');
+      body.line(7, 6, 10, 6, accent).line(7, 8, 10, 8, color).rect(10, 11, 2, 4, accent);
+    } else if (shape === 'case') {
+      body.rect(2, 7, 12, 7, color).rect(3, 8, 10, 4, 'N').rect(2, 5, 12, 2, 'Y');
+      body.ellipse(5, 7, 2, 2, accent).ellipse(10, 7, 2, 2, 'E').rect(7, 12, 2, 2, 'Y');
+    } else if (shape === 'thread') {
+      body.rect(3, 3, 10, 2, 'n').rect(3, 12, 10, 2, 'n').rect(5, 5, 6, 7, color);
+      body.line(2, 10, 13, 6, accent).line(2, 11, 13, 7, color);
+    } else {
+      body.ellipse(8, 8, 6, 6, color).ellipse(8, 8, 4, 4, 's');
+      body.line(8, 3, 6, 9, accent).line(6, 9, 10, 7, 'R').set(8, 8, 'W');
+    }
+    twinkle(fx, 12, 3, frame, accent);
   });
 }
 

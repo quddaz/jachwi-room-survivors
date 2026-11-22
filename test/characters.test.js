@@ -30,11 +30,11 @@ describe('특화 오리 캐릭터', () => {
     near(statsOf(game).critChance, 0.2);near(statsOf(game).critDamage, 1.85);
     applyCharacter(game, 'gunner');near(statsOf(game).critChance, 0);near(statsOf(game).critDamage, 1.5);
     near(statsOf(game).flatDamage, 10);
-    assert.equal(Object.keys(CHARACTERS).length, 4);
+    assert.equal(Object.keys(CHARACTERS).length, 5);
   });
   it('일반 오리의 치명타 확률과 피해가 능력치·패시브와 합산되고 캐릭터 치확은 고무망치 전환에서 제외한다', () => {
     const game = quiet('normal');applyBuild(game, { crit: 20 });
-    near(statsOf(game).critChance, 0.2 + 20 * 0.004 * 1.4);
+    near(statsOf(game).critChance, 0.2 + 0.7 + 20 * 0.004 * 1.4);
     near(statsOf(game).critDamage, PLAYER.critDamage + 0.35 + 20 * 0.015 * 1.4 + 0.5);
     applyBuild(game, {});game.relics.mallet = true;
     near(statsOf(game).critChance, 0);near(statsOf(game).flatDamage, 0);
