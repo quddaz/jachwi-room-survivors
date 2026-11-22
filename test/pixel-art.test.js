@@ -7,7 +7,7 @@ describe('도트 원본과 월드 크기', () => {
   it('모든 직업의 걷기·대기 프레임이 같은 크기이고 화면 밖으로 잘리지 않는다', () => {
     for (const role of Object.keys(CHARACTERS)) {
       const frames = Array.from({ length: WALK_FRAMES }, (_, n) => PIXEL_ACTORS[`character_${role}_duckWalk${n}`]);
-      assert.ok(new Set(frames.map(rows => rows.join('\n'))).size >= 4, `${role} 걷기 동작`);
+      assert.ok(new Set(frames.map(rows => rows.join('\n'))).size === 2, `${role} 원래 두 프레임 걷기 동작`);
       for (const rows of [...frames, ...Array.from({ length: 4 }, (_, n) => PIXEL_ACTORS[`character_${role}_duckIdle${n}`])]) {
         assert.equal(rows.length, 44);
         assert.ok(rows.every(row => row.length === 44));

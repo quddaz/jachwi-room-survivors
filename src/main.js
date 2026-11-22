@@ -736,6 +736,14 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { music.setMuted(true); music.setPlaying(false); });
 window.addEventListener('pageshow', syncSound);
+// 같은 게임을 여러 탭에서 열어도 끄기 설정을 다른 탭에 즉시 반영한다.
+window.addEventListener('storage', (event) => {
+  if (event.key !== SOUND_KEY && event.key !== EFFECTS_KEY) return;
+  musicMuted = recall(SOUND_KEY) === 'off';
+  effectsMuted = recall(EFFECTS_KEY) === 'off';
+  drawSoundButtons();
+  syncSound();
+});
 
 window.__drawLoadout = () => drawLoadout();
 

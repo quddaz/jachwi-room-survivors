@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyBuild, applyCharacter, createGame, damageEnemy, describeChoice, passiveLines, rollChoices, rollRelics, statsOf, update } from '../src/engine.js';
+import { applyBuild, applyCharacter, createGame, damageEnemy, describeChoice, passiveLines, rollChoices, rollRelics, statSheet, statsOf, update } from '../src/engine.js';
 import { BUILD, CHARACTERS, ELEMENTS, EVOLUTIONS, FUSIONS, PASSIVES, RELICS, WEAPONS, normalizeBuild, passiveMaxLevel, weaponCategoriesOf, weaponCategoryOf, weaponElementsOf } from '../src/rules.js';
 import { ITEM_IDS } from '../src/sprites.js';
 
@@ -171,6 +171,20 @@ describe('보물 수집과 전염', () => {
 });
 
 describe('100% 초과 치명타', () => {
+  it('능력치 창은 치확 101.2%를 보존하고 고정 피해의 긴 소수만 정리한다', () => {
+    const g = quiet(); applyBuild(g, { crit: 20 }); applyCharacter(g, 'normal');
+    const sheet = Object.fromEntries(statSheet(g));
+    assert.equal(sheet['치명타 확률'], '101.2%');
+    assert.equal(sheet['다중 치명'], '1회 확정');
+    assert.equal(sheet['2중 치명 확률'], '1.2%');
+    applyCharacter(g, 'gunner'); g.level = 100;
+    g.passives = { counterweight: 5, lightgear: 5 };
+    const raw = statsOf(g).flatDamage;
+    const value = Object.fromEntries(statSheet(g))['고정 피해'];
+    assert.match(value, /^\+\d+$/);
+    assert.ok(Math.abs(Number(value) - raw) <= 0.5);
+    assert.equal(statsOf(g).flatDamage, raw);
+  });
   it('치명 20점에 +70%p가 붙고 일반 오리는 기본 배분만으로 101.2%다', () => {
     const g = quiet(); applyBuild(g, { crit: 20 }); near(statsOf(g).critChance, 0.812);
     applyCharacter(g, 'normal'); near(statsOf(g).critChance, 1.012);

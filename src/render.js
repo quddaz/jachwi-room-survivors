@@ -4,7 +4,6 @@ import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSour
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
 import { DIGITS, ITEM_FRAMES, dryerFlame, duckSprite, icon, impactSprite, sprite } from './sprites.js';
-import { WALK_FRAMES } from './pixel-art.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
 export const PIXEL = 2.4;
@@ -735,8 +734,8 @@ function drawDuck(ctx, game, x, y, time) {
   const { player } = game;
   // 맞은 뒤 무적일 때는 사라지지 않고 반투명하게 깜빡인다(복잡한 화면에서 놓치지 않게).
   const blink = player.invulnerable > 0 && Math.floor(time * 16) % 2 === 0;
-  const name = player.moving ? `duckWalk${Math.floor(game.time * 12) % WALK_FRAMES}`
-    : `duckIdle${Math.floor(game.time * 2) % 4}`;
+  const name = player.moving ? (Math.floor(time * 9) % 2 === 0 ? 'duckA' : 'duckB')
+    : Math.floor(time * 2) % 5 === 0 ? 'duckBlink' : 'duckA';
   const tint = player.hurtFlash > 0 ? 'rgba(255, 120, 110, 0.7)' : null;
   const image = duckSprite(game.character, name, { flip: player.facing < 0, tint });
   ctx.fillStyle = 'rgba(36,46,62,0.15)';

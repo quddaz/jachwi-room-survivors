@@ -26,6 +26,8 @@ const minor = (note) => note - ([4, 9, 11].includes(note % 12) ? 1 : 0);
 export function createMusic() {
   let context = null;
   let master = null;
+  let musicBus = null;
+  let effectsBus = null;
   let noiseBuffer = null;
   let unlocked = false;
   let playing = false;
@@ -54,7 +56,7 @@ export function createMusic() {
     gain.gain.linearRampToValueAtTime(volume, time + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
     source.connect(gain);
-    gain.connect(master);
+    gain.connect(group === 'music' ? musicBus : effectsBus);
     const voice = { source, gain, group };
     voices.add(voice);
     source.onended = () => {
@@ -95,6 +97,8 @@ export function createMusic() {
   function stopMusic() {
     if (timer !== null) clearInterval(timer);
     timer = null;
+    // 예약 음을 멈추는 것과 별개로 음악 출력 자체를 즉시 닫는다.
+    if (musicBus) musicBus.gain.setValueAtTime(0, context.currentTime);
     silence('music');
     idle();
   }
@@ -121,6 +125,7 @@ export function createMusic() {
 
   function sync() {
     if (!wantsMusic()) { stopMusic(); return; }
+    musicBus.gain.setValueAtTime(1, context.currentTime);
     // resume()는 사용자 입력에서 직접 호출되며, 재시작해도 타이머는 하나만 둔다.
     void context.resume().then(() => {
       if (!wantsMusic() || timer !== null || context.state !== 'running') return;
@@ -138,8 +143,14 @@ export function createMusic() {
       try {
         context = new AudioContext();
         master = context.createGain();
-        master.gain.value = 0.22;
+        master.gain.value = muted ? 0 : 0.22;
         master.connect(context.destination);
+        musicBus = context.createGain();
+        musicBus.gain.value = 0;
+        musicBus.connect(master);
+        effectsBus = context.createGain();
+        effectsBus.gain.value = effectsMuted ? 0 : 1;
+        effectsBus.connect(master);
         noiseBuffer = context.createBuffer(1, Math.ceil(context.sampleRate * 0.2), context.sampleRate);
         const samples = noiseBuffer.getChannelData(0);
         for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1;
@@ -217,12 +228,14 @@ export function createMusic() {
     setMuted(value) {
       if (muted === Boolean(value)) return;
       muted = Boolean(value);
+      if (master) master.gain.setValueAtTime(muted ? 0 : 0.22, context.currentTime);
       if (muted) { effectGeneration += 1; silence(); }
       sync();
     },
     setEffectsMuted(value) {
       if (effectsMuted === Boolean(value)) return;
       effectsMuted = Boolean(value);
+      if (effectsBus) effectsBus.gain.setValueAtTime(effectsMuted ? 0 : 1, context.currentTime);
       if (effectsMuted) {
         effectGeneration += 1;
         silence('effect');
@@ -247,6 +260,8 @@ export function createMusic() {
       silence();
       for (const voice of voices) { voice.source.disconnect(); voice.gain.disconnect(); }
       voices.clear();
+      musicBus?.disconnect();
+      effectsBus?.disconnect();
       master?.disconnect();
       void context?.close().catch(() => {});
     },

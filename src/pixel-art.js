@@ -44,56 +44,90 @@ function eye(g, x, y, blink = false, color = 'K') {
   else g.rect(x, y, 3, 4, color).set(x, y, 'W');
 }
 
+// 도트 개편 전 오리 원본. 얼굴·몸통·직업 장비를 복원하고 출력만 정수 2배 확대한다.
+const DUCK_POSES = {
+  duckA: [
+    '....WWWW......',
+    '...WWWWWW.....',
+    '..WWWWWKWW....',
+    '..WWWWWWWOOO..',
+    '..WWWWWWWOOo..',
+    '...WWWWWW.....',
+    '..WWWWWWWW....',
+    '.WWWWWWWWWW...',
+    'WWWwwWWWWWWW..',
+    'WWwwwwWWBBWW..',
+    'WWWwwWWWBBWW..',
+    '.WWWWWWWWWW...',
+    '..wWWWWWWw....',
+    '...OO...OO....',
+  ],
+  duckB: [
+    '..............',
+    '....WWWW......',
+    '...WWWWWW.....',
+    '..WWWWWKWW....',
+    '..WWWWWWWOOO..',
+    '..WWWWWWWOOo..',
+    '...WWWWWW.....',
+    '.WWWWWWWWWW...',
+    'WWWwwWWWWWWW..',
+    'WWwwwwWWBBWW..',
+    'WWWwwWWWBBWW..',
+    '.WWWWWWWWWW...',
+    '..wWWWWWWw....',
+    '....OO.OO.....',
+  ],
+  duckBlink: [
+    '....WWWW......',
+    '...WWWWWW.....',
+    '..WWWWWwWW....',
+    '..WWWWWWWOOO..',
+    '..WWWWWWWOOo..',
+    '...WWWWWW.....',
+    '..WWWWWWWW....',
+    '.WWWWWWWWWW...',
+    'WWWwwWWWWWWW..',
+    'WWwwwwWWBBWW..',
+    'WWWwwWWWBBWW..',
+    '.WWWWWWWWWW...',
+    '..wWWWWWWw....',
+    '...OO...OO....',
+  ],
+};
+
 function duck(role, frame, blink = false, idle = false) {
-  const g = grid(44, 44);
-  const lift = idle ? (frame === 2 ? -1 : 0) : [0, -1, 0, 0, -1, 0][frame];
-  const step = idle ? 0 : [-2, -1, 1, 2, 1, -1][frame];
-  // 발→몸통→목→머리 순으로 찍고 머리와 몸통의 명암을 나눈다.
-  g.rect(14 + step, 38, 8, 3, 'o').rect(12 + step, 39, 10, 2, 'O').rect(13 + step, 38, 5, 1, 'Y');
-  g.rect(26 - step, 38 - (step < 0 ? 1 : 0), 8, 3, 'o').rect(25 - step, 39, 10, 2, 'O');
-  g.ellipse(21, 29 + lift, 14, 10, 'w').ellipse(19, 27 + lift, 12, 9, 'W');
-  g.ellipse(11, 26 + lift, 6, 5, 'w').ellipse(10, 24 + lift, 4, 4, 'W');
-  g.rect(18, 17 + lift, 11, 10, 'w').rect(18, 17 + lift, 8, 11, 'W');
-  g.ellipse(24, 13 + lift, 10, 11, 'w').ellipse(22, 11 + lift, 9, 9, 'W');
-  g.ellipse(20, 8 + lift, 4, 3, '0');
-  // 코·콧구멍·사람 입 모양 없이 닫힌 노란 부리와 작은 점눈.
-  g.rect(31, 15 + lift, 8, 5, 'o').rect(30, 14 + lift, 10, 4, 'O');
-  g.rect(32, 13 + lift, 6, 2, 'Y').rect(39, 15 + lift, 3, 3, 'O');
-  eye(g, 27, 10 + lift, blink);
-  g.ellipse(17, 29 + lift, 8, 5, 'w').ellipse(16, 27 + lift, 7, 4, '2');
-  g.line(11, 26 + lift, 18, 25 + lift, 'W').line(13, 29 + lift, 20, 28 + lift, 'W');
-  if (role === 'normal') {
-    g.rect(24, 25 + lift, 8, 3, 'q').rect(24, 25 + lift, 8, 1, 'b');
-    g.rect(27, 28 + lift, 3, 5, 'B').set(27, 29 + lift, 'L');
-  } else if (role === 'summoner') {
-    for (let row = 0; row < 9; row++) g.rect(23 - Math.floor(row / 3), row + 1 + lift, 2 + row, 1, row < 3 ? 'V' : 'v');
-    g.rect(13, 8 + lift, 21, 2, 'v').rect(15, 8 + lift, 17, 1, 'V');
-    g.rect(25, 4 + lift, 2, 2, 'Y').set(26, 3 + lift, 'W');
-    g.rect(9, 28 + lift, 6, 8, 'v').rect(10, 28 + lift, 4, 6, 'V');
-    g.line(37, 23, 37, 39, 'N', 2).ellipse(38, 20, 4, 5, 'q').ellipse(37, 19, 3, 4, 'E').set(36, 17, 'W');
+  const pose = blink ? 'duckBlink' : !idle && frame % 2 ? 'duckB' : 'duckA';
+  const rows = Array.from({ length: 22 }, () => Array(22).fill('.'));
+  DUCK_POSES[pose].forEach((row, y) => [...row].forEach((pixel, x) => { rows[y + 4][x + 4] = pixel; }));
+  const rect = (x, y, width, height, color) => {
+    for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) rows[y + dy][x + dx] = color;
+  };
+  const bob = pose === 'duckB' ? 1 : 0;
+  if (role === 'summoner') {
+    for (let layer = 0; layer < 5; layer++) rect(10 - Math.floor(layer / 2), layer + bob, 1 + layer, 1, layer % 2 ? 'V' : 'v');
+    rect(6, 5 + bob, 10, 1, 'v');rect(10, 3 + bob, 2, 1, 'Y');
+    rect(4, 12, 3, 5, 'v');rect(5, 12, 2, 3, 'V');
+    rect(19, 10, 1, 9, 'N');rect(18, 7, 3, 3, 'E');rect(19, 7, 1, 1, 'W');
   } else if (role === 'hunter') {
-    g.rect(16, 3 + lift, 16, 6, 'N').rect(17, 3 + lift, 12, 4, 'n');
-    g.rect(16, 7 + lift, 16, 2, 'k').rect(11, 9 + lift, 25, 2, 'N');
-    g.rect(12, 9 + lift, 20, 1, '8');
-    g.line(15, 21 + lift, 29, 34 + lift, 'N', 2);
-    g.rect(8, 28 + lift, 8, 9, 'k').rect(8, 28 + lift, 7, 7, 'n').rect(8, 28 + lift, 7, 2, 'N');
-    g.rect(11, 30 + lift, 2, 2, 'Y').set(11, 30 + lift, 'W');
+    rect(7, 2 + bob, 7, 3, 'N');rect(8, 2 + bob, 5, 2, 'n');rect(7, 4 + bob, 7, 1, 'Y');rect(5, 5 + bob, 12, 1, 'N');
+    rect(3, 11, 3, 6, 'N');rect(3, 12, 2, 4, 'n');rect(7, 15, 8, 1, 'N');rect(11, 15, 2, 1, 'Y');
   } else if (role === 'gunner') {
-    g.rect(14, 8 + lift, 20, 2, 'r').rect(14, 8 + lift, 19, 1, 'R');
-    g.line(14, 9 + lift, 8, 12 + lift, 'R', 2).line(12, 10 + lift, 9, 15 + lift, 'r');
-    g.line(17, 21 + lift, 28, 34 + lift, 'N', 3);
-    for (let n = 0; n < 4; n++) g.rect(18 + n * 3, 23 + n * 3 + lift, 2, 3, 'Y').set(18 + n * 3, 23 + n * 3 + lift, 'W');
-    g.rect(30, 30 + lift, 4, 7, '4').rect(31, 27 + lift, 7, 4, 'd').rect(31, 27 + lift, 6, 1, 'W');
-  } else if (role === 'alchemist') {
-    // 머리 위 고글, 초록 앞치마, 손에 든 유리 플라스크.
-    g.rect(15, 5 + lift, 19, 3, 'x').rect(18, 4 + lift, 6, 5, '4').rect(26, 4 + lift, 6, 5, '4');
-    g.rect(19, 5 + lift, 4, 2, 'E').rect(27, 5 + lift, 4, 2, 'T').set(19, 5 + lift, 'W');
-    g.line(21, 22 + lift, 26, 25 + lift, 'x', 2).rect(23, 25 + lift, 8, 11, 'G').rect(24, 25 + lift, 5, 8, 'g');
-    g.rect(25, 29 + lift, 4, 3, 'W').set(26, 30 + lift, 'G');
-    g.rect(34, 23 + lift, 4, 6, '6').ellipse(36, 33 + lift, 5, 6, '7').ellipse(36, 32 + lift, 4, 5, 'E');
-    g.ellipse(36, 34 + lift, 3, 3, 'G').rect(34, 23 + lift, 4, 2, 'N').set(34, 30 + lift, 'W');
+    rect(6, 5 + bob, 9, 1, 'R');rect(4, 6 + bob, 3, 1, 'r');rect(4, 7 + bob, 1, 2, 'R');
+    rect(7, 15, 8, 1, 'N');rect(10, 15, 2, 1, 'Y');rect(15, 12, 2, 4, 'D');rect(16, 11, 3, 2, 'z');
+    rect(7, 12, 1, 2, 'Y');rect(8, 13, 1, 2, 'Y');rect(9, 14, 1, 2, 'Y');
   }
-  return g.rows();
+  if (role === 'alchemist') {
+    // 새 직업도 원래 몸통·얼굴에 고글과 작은 약병만 덧그린다.
+    rect(7, 4 + bob, 8, 1, 'x');rect(8, 3 + bob, 3, 2, 'G');rect(12, 3 + bob, 3, 2, 'G');
+    rect(9, 3 + bob, 1, 1, 'E');rect(13, 3 + bob, 1, 1, 'W');
+    rect(11, 12, 4, 4, 'G');rect(12, 13, 2, 2, 'g');
+    rect(18, 10, 2, 2, 'n');rect(17, 12, 4, 5, 'E');rect(18, 14, 2, 3, 'G');rect(17, 12, 1, 2, 'W');
+  }
+  return rows.flatMap(row => {
+    const scaled = row.map(pixel => pixel.repeat(ART_DENSITY)).join('');
+    return Array(ART_DENSITY).fill(scaled);
+  });
 }
 
 function creature(kind, frame) {

@@ -9,7 +9,7 @@ function audioEnvironment(t, { unsupported = false, rejectResume = false } = {})
   const timers = new Map();
   const param = () => ({
     value: 0,
-    setValueAtTime() {}, linearRampToValueAtTime() {},
+    setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime() {},
     exponentialRampToValueAtTime() {}, cancelScheduledValues() {}, setTargetAtTime() {},
   });
   class Context {
@@ -21,12 +21,12 @@ function audioEnvironment(t, { unsupported = false, rejectResume = false } = {})
       this.sources = [];
       instances.push(this);
     }
-    createGain() { return { gain: param(), connect() {}, disconnect() {} }; }
+    createGain() { return { gain: param(), outputs: [], connect(node) { this.outputs.push(node); }, disconnect() {} }; }
     createBuffer(channels, length) { return { getChannelData: () => new Float32Array(length) }; }
     createOscillator() { return this.source(); }
     createBufferSource() { return this.source(); }
     source() {
-      const source = { frequency: param(), starts: [], stops: [], connect() {}, disconnect() {} };
+      const source = { frequency: param(), starts: [], stops: [], outputs: [], connect(node) { this.outputs.push(node); }, disconnect() {} };
       source.start = (time) => source.starts.push(time);
       source.stop = (time) => source.stops.push(time);
       this.sources.push(source);
@@ -94,6 +94,39 @@ test('반복 시작과 음소거 전환에도 음악 타이머를 중복 생성�
   assert.equal(timers.size, 1);
   music.setPlaying(false);
   assert.equal(timers.size, 0);
+});
+
+test('음악 끄기는 예약 음뿐 아니라 음악 출력 경로를 즉시 0으로 만들며 효과음은 유지한다', async (t) => {
+  const { instances, timers } = audioEnvironment(t);
+  const music = createMusic(); t.after(() => music.destroy());
+  music.setPlaying(true); await music.unlock(); await settle();
+  const context = instances[0], musicBus = context.sources[0].outputs[0].outputs[0];
+  const before = context.sources.length;
+  music.playEffect('hurt'); await settle();
+  const effectsBus = context.sources[before].outputs[0].outputs[0];
+  assert.notEqual(musicBus, effectsBus);
+  assert.equal(musicBus.gain.value, 1); assert.equal(effectsBus.gain.value, 1);
+  music.setPlaying(false);
+  assert.equal(musicBus.gain.value, 0); assert.equal(effectsBus.gain.value, 1);
+  assert.equal(timers.size, 0);
+  await settle(); assert.equal(musicBus.gain.value, 0);
+  music.setPlaying(true); await settle();
+  assert.equal(musicBus.gain.value, 1); assert.equal(timers.size, 1);
+});
+
+test('전체 음소거·효과음 끄기도 출력 경로를 닫고 다시 켤 때 각 설정을 유지한다', async (t) => {
+  const { instances } = audioEnvironment(t);
+  const music = createMusic(); t.after(() => music.destroy());
+  music.setPlaying(true); await music.unlock(); await settle();
+  const context = instances[0], musicBus = context.sources[0].outputs[0].outputs[0];
+  const before = context.sources.length; music.playEffect('hurt'); await settle();
+  const effectsBus = context.sources[before].outputs[0].outputs[0], master = musicBus.outputs[0];
+  music.setEffectsMuted(true);
+  assert.equal(effectsBus.gain.value, 0); assert.equal(musicBus.gain.value, 1);
+  music.setMuted(true); assert.equal(master.gain.value, 0);
+  music.setMuted(false); await settle();
+  assert.equal(master.gain.value, 0.22); assert.equal(musicBus.gain.value, 1); assert.equal(effectsBus.gain.value, 0);
+  music.setEffectsMuted(false); assert.equal(effectsBus.gain.value, 1);
 });
 
 test('음악을 멈춘 레벨업 화면에서도 효과음을 내고 음소거하면 효과음도 끈다', async (t) => {

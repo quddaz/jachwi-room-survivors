@@ -319,6 +319,8 @@ export function attackTempoOf(game) {
 // 오른쪽 아래 능력치 창. [이름, 값] 목록이다.
 export function statSheet(game) {
   const stats = statsOf(game);
+  const guaranteedCrit = Math.floor(stats.critChance + 1e-12);
+  const extraCrit = Math.max(0, stats.critChance - guaranteedCrit);
   return [
     ...(game.character ? [['캐릭터', CHARACTERS[game.character].label]] : []),
     ['최대 체력', number(stats.maxHp)],
@@ -332,9 +334,10 @@ export function statSheet(game) {
     ['받는 피해', percent(-stats.armor)],
     ['줍는 범위', percent(stats.pickupRadius / PLAYER.pickupRadius - 1)],
     ['경험치', percent(stats.xpGain - 1)],
-    ['치명타 확률', `${Math.round(stats.critChance * 100)}%`],
+    ['치명타 확률', `${Math.round(stats.critChance * 1000) / 10}%`],
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
-    ...(stats.critChance >= 1 ? [['다중 치명', `${Math.floor(stats.critChance)}회 보장 · ${Math.round((stats.critChance % 1) * 1000) / 10}%로 ${Math.floor(stats.critChance) + 1}회`]] : []),
+    ...(guaranteedCrit ? [['다중 치명', `${guaranteedCrit}회 확정`]] : []),
+    ...(guaranteedCrit && extraCrit > 1e-12 ? [[`${guaranteedCrit + 1}중 치명 확률`, `${Math.round(extraCrit * 1000) / 10}%`]] : []),
     ...(stats.summonPower > 1 ? [['소환 피해', percent(stats.summonPower - 1)], ['소환 이동 속도', percent(stats.summonSpeed - 1)]] : []),
     ...(stats.summonHaste > 1 ? [['소환 공격 속도', percent(stats.summonHaste - 1)]] : []),
     ...(stats.summonCount ? [['추가 소환수', `+${stats.summonCount}`]] : []),
@@ -343,7 +346,7 @@ export function statSheet(game) {
     ...(stats.dotElitePower > 1 ? [['보스·정예 지속 피해', percent(stats.dotElitePower - 1)]] : []),
     ...(stats.relicRange > 1 ? [['보물 범위·사거리', percent(stats.relicRange - 1)]] : []),
     ...(game.relics.concentrate ? [['농축 피해', `최대 ${percent(RELICS.concentrate.power)}`]] : []),
-    ...(stats.flatDamage > 0 ? [['고정 피해', `+${stats.flatDamage}`]] : []),
+    ...(stats.flatDamage > 0 ? [['고정 피해', `+${number(stats.flatDamage)}`]] : []),
     ...(stats.relicPower > 1 ? [['보물 피해', percent(stats.relicPower - 1)]] : []),
     ...(game.passives.idol ? [['보물 발동','2회'],['소모품 드랍','+1%p']] : []),
     ...(relicHasteOf(game) > 0 ? [['보물 발동 주기', `-${Math.round(relicHasteOf(game) * 100)}%`]] : []),
