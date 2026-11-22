@@ -1957,3 +1957,45 @@ describe('연습장', () => {
     assert.equal(game.passives.idol, 1);
   });
 });
+
+describe('쌍둥이 노즐 확장', () => {
+  const fires = (weapons, fusions, twin, counter) => {
+    const game = createGame(seeded(71));
+    game.spawnCarry = -100000;
+    game.weapons = weapons;
+    game.fusions = fusions;
+    if (twin) game.relics.twin = true;
+    for (let n = 0; n < 6; n += 1) placeEnemy(game, 'trash', 120 + n * 25, (n % 3 - 1) * 40, { hp: 1e9, speed: 0 });
+    let count = 0;
+    for (let step = 0; step < 60 * 6; step += 1) { update(game, 1 / 60); count += counter(game); }
+    return count;
+  };
+  const effectsOf = (weapon, type) => {
+    const seen = new WeakSet();
+    return game => game.effects.filter(effect => effect.weapon === weapon && effect.type === type && !seen.has(effect) && seen.add(effect)).length;
+  };
+  it('전기 파리채·행운 동전·나침반도 두 번씩 발동한다', () => {
+    for (const [id, type] of [['zapper', 'bolt'], ['coin', 'fortune'], ['compass', 'fortune']]) {
+      const once = fires({ [id]: 1 }, {}, false, effectsOf(id, type));
+      const twice = fires({ [id]: 1 }, {}, true, effectsOf(id, type));
+      assert.ok(once > 0 && twice >= once * 1.8, `${id}: ${once} → ${twice}`);
+    }
+  });
+  it('합체 무기 감전 샤워도 두 번씩 쏘고 두 번째 전기 피해도 절반이다', () => {
+    const splashes = game => game.splashes.filter(splash => !splash.counted && (splash.counted = true)).length;
+    const once = fires({ shower: 5, zapper: 5 }, { shockshower: true }, false, splashes);
+    const twice = fires({ shower: 5, zapper: 5 }, { shockshower: true }, true, splashes);
+    assert.ok(twice >= once * 1.8, `${once} → ${twice}`);
+    const game = createGame(seeded(72));
+    game.spawnCarry = -100000;
+    game.weapons = { shower: 5, zapper: 5 };
+    game.fusions = { shockshower: true };
+    game.relics.twin = true;
+    placeEnemy(game, 'trash', 150, 0, { hp: 1e9, speed: 0 });
+    const shocks = new Set();
+    for (let step = 0; step < 60 * 3; step += 1) { update(game, 1 / 60); game.splashes.forEach(splash => shocks.add(splash.shockDamage)); }
+    assert.equal(shocks.size, 2);
+    const [big, small] = [...shocks].sort((a, b) => b - a);
+    assert.ok(Math.abs(small - big * RELICS.twin.echoDamage) < 1e-9);
+  });
+});

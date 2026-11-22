@@ -1559,7 +1559,9 @@ function weaponValue(game, id, key) {
   const fusionPower = owner && (key === 'damage' || key === 'dps') ? FUSIONS[owner].power : 1;
   // 고정 피해는 한 대씩 때리는 무기(damage)에만 붙는다. 계속 닿는 무기(dps)는 빼야 매 순간 더해지지 않는다.
   const flat = key === 'damage' ? malletDamageOf(game) : 0;
-  const echo = key === 'damage' && game.echoing === id ? RELICS.twin.echoDamage : 1;
+  // 합체 무기는 재료 무기의 피해도 함께 줄여 두 번째 발사 전체가 절반이 되게 한다.
+  const echoing = game.echoing && (game.echoing === id || (owner && owner === fusionForWeapon(game, game.echoing)));
+  const echo = key === 'damage' && echoing ? RELICS.twin.echoDamage : 1;
   const summonPower = WEAPONS[id].summon && (key === 'damage' || key === 'dps') ? statsOf(game).summonPower : 1;
   const treasurePower = WEAPONS[id].treasureScaling && key === 'damage' ? relicPowerOf(game) : 1;
   const element = (key === 'damage' || key === 'dps') && weaponElementsOf(owner ?? id).length ? elementalPowerOf(game) : 1;
@@ -2737,6 +2739,7 @@ function fireWeapons(game, dt) {
         const { fallSec } = WEAPONS.shower;
         game.splashes.push({ x: target.x, y: target.y, delay: fallSec + index * 0.06, total: fallSec + index * 0.06,
           radius: weaponValue(game, 'shower', 'radius') * area, damage: weaponValue(game, 'shower', 'damage'),
+          shockDamage: fusion(game, 'shockshower') ? weaponValue(game, 'zapper', 'damage') : 0,
           mega: Boolean(evolution(game, 'shower')) });
       }
     }
@@ -2756,7 +2759,7 @@ function fireWeapons(game, dt) {
           .slice(0, shock.targets);
         for (const enemy of struck) {
           addEffect(game, { weapon: 'shower', type: 'bolt', points: [{ x: splash.x, y: splash.y }, { x: enemy.x, y: enemy.y }], life: 0.18, mega: true });
-          damageWeaponHit(game, enemy, weaponValue(game, 'zapper', 'damage') * shock.damage);
+          damageWeaponHit(game, enemy, (splash.shockDamage || weaponValue(game, 'zapper', 'damage')) * shock.damage);
         }
       }
       addEffect(game, { weapon: 'shower', type: 'burst', x: splash.x, y: splash.y, color: 'water', count: 8, life: 0.35 });
