@@ -103,3 +103,21 @@ describe('치명 폭발과 속성', () => {
     assert.equal(adjacent.burnUntil, undefined);
   });
 });
+
+describe('속성 지속 피해와 치명타', () => {
+  it('속성으로 붙은 화상·중독은 치명타와 치명 폭발을 일으키지 않는다', async () => {
+    const { applyBuild } = await import('../src/engine.js');
+    for (const element of ['fire', 'poison']) {
+      const game = quiet(() => 0.99);
+      applyBuild(game, { crit: 20 });
+      const source = target(game, { speed: 0 });
+      const adjacent = target(game, { x: source.x + 40, speed: 0 });
+      hit(game, source, [element]);
+      const before = adjacent.hp;
+      game.random = () => 0;
+      for (let frame = 0; frame < 30; frame += 1) update(game, 1 / 60);
+      assert.equal(adjacent.hp, before);
+      assert.ok(!game.effects.some(effect => effect.type === 'number' && effect.crit));
+    }
+  });
+});

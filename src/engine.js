@@ -1220,7 +1220,7 @@ function damageWeaponHit(game, enemy, amount, slows = false, from = game.player)
 }
 
 // 지속 피해도 치명타 피해는 받지만 타격 기절·빙결·성냥은 발동시키지 않는다.
-function damageOverTime(game, enemy, amount, from = game.player, span = game.stepDt ?? 1 / 60) {
+function damageOverTime(game, enemy, amount, from = game.player, span = game.stepDt ?? 1 / 60, canCrit = true) {
   if (enemy.dead || amount <= 0) return;
   let power = dotPowerOf(game);
   if (enemy.boss || enemy.elite) power *= 1 + (perk(game, 'dot', 20)?.dotElitePower ?? 0) + passiveValue(game, 'corrosion', 'dotElitePower');
@@ -1234,7 +1234,7 @@ function damageOverTime(game, enemy, amount, from = game.player, span = game.ste
     const average = span > 0 ? (rampArea(game.time - enemy.dotStartedAt) - rampArea(start - enemy.dotStartedAt)) / span : 0;
     power *= 1 + amp.power * average;
   }
-  damageEnemy(game, enemy, amount * power, false, from, 0, { hitEffects: false, showHit: false });
+  damageEnemy(game, enemy, amount * power, false, from, 0, { hitEffects: false, showHit: false, canCrit });
   if (game.hitElement && game.time - (enemy.elementDotAt ?? -Infinity) >= ELEMENT_DOT_GAP) {
     enemy.elementDotAt = game.time;
     applyElements(game, enemy, 0, true);
@@ -1276,12 +1276,14 @@ function applyElements(game, enemy, amount, fromDot = false) {
       if (game.time < (enemy.wetUntil ?? 0)) continue;
       const active = game.time < (enemy.burnUntil ?? 0);
       enemy.burnDps = Math.max(active ? enemy.burnDps ?? 0 : 0, amount * rule.burn);
+      enemy.burnFromElement = true;
       enemy.burnUntil = game.time + rule.burnSec;
     } else if (element === 'poison') {
       const active = game.time < (enemy.poisonUntil ?? 0);
       enemy.poisonStacks = Math.min(rule.maxStacks, (active ? enemy.poisonStacks ?? 0 : 0) + 1);
       enemy.poisonBase = Math.max(active ? enemy.poisonBase ?? 0 : 0, amount * rule.poison);
       enemy.poisonDps = Math.max(active ? enemy.poisonDps ?? 0 : 0, enemy.poisonBase * enemy.poisonStacks);
+      enemy.poisonFromElement = true;
       enemy.poisonUntil = game.time + rule.poisonSec;
     } else if (element === 'ice') {
       slowBy(game, enemy, enemy.boss ? rule.bossSlow : rule.slow, rule.slowSec);
@@ -1341,6 +1343,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     relicCue(game,'match',enemy);
     enemy.burnUntil = game.time + match.burnSec;
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps, 'match') * (game.passives.idol ? 2 : 1));
+    enemy.burnFromElement = false;
   }
   if (hitEffects) applyElements(game, enemy, amount);
   enemy.hitFlash = 0.1;
@@ -2431,13 +2434,14 @@ function fireWeapons(game, dt) {
       enemy.wet = (enemy.wetUntil ?? 0) > game.time;
       enemy.chilled = !enemy.wet && (enemy.slowUntil ?? 0) > game.time && (enemy.slowBy ?? 1) < 0.9;
       enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
-      if (enemy.burning) damageOverTime(game, enemy, enemy.burnDps * dt);
+      // 속성 효과로 붙은 화상·중독은 치명타와 치명 폭발을 일으키지 않는다.
+      if (enemy.burning) damageOverTime(game, enemy, enemy.burnDps * dt, game.player, dt, !enemy.burnFromElement);
     }
   }
   {
     for (const enemy of game.enemies) {
       enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
-      if (enemy.poisoned) damageOverTime(game, enemy, enemy.poisonDps * dt);
+      if (enemy.poisoned) damageOverTime(game, enemy, enemy.poisonDps * dt, game.player, dt, !enemy.poisonFromElement);
     }
   }
   useElements(game, weaponElementTag(game, 'ball'));
@@ -2713,6 +2717,7 @@ function fireWeapons(game, dt) {
           if (wave.oven) {
             enemy.burnUntil = game.time + FUSIONS.dryoven.burnSec;
             enemy.burnDps = weaponValue(game, 'dehumidifier', 'dps') * FUSIONS.dryoven.burn;
+            enemy.burnFromElement = false;
           }
         }
       }
@@ -2882,6 +2887,7 @@ function updateProjectiles(game, dt) {
       if (shot.poison) {
         enemy.poisonUntil = game.time + FUSIONS.poisongun.poisonSec;
         enemy.poisonDps = shot.poison;
+        enemy.poisonFromElement = false;
       }
       if (shot.hit.size > shot.pierce) { shot.life = 0; break; }
     }
