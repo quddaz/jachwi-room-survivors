@@ -651,7 +651,7 @@ function drawNumber(ctx, value, x, y, color, scale = 1) {
     if (DIGITS[digit]) {
       const image = digitImage(digit, color);
       if (scale === 1) ctx.drawImage(image, left - 1, y - 1);
-      else ctx.drawImage(image, left - scale, y - scale, image.width * scale, image.height * scale);
+      else ctx.drawImage(image, Math.round(left - scale), Math.round(y - scale), Math.round(image.width * scale), Math.round(image.height * scale));
     }
     left += 5 * scale;
   }
@@ -1011,12 +1011,12 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
       const color = multi ? (blink ? '#ff4fd8' : '#ffffff')
         : effect.crit ? (blink ? '#ff5a3c' : '#ffcf3f')
         : effect.value >= 60 ? '#ffcf3f' : effect.value >= 25 ? '#ffe9a8' : '#ffffff';
-      // 치명타 숫자는 더 높이 튀어 오르고, 2단 치명타는 두 배 크기로 튄다.
+      // 치명타 숫자는 더 높이 튀어 오르고, 2단 치명타는 1.3배 크기로 튄다.
       const rise = effect.crit ? 4 + Math.sin(Math.min(1, progress * 2.5) * Math.PI) * (multi ? 9 : 6) + progress * 10 : progress * 10;
       if (progress < 0.85 || Math.floor(effect.age * 30) % 2 === 0) {
-        const ny = Math.round(y - 4 - rise - (multi ? 4 : 0));
-        if (multi) drawNumber(ctx, effect.value, x + 1, ny + 1, '#3a0f3a', 2);
-        drawNumber(ctx, effect.value, x, ny, color, multi ? 2 : 1);
+        const ny = Math.round(y - 4 - rise - (multi ? 2 : 0));
+        if (multi) drawNumber(ctx, effect.value, x + 1, ny + 1, '#3a0f3a', 1.3);
+        drawNumber(ctx, effect.value, x, ny, color, multi ? 1.3 : 1);
       }
     } else if (effect.type === 'supercrit') {
       // 2단 치명타: 분홍 섬광, 퍼지는 고리, 십자 광선.
