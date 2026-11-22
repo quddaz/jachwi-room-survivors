@@ -103,7 +103,7 @@ describe('빠른 무기의 경로 충돌', () => {
   });
   it('전자레인지 파동은 낮은 FPS에서도 작은 적을 한 번만 때린다', () => {
     for(const dt of [0.2,1/60]) {
-      const game=quiet({microwave:5}),enemy=target(game,40,0,2);
+      const game=quiet({microwave:5}),enemy=target(game,40,0,2);game.elementsOff=true;
       for(let n=0;n<Math.round(1/dt);n++)update(game,dt);
       close(enemy.maxHp-enemy.hp,WEAPONS.microwave.damage[4]);
     }

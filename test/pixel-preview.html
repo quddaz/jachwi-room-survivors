@@ -23,7 +23,7 @@
 </main>
 <script type="module">
 import { duckSprite, sprite, icon, ITEM_IDS, ITEM_FRAMES } from '../src/sprites.js';
-import { CREATURE_FRAMES, WALK_FRAMES } from '../src/pixel-art.js';
+import { WALK_FRAMES } from '../src/pixel-art.js';
 import { render, RENDER_SCALE, PIXEL } from '../src/render.js';
 import { createGame, applyBuild, applyCharacter, startPractice, practicePick, update } from '../src/engine.js';
 import { ENEMIES, BOSSES, CHARACTERS, WEAPONS, PASSIVES, RELICS } from '../src/rules.js';
@@ -39,7 +39,7 @@ try {
   for (const [id, item] of Object.entries(CHARACTERS)) card('#characters', item.label, time => duckSprite(id, `duckWalk${Math.floor(time * 10) % WALK_FRAMES}`));
   for (const [kind,item] of Object.entries(ENEMIES)) {
     const name = kind === 'scrap' ? 'scrap' : `${kind}A`;
-    card('#enemies', item.label, time => sprite(kind === 'scrap' ? name : `${kind}${'ABCD'[Math.floor(time * 6) % CREATURE_FRAMES]}`));
+    card('#enemies', item.label, time => sprite(kind === 'scrap' ? name : `${kind}${'AB'[Math.floor(time * 6) % 2]}`));
   }
   for (const boss of BOSSES) card('#bosses', boss.label, time => sprite(`${boss.kind}${Math.floor(time * 4) % 2 ? 'A' : 'B'}`));
   for (const id of ITEM_IDS) card('#items', WEAPONS[id]?.label ?? PASSIVES[id]?.label ?? RELICS[id]?.label ?? id, time => icon(id, Math.floor(time * 6) % ITEM_FRAMES));

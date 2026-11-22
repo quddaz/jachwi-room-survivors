@@ -1,4 +1,4 @@
-import { ART_COLORS, ART_DENSITY, IMPACT_ART, IMPACT_FRAMES, PIXEL_ACTORS, materialPixels } from './pixel-art.js';
+import { ART_COLORS, ART_DENSITY, IMPACT_ART, IMPACT_FRAMES, PIXEL_ACTORS } from './pixel-art.js';
 
 // 도트 스프라이트. 글자 하나가 픽셀 하나이고, 색은 아래 팔레트에서 고른다.
 const PALETTE = {
@@ -12,7 +12,7 @@ const PALETTE = {
   s: '#fff1d6', j: '#5dff9a',
 };
 Object.assign(PALETTE, ART_COLORS);
-const OUTLINE = '#293247';
+const OUTLINE = '#2a1c14';
 
 const ART = {
   duckA: [
@@ -2799,18 +2799,14 @@ function tinted(source, color) {
   return canvas;
 }
 
-// 몹·보스는 개편 전 원본과 외곽선을 사용한다. 새 원본이 ART를 덮기 전에 보관한다.
-const legacyEnemyArt = Object.fromEntries([
-  'roach','trash','scrap','rust','mold','fly','mosquito','spider','milk','mouse','moth','ant','slug','sock','dustbunny','pigeon',
-  'kingRoach','garbageGiant','rustBoiler','kingFly','washer','riceCooker','moldQueen',
-].flatMap(kind => (kind === 'scrap' ? [kind] : [`${kind}A`,`${kind}B`]).map(name => [name, ART[name]])));
-
-// 시작 화면·도감·월드가 같은 원본 도트와 애니메이션을 공유한다.
-Object.assign(ART, PIXEL_ACTORS);
+// 원래 도트를 그대로 찍는다. 새 직업도 복원한 오리 원본만 같은 규격으로 사용한다.
+for (const [name, rows] of Object.entries(PIXEL_ACTORS)) {
+  if (!name.startsWith('character_')) continue;
+  ART[name] = rows.filter((_, index) => index % ART_DENSITY === 0)
+    .map(row => [...row].filter((_, index) => index % ART_DENSITY === 0).join(''));
+}
 function buildArt(name, scale = 1) {
-  if (legacyEnemyArt[name]) return build(legacyEnemyArt[name], { scale, outlineColor: '#2a1c14' });
-  return build(PIXEL_ACTORS[name] ?? materialPixels(ART[name]), { scale, density: ART_DENSITY,
-    outlineColor: name.startsWith('character_') ? '#2a1c14' : OUTLINE });
+  return build(ART[name], { scale });
 }
 const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
@@ -2832,7 +2828,7 @@ export function sprite(name, { flip = false, tint = null, scale = 1 } = {}) {
 
 function buildItem(id, frame, scale = 1) {
   const [body, overlay] = (ITEMS[id] ?? ITEMS.box)(frame % ITEM_FRAMES);
-  return build(materialPixels(body), { scale, overlay: materialPixels(overlay, false), density: ART_DENSITY });
+  return build(body, { scale, overlay });
 }
 
 // 드라이기 아이콘과 폭발 연출이 동일한 불꽃 도트 4프레임을 공유한다.

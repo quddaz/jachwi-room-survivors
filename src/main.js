@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS,
+  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -114,7 +114,7 @@ function escapeHtml(text) {
 
 function resize() {
   const box = gameScreen.getBoundingClientRect();
-  // 월드 시야는 유지하고 두 배 버퍼에 그려 반 칸 도트의 디테일을 보존한다.
+  // 시야는 유지하고 기존 버퍼 크기로 원래 도트와 이펙트를 그린다.
   viewport = { width: Math.ceil(box.width / PIXEL), height: Math.ceil(box.height / PIXEL) };
   canvas.width = viewport.width * RENDER_SCALE;
   canvas.height = viewport.height * RENDER_SCALE;
@@ -247,7 +247,7 @@ function drawChoices() {
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
         <span class="choice-desc">${escapeHtml(choice.description)}</span>
-        <span class="choice-stats">${(choice.details ?? []).map((line) => `<span>${escapeHtml(line)}</span>`).join('')}</span>
+        <span class="choice-stats">${[...(choice.details ?? []), ...(type ? elementLines(choice.id) : [])].map((line) => `<span>${escapeHtml(line)}</span>`).join('')}</span>
       </button>`;
   }).join('');
   const button = document.querySelector('.reroll');
@@ -466,6 +466,7 @@ const weaponBadge = id => [...new Set([
   ...weaponCategoriesOf(id).map(category => WEAPON_CATEGORIES[category]),
   ...weaponElementsOf(id).map(element => ELEMENTS[element]), weaponTypeOf(id),
 ].filter(Boolean))].join(' · ');
+const elementLines = id => weaponElementsOf(id).map(element => `${ELEMENT_EFFECTS[element].label}: ${ELEMENT_EFFECTS[element].text}`);
 let weaponCategoryFilter = 'all';
 const categoryMatches = id => weaponCategoryFilter === 'all' || weaponCategoriesOf(id).includes(weaponCategoryFilter);
 const categoryFilters = () => `<div class="weapon-filters" aria-label="무기 계열">${Object.entries({all:'전체', ...WEAPON_CATEGORIES}).map(([id,label]) => `<button type="button" class="season-tab${id === weaponCategoryFilter ? ' is-active' : ''}" data-weapon-category="${id}" aria-pressed="${id === weaponCategoryFilter}">${label}</button>`).join('')}</div>`;
@@ -493,6 +494,7 @@ const CODEX_TABS = [
         Array.isArray(weapon.count) && (weapon.summon === 'dragon'
           ? `몸통 마디 ${weapon.segments} → ${weapon.segments + (weapon.count.at(-1) - 1) * weapon.segmentsPerCount} · 소환 수 +1마다 ${weapon.segmentsPerCount}마디 추가`
           : `개수 ${statLine(id, 'count')}`),
+        ...elementLines(id),
       ].filter(Boolean);
       return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)} <small class="weapon-category">${weaponBadge(id)}</small></b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
         <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;

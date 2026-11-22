@@ -228,6 +228,16 @@ export function weaponTypeOf(id) {
 // 공격 모양(투사체·연쇄)과 빌드 계열은 별도다. 완성형은 기본 무기 ID를 쓴다.
 export const WEAPON_CATEGORIES = { strike: '타격', dot: '지속', summon: '소환', treasure: '보물', elemental: '속성' };
 export const ELEMENTS = { fire: '화염', ice: '냉기', lightning: '번개', poison: '독', water: '물' };
+// 속성 타격마다 붙는 상태 이상. 지속 피해로 붙인 상태는 다시 속성 효과를 일으키지 않는다.
+export const ELEMENT_EFFECTS = {
+  fire: { label: '화상', text: '2초 동안 불타 맞은 피해의 25%를 초당 입는다', burnSec: 2, burn: 0.25 },
+  poison: { label: '중독', text: '3초 동안 독이 쌓인다. 최대 5중첩, 중첩마다 맞은 피해의 6%를 초당 입는다', poisonSec: 3, poison: 0.06, maxStacks: 5 },
+  ice: { label: '둔화', text: '1.5초 동안 이동 속도 40% 감소(보스 15%)', slowSec: 1.5, slow: 0.6, bossSlow: 0.85 },
+  lightning: { label: '감전', text: '30% 확률로 근처 적에게 피해 40% 전이. 젖은 적은 2명에게 전이하고 피해 +30%', chance: 0.3, chain: 0.4, range: 130, wetTargets: 2, wetBonus: 0.3 },
+  water: { label: '젖음', text: '3초 동안 이동 속도 20% 감소, 번개에 약해지고 화상이 꺼진다', wetSec: 3, slow: 0.8 },
+};
+// 장판·불꽃처럼 매 순간 닿는 공격은 이 간격마다 한 번만 상태 이상을 건다.
+export const ELEMENT_DOT_GAP = 0.25;
 const DOT_WEAPONS = new Set(['bleach', 'dehumidifier', 'dryer', 'poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser']);
 const WEAPON_ELEMENTS = {
   spray: ['poison'], bleach: ['poison'], dryer: ['fire'], dehumidifier: ['fire'], coil: ['fire'],

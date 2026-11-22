@@ -890,6 +890,7 @@ describe('보물 2', () => {
     const game = quiet();
     game.relics.firecracker = true;
     game.fireIn = 0.01;
+    game.elementsOff = true;
     const roach = placeEnemy(game, 'trash', 200, 0, { hp: 1000, speed: 0 });
     update(game, 1 / 60);
     assert.equal(roach.hp,1000);
@@ -1081,6 +1082,7 @@ describe('새 무기 2', () => {
 
   it('전자레인지 파동은 퍼지면서 한 적을 한 번만 때린다', () => {
     const game = armed('microwave');
+    game.elementsOff = true;
     const near = placeEnemy(game, 'trash', 60, 0, { hp: 1e6 });
     const far = placeEnemy(game, 'trash', 130, 0, { hp: 1e6 });
     run2(game, 0.8);

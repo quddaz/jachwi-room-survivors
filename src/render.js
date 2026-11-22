@@ -1,14 +1,12 @@
-import { drawCombatBeam, drawFlameJet, drawCombatPulse, drawCombatLightning, drawCombatTrail, drawCombatDebris, drawSwordScar, drawFrostShard, drawFrostHit } from './combat-vfx.js';
 import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
-import { DIGITS, ITEM_FRAMES, dryerFlame, duckSprite, icon, impactSprite, sprite } from './sprites.js';
+import { DIGITS, ITEM_FRAMES, dryerFlame, duckSprite, icon, sprite } from './sprites.js';
 
 // 저해상도 버퍼를 기존 3배의 80% 배율로 확대한다. 버퍼 1픽셀이 월드 2칸이다.
 export const PIXEL = 2.4;
-// 시야·판정은 그대로 두고 실제 캔버스만 두 배로 그려 반 칸 도트를 보존한다.
-export const RENDER_SCALE = 2;
+export const RENDER_SCALE = 1;
 const WORLD_PER_PIXEL = 2;
 const FROZEN = 'rgba(190, 225, 255, 0.75)';
 const FLASH = 'rgba(255, 255, 255, 0.85)';
@@ -124,7 +122,7 @@ function disc(ctx, cx, cy, radius, color) {
   if (alpha <= 0) return;
   const previous = ctx.globalAlpha;
   ctx.globalAlpha = previous * alpha;
-  stamp(ctx, discImage(r, rgb), Math.round(cx) - r, Math.round(cy) - r);
+  ctx.drawImage(discImage(r, rgb), Math.round(cx) - r, Math.round(cy) - r);
   ctx.globalAlpha = previous;
 }
 
@@ -169,7 +167,7 @@ function ring(ctx, cx, cy, radius, color, dash = 0, phase = 0) {
   const cycle = dash ? ((Math.floor(phase) % (dash * 2)) + dash * 2) % (dash * 2) : 0;
   const previous = ctx.globalAlpha;
   ctx.globalAlpha = previous * alpha;
-  stamp(ctx, ringImage(r, rgb, dash, cycle), Math.round(cx) - r - 1, Math.round(cy) - r - 1);
+  ctx.drawImage(ringImage(r, rgb, dash, cycle), Math.round(cx) - r - 1, Math.round(cy) - r - 1);
   ctx.globalAlpha = previous;
 }
 
@@ -190,15 +188,8 @@ function line(ctx, x0, y0, x1, y1, color) {
   }
 }
 
-const logicalWidth = image => image.width / (image.pixelRatio ?? 1);
-const logicalHeight = image => image.height / (image.pixelRatio ?? 1);
-function stamp(ctx, image, ...position) {
-  if (position.length === 2 && image.pixelRatio > 1) ctx.drawImage(image, ...position, logicalWidth(image), logicalHeight(image));
-  else ctx.drawImage(image, ...position);
-}
 function drawCentered(ctx, image, x, y) {
-  const w = logicalWidth(image), h = logicalHeight(image);
-  stamp(ctx, image, Math.round(x * 2 - w) / 2, Math.round(y * 2 - h) / 2, w, h);
+  ctx.drawImage(image, Math.round(x - image.width / 2), Math.round(y - image.height / 2));
 }
 
 const FRAMES = {
@@ -220,7 +211,7 @@ const PARTICLES = {
   mold: ['#6f9646', '#a9c77f', '#4c6b2f'], fly: ['#4a4a55', '#c8d6e8', '#2c2c33'],
   mosquito: ['#3d3d42', '#dcebff', '#e0645b'], spider: ['#3d3d42', '#55555d', '#e0645b'], milk: ['#ffffff', '#6f8a4a', '#5f86cf'],
   mouse: ['#8a8f98', '#c4c9d1', '#ffb3bf'], moth: ['#c9965c', '#8a4a1e', '#ffe08a'],
-  spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], popcorn: ['#fff4c2', '#ffffff', '#ffcf3f'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
+  spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], supercrit: ['#ff4fd8', '#ffffff', '#ffcf3f', '#b36bff'], popcorn: ['#fff4c2', '#ffffff', '#ffcf3f'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
@@ -283,7 +274,7 @@ function drawDrop(ctx, drop, x, y, time) {
   ring(ctx, x, y + bob, 10 + Math.round(pulse), deep, 2, Math.floor(time * 12));
 
   const image = icon(drop.type, Math.floor(time * 7 + phase * 10) % ITEM_FRAMES);
-  if (secret) stamp(ctx, image,x-12,y+bob-12,24,24);
+  if (secret) ctx.drawImage(image,x-12,y+bob-12,24,24);
   else drawCentered(ctx,image,x,y+bob);
 
   for (let orbit = 0; orbit < (chest ? 4 : 2); orbit += 1) {
@@ -325,7 +316,7 @@ function drawRelicEffect(ctx, effect, x, y) {
   const ix = awaken ? x : x+17;
   const iy = y-(awaken ? 20 : 12)-progress*(awaken ? 20 : 9);
   ctx.globalAlpha = Math.min(1,(1-progress)*3);
-  stamp(ctx, icon(effect.id,Math.floor(effect.age*8)%ITEM_FRAMES),Math.round(ix-size/2),Math.round(iy-size/2),size,size);
+  ctx.drawImage(icon(effect.id,Math.floor(effect.age*8)%ITEM_FRAMES),Math.round(ix-size/2),Math.round(iy-size/2),size,size);
   for (let mote=0;mote<(awaken?12:5);mote++) {
     const angle=mote*Math.PI*2/(awaken?12:5)+effect.seed;
     sparkle(ctx,Math.round(x+Math.cos(angle)*reach),Math.round(y+Math.sin(angle)*reach-progress*5),mote%3?'#ffffff':color,awaken&&mote%3===0);
@@ -349,7 +340,7 @@ function drawIdolAura(ctx, game, x, y, time) {
       Math.round(x+Math.cos(angle)*34),Math.round(cy+Math.sin(angle)*34),'#ffcf3f');
   }
   ctx.globalAlpha=0.48+pulse*.08;
-  stamp(ctx, icon('idol',Math.floor(time*5)%ITEM_FRAMES),Math.round(x-22),Math.round(y-46-Math.sin(time*2)*2),44,44);
+  ctx.drawImage(icon('idol',Math.floor(time*5)%ITEM_FRAMES),Math.round(x-22),Math.round(y-46-Math.sin(time*2)*2),44,44);
   ctx.globalAlpha=0.75;
   for(let mote=0;mote<6;mote++) {
     const angle=mote*Math.PI/3+time*.4;
@@ -372,7 +363,7 @@ function radiationMark(ctx, x, y, radius, color) {
 
 function stampDryerFlame(ctx, x, y, angle, size, time) {
   ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.rotate(angle);
-  stamp(ctx, dryerFlame(Math.floor(time*12)),-size/2,-size/2,size,size);
+  ctx.drawImage(dryerFlame(Math.floor(time*12)),-size/2,-size/2,size,size);
   ctx.restore();
 }
 
@@ -397,7 +388,7 @@ function drawNuclearStrike(ctx, attack, toBuffer, time, ground) {
     } else if(drop>.25) {
       // 대형 탄두가 화면 위에서 가속 낙하한다. 길고 굵은 배기와 3단 몸체를 별도로 그린다.
       const fall=(drop-.25)/.75;
-      const yy=y-(1-fall*fall)*Math.max(210,ctx.canvas.height / RENDER_SCALE * .9);
+      const yy=y-(1-fall*fall)*Math.max(210,ctx.canvas.height*.9);
       const xx=x+(1-fall)*36;
       for(let tail=7;tail>0;tail--) {
         ctx.globalAlpha=(1-tail/9)*.7;
@@ -540,7 +531,7 @@ function drawRelicAttacks(ctx, game, toBuffer, time, ground) {
         const xx=Math.round(x+Math.cos(angle)*reach),yy=Math.round(y+Math.sin(angle)*reach-((time*8+petal*2)%12));
         sparkle(ctx,xx,yy,petal%3?'#e2fff2':'#ffd0eb',petal%4===0);
       }
-      stamp(ctx, icon('freshener',Math.floor(time*6)%ITEM_FRAMES),x-r-7,y-12,18,24);
+      ctx.drawImage(icon('freshener',Math.floor(time*6)%ITEM_FRAMES),x-r-7,y-12,18,24);
     } else if(attack.type==='coolwave') {
       const reach=attack.radius/WORLD_PER_PIXEL*progress;
       ctx.globalAlpha=Math.min(1,(1-progress)*4);
@@ -597,9 +588,30 @@ const BEAM = {
   steam: ['rgba(255, 90, 60, 0.35)', '#f4f6fa', '#ffffff'],
 };
 
-// 진화·합체도 같은 레이어 규칙을 써서 색 있는 외피와 얇은 중심선으로 읽힌다.
-function drawBeam(ctx, x, y, angle, reach, halfWidth, palette, seed, progress) {
-  drawCombatBeam(ctx,x,y,angle,reach,halfWidth,palette,seed,progress);
+// 가운데는 하얗고 바깥은 빛깔이 도는 굵은 빛줄기.
+// 픽셀을 하나씩 찍으면 줄기 하나에 수만 번을 그려서 느려지므로, 돌린 사각형 몇 겹으로 한 번에 그린다.
+function drawBeam(ctx, x, y, angle, reach, halfWidth, [edge, glow, core], seed, progress) {
+  const half = Math.max(1, Math.round(halfWidth));
+  const length = Math.max(0, reach - 8);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = edge;
+  ctx.fillRect(8, -half - 1.5, length, half * 2 + 3);
+  ctx.fillStyle = glow;
+  ctx.fillRect(8, -half, length, half * 2);
+  ctx.fillStyle = core;
+  ctx.fillRect(8, -Math.max(0.5, half * 0.45), length, Math.max(1, half * 0.9));
+  ctx.restore();
+  const dx = Math.cos(angle);
+  const dy = Math.sin(angle);
+  disc(ctx, Math.round(x + dx * 8), Math.round(y + dy * 8), Math.max(2, half - 1), core);
+  for (let spark = 0; spark < 14; spark += 1) {
+    const along = 12 + hash(seed, spark) * Math.min(reach, 420);
+    const side = (hash(seed, spark + 40) - 0.5) * (half * 2 + 10 + progress * 18);
+    sparkle(ctx, Math.round(x + dx * along - dy * side), Math.round(y + dy * along + dx * side),
+      spark % 2 === 0 ? glow : core, spark % 5 === 0 && progress < 0.6);
+  }
 }
 
 function hash(seed, index) {
@@ -632,34 +644,38 @@ function digitImage(digit, color) {
   return image;
 }
 
-function drawNumber(ctx, value, x, y, color) {
+function drawNumber(ctx, value, x, y, color, scale = 1) {
   const text = String(value);
-  let left = Math.round(x - text.length * 2.5);
+  let left = Math.round(x - text.length * 2.5 * scale);
   for (const digit of text) {
-    if (DIGITS[digit]) stamp(ctx, digitImage(digit, color), left - 1, y - 1);
-    left += 5;
+    if (DIGITS[digit]) {
+      const image = digitImage(digit, color);
+      if (scale === 1) ctx.drawImage(image, left - 1, y - 1);
+      else ctx.drawImage(image, left - scale, y - scale, image.width * scale, image.height * scale);
+    }
+    left += 5 * scale;
   }
 }
 
 function drawEnemy(ctx, enemy, x, y, time) {
   const frames = FRAMES[enemy.kind];
   const rate = FRAME_RATE[enemy.kind] ?? 1;
-  const frame = enemy.frozen || enemy.crouching ? 0 : Math.floor(time * rate + enemy.id) % frames.length;
+  const frame = enemy.frozen || enemy.crouching ? 0 : Math.floor(time * rate + enemy.id) % 2;
   const tint = enemy.hitFlash > 0 ? FLASH : enemy.frozen ? FROZEN : null;
   const image = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint });
   const bob = enemy.boss && !enemy.dashing ? Math.round(Math.sin(time * 4 + enemy.id)) : 0;
-  const shadow = Math.round(logicalWidth(image) * 0.35);
+  const shadow = Math.round(image.width * 0.35);
   if (enemy.elite) {
     // 정예: 금빛 테두리와 작은 왕관, 둘레에 붉은 기운
     const glow = sprite(frames[frame], { flip: (enemy.vx ?? 1) < 0, tint: Math.floor(time * 6 + enemy.id) % 2 ? '#ffcf3f' : '#ff8a3d' });
     for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawCentered(ctx, glow, x + ox, y + oy);
-    drawCentered(ctx, sprite('crown'), x, Math.round(y - logicalHeight(image) / 2 - 3));
+    drawCentered(ctx, sprite('crown'), x, Math.round(y - image.height / 2 - 3));
     const spark = Math.floor(time * 10 + enemy.id);
     ctx.fillStyle = '#ff5a3c';
-    ctx.fillRect(Math.round(x + Math.cos(spark) * (logicalWidth(image) / 2 + 2)), Math.round(y + Math.sin(spark) * (logicalHeight(image) / 2 + 2)), 1, 1);
+    ctx.fillRect(Math.round(x + Math.cos(spark) * (image.width / 2 + 2)), Math.round(y + Math.sin(spark) * (image.height / 2 + 2)), 1, 1);
   }
   if (enemy.boss) {
-    ring(ctx, Math.round(x), Math.round(y + logicalHeight(image) / 2 - 1), shadow + 3, 'rgba(224, 100, 91, 0.55)', 3, Math.floor(time * 12));
+    ring(ctx, Math.round(x), Math.round(y + image.height / 2 - 1), shadow + 3, 'rgba(224, 100, 91, 0.55)', 3, Math.floor(time * 12));
     if (enemy.dashing) {
       ctx.globalAlpha = 0.3;
       drawCentered(ctx, image, x - (enemy.dashX ?? 0) * 10, y - (enemy.dashY ?? 0) * 10);
@@ -692,21 +708,32 @@ function drawEnemy(ctx, enemy, x, y, time) {
     for (let flame = 0; flame < 3; flame += 1) {
       const rise = (time * 2.2 + hash(enemy.id, flame)) % 1;
       ctx.fillStyle = rise < 0.5 ? '#ffd23f' : '#f08a1d';
-      ctx.fillRect(Math.round(x - 4 + flame * 4 + Math.sin(time * 9 + flame) * 1.5), Math.round(y - logicalHeight(image) / 2 - rise * 6), 1, 2);
+      ctx.fillRect(Math.round(x - 4 + flame * 4 + Math.sin(time * 9 + flame) * 1.5), Math.round(y - image.height / 2 - rise * 6), 1, 2);
     }
   }
   if (enemy.poisoned) {
     for (let bubble = 0; bubble < 2; bubble += 1) {
       const rise = (time * 1.6 + hash(enemy.id, bubble)) % 1;
       ctx.fillStyle = rise < 0.6 ? '#8fe6a8' : '#3e9f6a';
-      ctx.fillRect(Math.round(x - 4 + bubble * 7 + Math.sin(time * 6 + bubble) * 1.5), Math.round(y - logicalHeight(image) / 2 - rise * 7), bubble + 1, bubble + 1);
+      ctx.fillRect(Math.round(x - 4 + bubble * 7 + Math.sin(time * 6 + bubble) * 1.5), Math.round(y - image.height / 2 - rise * 7), bubble + 1, bubble + 1);
+    }
+  }
+  if (enemy.wet || enemy.chilled) {
+    // 젖음은 물방울, 냉기 둔화는 발밑 서리로 표시한다.
+    const wet = enemy.wet;
+    for (let drop = 0; drop < 3; drop += 1) {
+      const fall = (time * (wet ? 1.8 : 0.8) + hash(enemy.id, drop + 7)) % 1;
+      ctx.fillStyle = wet ? (fall < 0.6 ? '#9fd8ff' : '#4f9fe0') : (drop % 2 ? '#e8f6ff' : '#9fd8ff');
+      const dx = Math.round(x - 5 + drop * 5);
+      if (wet) ctx.fillRect(dx, Math.round(y - image.height / 2 + 2 + fall * image.height * 0.6), 1, 2);
+      else ctx.fillRect(dx, Math.round(y + image.height / 2 - 1), 2, 1);
     }
   }
   if (enemy.kind === 'washer' && enemy.spinning) {
     // 탈수 중: 둘레에 물살이 빙글빙글 돈다.
     for (let swirl = 0; swirl < 10; swirl += 1) {
       const angle = time * 9 + (swirl / 10) * Math.PI * 2;
-      const reach = logicalWidth(image) / 2 + 4 + (swirl % 2) * 3;
+      const reach = image.width / 2 + 4 + (swirl % 2) * 3;
       ctx.fillStyle = swirl % 3 ? '#a9cdf5' : '#ffffff';
       ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach * 0.8), 2, 1);
     }
@@ -714,14 +741,14 @@ function drawEnemy(ctx, enemy, x, y, time) {
   if (enemy.kind === 'riceCooker') {
     for (let puff = 0; puff < 2; puff += 1) {
       const rise = (time * 7 + puff * 6) % 12;
-      disc(ctx, Math.round(x + 4 + puff * 3 + Math.sin(time * 4 + puff) * 2), Math.round(y - logicalHeight(image) / 2 - rise), rise < 6 ? 2 : 1,
+      disc(ctx, Math.round(x + 4 + puff * 3 + Math.sin(time * 4 + puff) * 2), Math.round(y - image.height / 2 - rise), rise < 6 ? 2 : 1,
         `rgba(255,255,255,${0.85 - rise * 0.06})`);
     }
   }
   if (enemy.kind === 'rustBoiler') {
     for (let puff = 0; puff < 3; puff += 1) {
       const rise = (time * 9 + puff * 4) % 12;
-      disc(ctx, Math.round(x - 6 + puff * 6 + Math.sin(time * 3 + puff) * 2), Math.round(y - logicalHeight(image) / 2 - rise),
+      disc(ctx, Math.round(x - 6 + puff * 6 + Math.sin(time * 3 + puff) * 2), Math.round(y - image.height / 2 - rise),
         rise < 6 ? 2 : 1, `rgba(255,255,255,${0.85 - rise * 0.06})`);
     }
   }
@@ -731,18 +758,17 @@ function drawDuck(ctx, game, x, y, time) {
   const { player } = game;
   // 맞은 뒤 무적일 때는 사라지지 않고 반투명하게 깜빡인다(복잡한 화면에서 놓치지 않게).
   const blink = player.invulnerable > 0 && Math.floor(time * 16) % 2 === 0;
-  const name = player.moving ? (Math.floor(time * 9) % 2 === 0 ? 'duckA' : 'duckB')
-    : Math.floor(time * 2) % 5 === 0 ? 'duckBlink' : 'duckA';
+  let name = 'duckA';
+  if (player.moving) name = Math.floor(time * 9) % 2 === 0 ? 'duckA' : 'duckB';
+  else if (Math.floor(time * 2) % 5 === 0) name = 'duckBlink';
   const tint = player.hurtFlash > 0 ? 'rgba(255, 120, 110, 0.7)' : null;
   const image = duckSprite(game.character, name, { flip: player.facing < 0, tint });
-  ctx.fillStyle = 'rgba(36,46,62,0.15)';
-  ctx.fillRect(Math.round(x) - 7, Math.round(y) + 8, 14, 2);
-  ctx.fillStyle = 'rgba(36,46,62,0.16)';
-  ctx.fillRect(Math.round(x) - 4, Math.round(y) + 8, 8, 1);
+  ctx.fillStyle = 'rgba(120, 80, 40, 0.28)';
+  ctx.fillRect(Math.round(x) - 6, Math.round(y) + 7, 12, 2);
   if (blink) ctx.globalAlpha = 0.4;
   // 흰 테두리를 한 겹 둘러 어떤 배경 위에서도 오리가 보이게 한다.
   const rim = duckSprite(game.character, name, { flip: player.facing < 0, tint: '#ffffff' });
-  for (const [ox, oy] of [[-.5, 0], [.5, 0], [0, -.5], [0, .5]]) drawCentered(ctx, rim, x + ox, y + oy);
+  for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) drawCentered(ctx, rim, x + ox, y + oy);
   if (game.time < game.coffeeUntil && player.moving) {
     ctx.globalAlpha = 0.3;
     drawCentered(ctx, image, x - player.facing * 5, y);
@@ -828,7 +854,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
       glow(ctx, Math.round(x + dx * reach), Math.round(y + dy * reach), 8 * fade + 2, [255, 210, 63], 0.6 * fade);
       ctx.save();ctx.globalAlpha=fade;
       const tipX=Math.round(x+dx*reach),tipY=Math.round(y+dy*reach);
-      stamp(ctx, icon('glove',0),tipX-10,tipY-10,20,20);
+      ctx.drawImage(icon('glove',0),tipX-10,tipY-10,20,20);
       ring(ctx,tipX,tipY,8+progress*12,'#fff4c2',3,Math.floor(progress*16));
       ctx.restore();
     } else if (effect.type === 'axescar') {
@@ -902,7 +928,31 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         }
       }
     } else if (effect.type === 'swordscar') {
-      drawSwordScar(ctx,x,y,effect.radius/WORLD_PER_PIXEL,effect.angle,effect.arc,progress,effect.evolved,effect.seed);
+      const radius = effect.radius / WORLD_PER_PIXEL;
+      const swing = Math.min(1, progress / 0.28);
+      const fade = 1 - progress;
+      const start = effect.angle - effect.arc / 2;
+      const end = start + effect.arc * swing;
+      // 외곽의 베기와 그 안쪽 잔상을 같은 부채꼴로 남긴다.
+      for (let layer = 0; layer < 3; layer++) {
+        const reach = radius * (1 - layer * 0.13);
+        const steps = Math.ceil(effect.arc * reach * 1.5);
+        ctx.fillStyle = layer === 0 ? `rgba(255,255,255,${fade})`
+          : effect.evolved ? `rgba(189,160,255,${fade * 0.8})` : `rgba(112,204,255,${fade * 0.8})`;
+        for (let point = 0; point <= steps; point++) {
+          const angle = start + (end - start) * point / steps;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), layer ? 1 : 2, 1);
+        }
+      }
+      if (effect.evolved) {
+        const cross = effect.angle + 0.5;
+        line(ctx, Math.round(x + Math.cos(cross) * radius * 0.25), Math.round(y + Math.sin(cross) * radius * 0.25),
+          Math.round(x + Math.cos(cross) * radius), Math.round(y + Math.sin(cross) * radius), `rgba(255,240,180,${fade * 0.75})`);
+      }
+      if (progress < 0.3) {
+        const tipX = x + Math.cos(end) * radius, tipY = y + Math.sin(end) * radius;
+        glow(ctx, tipX, tipY, 5, effect.evolved ? [189,160,255] : [112,204,255], 0.55 * fade);
+      }
     } else if (effect.type === 'slash') {
       // 톱날이 벤 자리: 빛나는 사선 두 줄과 불똥
       const reach = 10 * (0.6 + progress * 0.6);
@@ -922,31 +972,75 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         ctx.fillRect(Math.round(x + Math.cos(angle) * travel), Math.round(y + Math.sin(angle) * travel), 1, 1);
       }
     } else if (effect.type === 'swat') {
-      const half = effect.radius / WORLD_PER_PIXEL;
-      const reach = half * (0.5 + Math.min(1, progress * 2.5));
-      ctx.save();
-      ctx.globalAlpha = 1 - progress;
-      ring(ctx, x, y, reach, effect.mega ? '#e8b65c' : '#c08570', 3, 0);
-      if (progress < 0.7) {
-        const size = Math.max(12, half * 2);
-        stamp(ctx, impactSprite(effect.mega ? 'critical' : 'physical', progress / 0.7), x - size / 2, y - size / 2, size, size);
+      const half = Math.round(effect.radius / WORLD_PER_PIXEL);
+      // 내려친 충격파가 바닥을 타고 퍼진다.
+      if (progress > 0.15) {
+        ring(ctx, x, y, half * (1 + (progress - 0.15) * 1.6), `rgba(255, 240, 200, ${0.7 * (1 - progress)})`);
+        glow(ctx, x, y, half * 0.9, effect.mega ? [255, 207, 63] : [255, 140, 120], 0.5 * (1 - progress));
       }
-      for (let n = 0; n < 6; n++) {
-        const angle = n * Math.PI / 3 + hash(effect.seed, n) * 0.4;
-        const dist = reach * (0.6 + hash(effect.seed, n + 8) * 0.4);
-        ctx.fillStyle = n % 2 ? '#d7c5a1' : '#a88867';
-        ctx.fillRect(Math.round(x + Math.cos(angle) * dist), Math.round(y + Math.sin(angle) * dist - Math.sin(progress * Math.PI) * 4), 2, 1);
+      const squash = progress < 0.25 ? progress * 4 : 1;
+      const color = effect.mega ? (progress < 0.5 ? '#ffcf3f' : 'rgba(255,207,63,0.5)') : progress < 0.5 ? '#e0645b' : 'rgba(224,100,91,0.5)';
+      const size = Math.round(half * squash);
+      for (let offset = -size; offset <= size; offset += 3) {
+        line(ctx, x - size, y + offset, x + size, y + offset, color);
+        line(ctx, x + offset, y - size, x + offset, y + size, color);
       }
-      ctx.restore();
+      if (progress > 0.2) ring(ctx, x, y, half + (progress - 0.2) * 14, 'rgba(255,255,255,0.8)');
+      if (progress < 0.3) {
+        ctx.fillStyle = '#ffffff';
+        for (let ray = 0; ray < 8; ray += 1) {
+          const angle = (ray / 8) * Math.PI * 2;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * (half + 4)), Math.round(y + Math.sin(angle) * (half + 4)), 2, 2);
+        }
+      }
     } else if (effect.type === 'burst') {
       const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
-      if (effect.color === 'crit' && progress < 0.6) drawCentered(ctx, impactSprite('critical', progress / 0.6), x, y);
-      drawCombatDebris(ctx,x,y,progress,colors,effect.seed,effect.count,effect.big);
+      if (effect.color === 'crit' && progress < 0.5) glow(ctx, x, y, 9 * (1 - progress * 2) + 2, [255, 120, 60], 0.8);
+      const reach = effect.big ? 46 : 14;
+      for (let index = 0; index < effect.count; index += 1) {
+        const angle = hash(effect.seed, index) * Math.PI * 2;
+        const speed = 0.35 + hash(effect.seed, index + 50) * 0.65;
+        const travel = reach * speed * (1 - (1 - progress) ** 2);
+        const size = progress < 0.6 && hash(effect.seed, index + 90) > 0.5 ? 2 : 1;
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.fillRect(Math.round(x + Math.cos(angle) * travel), Math.round(y + Math.sin(angle) * travel + progress * progress * 8), size, size);
+      }
     } else if (effect.type === 'number') {
-      const color = effect.critTiers > 1 ? '#ff8cba' : effect.crit ? '#ffd68a' : effect.value >= 60 ? '#ead4a2' : '#f5efdc';
-      const rise = effect.crit ? Math.sin(Math.min(1,progress*2)*Math.PI)*3 + progress*11 : progress*9;
-      ctx.save();ctx.globalAlpha=Math.min(1,(1-progress)*3);
-      drawNumber(ctx,effect.value,x,Math.round(y-4-rise),color);ctx.restore();
+      const multi = effect.critTiers > 1;
+      const blink = Math.floor(effect.age * 20) % 2 === 0;
+      const color = multi ? (blink ? '#ff4fd8' : '#ffffff')
+        : effect.crit ? (blink ? '#ff5a3c' : '#ffcf3f')
+        : effect.value >= 60 ? '#ffcf3f' : effect.value >= 25 ? '#ffe9a8' : '#ffffff';
+      // 치명타 숫자는 더 높이 튀어 오르고, 2단 치명타는 두 배 크기로 튄다.
+      const rise = effect.crit ? 4 + Math.sin(Math.min(1, progress * 2.5) * Math.PI) * (multi ? 9 : 6) + progress * 10 : progress * 10;
+      if (progress < 0.85 || Math.floor(effect.age * 30) % 2 === 0) {
+        const ny = Math.round(y - 4 - rise - (multi ? 4 : 0));
+        if (multi) drawNumber(ctx, effect.value, x + 1, ny + 1, '#3a0f3a', 2);
+        drawNumber(ctx, effect.value, x, ny, color, multi ? 2 : 1);
+      }
+    } else if (effect.type === 'supercrit') {
+      // 2단 치명타: 분홍 섬광, 퍼지는 고리, 십자 광선.
+      const fade = 1 - progress;
+      if (progress < 0.4) glow(ctx, x, y, 16 * (1 - progress * 2.5) + 4, [255, 80, 216], 1);
+      ring(ctx, x, y, 4 + progress * 20, `rgba(255, 79, 216, ${0.9 * fade})`);
+      if (effect.tiers > 2) ring(ctx, x, y, 2 + progress * 30, `rgba(255, 207, 63, ${0.7 * fade})`, 2, effect.age * 40);
+      if (progress < 0.55) {
+        const reach = 6 + progress * 22;
+        ctx.globalAlpha = Math.min(1, fade * 1.6);
+        ctx.fillStyle = '#ffffff';
+        for (let ray = 0; ray < 4; ray += 1) {
+          const angle = ray * Math.PI / 2;
+          const dx = Math.round(Math.cos(angle)), dy = Math.round(Math.sin(angle));
+          for (let step = 3; step < reach; step += 1) ctx.fillRect(Math.round(x + dx * step), Math.round(y + dy * step), 1, 1);
+        }
+        ctx.fillStyle = '#ff4fd8';
+        for (let ray = 0; ray < 4; ray += 1) {
+          const angle = ray * Math.PI / 2 + Math.PI / 4;
+          const d = reach * 0.6;
+          ctx.fillRect(Math.round(x + Math.cos(angle) * d), Math.round(y + Math.sin(angle) * d), 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
     } else if (effect.type === 'fortune') {
       // 보물 계열 무기: 금빛을 기본으로, 진화하면 더 진하고 반짝이며, 합체하면 크고 화려해진다.
       const radius = effect.radius / WORLD_PER_PIXEL;
@@ -971,7 +1065,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
           ctx.fillStyle = `rgba(${glint[0]},${glint[1]},${glint[2]},${fade})`;
           ctx.fillRect(nx, ny, 2, 2); ctx.fillRect(nx + 1, ny - 4, 1, 4); ctx.fillRect(nx + 2, ny - 4, 2, 1);
         }
-        stamp(ctx, icon('handbell', Math.floor(progress * 8) % ITEM_FRAMES), x - 8, y - 22 - Math.sin(progress * Math.PI) * 3);
+        ctx.drawImage(icon('handbell', Math.floor(progress * 8) % ITEM_FRAMES), x - 8, y - 22 - Math.sin(progress * Math.PI) * 3);
       } else if (effect.pattern === 'stamp') {
         // 도장: 그림자가 좁혀지다 쾅 찍히고, 붉은 인주 자국과 먼지 고리가 남는다.
         const drop = Math.min(1, progress / .35), landed = progress >= .35;
@@ -982,7 +1076,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
           disc(ctx, x, y / .45, shadow, `rgba(60,30,20,${.12 + drop * .14})`);
           ctx.restore();
           ring(ctx, x, y, radius * (1.2 - drop * .2), `rgba(214,48,48,${.25 + drop * .35})`, 4, Math.floor(time * 16));
-          stamp(ctx, icon('seal'), x - 8, y - 12 - (1 - drop) * 30);
+          ctx.drawImage(icon('seal'), x - 8, y - 12 - (1 - drop) * 30);
         } else {
           const after = (progress - .35) / .65, ink = 1 - after;
           ctx.fillStyle = `rgba(214,48,48,${ink * .85})`;
@@ -1016,7 +1110,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
           sparkle(bx, by, effect.fused ? 4 : 3, fade);
         }
         ctx.save(); ctx.translate(x, y - 14); ctx.rotate(progress * Math.PI * 4);
-        stamp(ctx, icon(effect.fused ? 'stormcompass' : 'compass'), -8, -8); ctx.restore();
+        ctx.drawImage(icon(effect.fused ? 'stormcompass' : 'compass'), -8, -8); ctx.restore();
       } else {
         const [ex, ey] = toBuffer(effect.end);
         const dx = ex - x, dy = ey - y, length = Math.hypot(dx, dy) || 1, nx = -dy / length, ny = dx / length;
@@ -1051,7 +1145,7 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
             ctx.fillRect(Math.round(x + dx * t + nx * side), Math.round(y + dy * t + ny * side), n % 3 ? 1 : 2, n % 3 ? 1 : 2);
           }
           ctx.globalAlpha = 1;
-          if (progress < .2) { ctx.save(); ctx.translate(x, y - 14); ctx.rotate(progress * 10); stamp(ctx, icon(effect.fused ? 'timewind' : 'hourglass'), -8, -8); ctx.restore(); }
+          if (progress < .2) { ctx.save(); ctx.translate(x, y - 14); ctx.rotate(progress * 10); ctx.drawImage(icon(effect.fused ? 'timewind' : 'hourglass'), -8, -8); ctx.restore(); }
         }
       }
       ctx.restore();
@@ -1105,10 +1199,6 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         const sx = Math.round(x + Math.cos(angle) * dist), sy = Math.round(y + Math.sin(angle) * dist);
         ctx.fillRect(sx - 1, sy, 3, 1); ctx.fillRect(sx, sy - 1, 1, 3);
       }
-    } else if (effect.type === 'frosthit') {
-      drawFrostHit(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,effect.angle);
-    } else if (effect.type === 'ring' && ['bubble','water'].includes(effect.color)) {
-      drawCombatPulse(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,effect.color==='bubble'?'bubble':'water',effect.seed);
     } else if (effect.type === 'ring') {
       const colors = PARTICLES[effect.color] ?? PARTICLES.dust;
       const radius = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
@@ -1136,7 +1226,11 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         ctx.fillRect(Math.round(x + Math.cos(angle) * reach), Math.round(y + Math.sin(angle) * reach), 1, 1);
       }
     } else if (effect.type === 'bomb') {
-      drawCombatPulse(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,'poison',effect.seed);
+      const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
+      disc(ctx, x, y, reach, `rgba(255,255,255,${0.35 * (1 - progress)})`);
+      ring(ctx, x, y, reach, '#ffffff');
+      ring(ctx, x, y, reach - 2, 'rgba(200,235,200,0.8)');
+      ring(ctx, x, y, reach * 0.6, 'rgba(255,255,255,0.5)', 3, 0);
     } else if (effect.type === 'pickup') {
       const ease = 1 - (1 - progress) ** 2;
       ring(ctx, x, y, 5 + ease * 16, '#ffe08a');
@@ -1149,7 +1243,24 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
           ['#ffe08a', '#ffffff', '#ffb21f'][spark % 3], spark % 3 === 0 && progress < 0.7);
       }
     } else if (effect.type === 'bolt') {
-      drawCombatLightning(ctx,effect.points.map(toBuffer),progress,effect.seed,effect.mega);
+      const color = effect.mega ? (progress < 0.5 ? '#ffffff' : '#8fd0ff') : progress < 0.5 ? '#fff6b0' : '#ffb21f';
+      const jitter = Math.floor(effect.age * 40);
+      for (let index = 1; index < effect.points.length; index += 1) {
+        let [x0, y0] = toBuffer(effect.points[index - 1]);
+        const [x1, y1] = toBuffer(effect.points[index]);
+        for (let part = 1; part <= 3; part += 1) {
+          const wobble = part === 3 ? 0 : 1;
+          const nextX = Math.round(x0 + (x1 - x0) / (4 - part) + (hash(effect.seed + jitter, index * 4 + part) - 0.5) * 8 * wobble);
+          const nextY = Math.round(y0 + (y1 - y0) / (4 - part) + (hash(effect.seed + jitter, index * 4 + part + 40) - 0.5) * 8 * wobble);
+          line(ctx, x0, y0, nextX, nextY, color);
+          if (effect.mega) line(ctx, x0, y0 + 1, nextX, nextY + 1, 'rgba(143,208,255,0.6)');
+          [x0, y0] = [nextX, nextY];
+        }
+        disc(ctx, x1, y1, progress < 0.5 ? 3 : 2, color);
+        glow(ctx, x1, y1, 7 * (1 - progress) + 2, effect.mega ? [143, 208, 255] : [255, 240, 150], 0.7);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x1 - 4 + Math.floor(hash(effect.seed + jitter, index) * 8), y1 - 4 + Math.floor(hash(effect.seed + jitter, index + 7) * 8), 1, 1);
+      }
     } else if (effect.type === 'laser') {
       const half = (effect.width / WORLD_PER_PIXEL / 2) * (progress < 0.25 ? 1.3 : 1 - (progress - 0.25) * 1.1);
       drawBeam(ctx, x, y, effect.angle, effect.length / WORLD_PER_PIXEL, half, effect.steam ? BEAM.steam : effect.mega ? BEAM.show : BEAM.green, effect.seed, progress);
@@ -1188,12 +1299,25 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
         sparkle(ctx, Math.round(x + effect.dir * along), Math.round(y + rise), drop % 3 ? '#a9cdf5' : '#ffffff', drop % 4 === 0 && progress < 0.6);
       }
     } else if (effect.type === 'nova') {
-      drawCombatPulse(ctx,x,y,effect.radius/WORLD_PER_PIXEL,progress,effect.color==='mint'?'water':'fire',effect.seed);
+      // 화염이 고리 모양으로 퍼져 나간다(물파스는 시원한 민트빛).
+      const cool = effect.color === 'mint';
+      const flames = cool ? ['#3f9d94', '#7ad3c8', '#d3f3ff'] : ['#d9452b', '#f08a1d', '#ffd23f'];
+      const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 2);
+      disc(ctx, x, y, reach, cool ? `rgba(122, 211, 200, ${0.26 * (1 - progress)})` : `rgba(255, 138, 61, ${0.28 * (1 - progress)})`);
+      ring(ctx, x, y, reach, cool ? '#ffffff' : '#fff7d6');
+      ring(ctx, x, y, reach - 1, flames[2]);
+      ring(ctx, x, y, reach - 3, flames[1], 2, Math.floor(effect.age * 40));
+      for (let flame = 0; flame < 36; flame += 1) {
+        const angle = (flame / 36) * Math.PI * 2 + hash(effect.seed, flame);
+        const at = reach * (0.82 + hash(effect.seed, flame + 60) * 0.22);
+        disc(ctx, Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at - progress * 5),
+          (1 - progress) * (2 + hash(effect.seed, flame + 90) * 3), flames[flame % 3]);
+      }
     } else if (effect.type === 'mist') {
       // 방향제: 보랏빛 안개가 화면 가득 퍼지고 꽃잎이 흩날린다.
       const reach = (effect.radius / WORLD_PER_PIXEL) * (1 - (1 - progress) ** 3);
       ctx.fillStyle = `rgba(176, 139, 224, ${0.16 * (1 - progress)})`;
-      ctx.fillRect(0, 0, ctx.canvas.width / RENDER_SCALE, ctx.canvas.height / RENDER_SCALE);
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
       ring(ctx, x, y, reach, `rgba(255, 255, 255, ${0.9 * (1 - progress)})`);
       ring(ctx, x, y, reach - 3, `rgba(176, 139, 224, ${0.8 * (1 - progress)})`, 3, Math.floor(effect.age * 30));
       for (let petal = 0; petal < 40; petal += 1) {
@@ -1331,7 +1455,6 @@ function drawHazards(ctx, game, toBuffer, time) {
 }
 
 export function render(ctx, game, width, height, time) {
-  ctx.setTransform(RENDER_SCALE, 0, 0, RENDER_SCALE, 0, 0);
   const map = game.map ?? 'room';
   const floor = floorOf(map);
   const surround = SURROUND[map] ?? SURROUND.room;
@@ -1355,7 +1478,7 @@ export function render(ctx, game, width, height, time) {
   const tw = floor.width;
   const th = floor.height;
   for (let y = top - ((top + cameraY) % th + th) % th; y < bottom; y += th) {
-    for (let x = left - ((left + cameraX) % tw + tw) % tw; x < right; x += tw) stamp(ctx, floor, x, y);
+    for (let x = left - ((left + cameraX) % tw + tw) % tw; x < right; x += tw) ctx.drawImage(floor, x, y);
   }
   ctx.fillStyle = surround.outside;
   ctx.fillRect(0, 0, left, height);
@@ -1468,7 +1591,7 @@ export function render(ctx, game, width, height, time) {
       line(ctx, Math.round(x + Math.cos(angle) * at), Math.round(y + Math.sin(angle) * at),
         Math.round(x + Math.cos(angle + 0.13) * tip), Math.round(y + Math.sin(angle + 0.13) * tip), '#a9cdf5');
     }
-    stamp(ctx, icon('dehumidifier', Math.floor(time * 6) % ITEM_FRAMES), Math.round(x - 17), Math.round(y + 5), 12, 12);
+    ctx.drawImage(icon('dehumidifier', Math.floor(time * 6) % ITEM_FRAMES), Math.round(x - 17), Math.round(y + 5), 12, 12);
     ring(ctx, x, y, radius, 'rgba(95, 134, 207, 0.8)', 3, Math.floor(time * 14));
   }
 
@@ -1503,7 +1626,38 @@ export function render(ctx, game, width, height, time) {
     ctx.fillStyle = '#5f86cf'; ctx.fillRect(5, 1, 3, 5);
     ctx.fillStyle = '#ffcf3f'; ctx.fillRect(11, -2, 3, 4);
     ctx.restore();
-    drawFlameJet(ctx,duckX,duckY,game.dryerAngle,game.dryerRange/WORLD_PER_PIXEL,game.dryerSpread,time);
+    // 화염방사기처럼 안쪽은 밝고 바깥은 붉게, 끝에서는 연기와 불티가 흩어진다.
+    const reach = game.dryerRange / WORLD_PER_PIXEL;
+    const spread = game.dryerSpread;
+    const layers = [
+      { count: 14, color: 'rgba(90, 70, 60, 0.35)', from: 0.75, to: 1.2, width: 1.1, size: 3 },
+      { count: 44, color: '#d9452b', from: 0.1, to: 1.0, width: 1.0, size: 4 },
+      { count: 38, color: '#f08a1d', from: 0.05, to: 0.85, width: 0.75, size: 3 },
+      { count: 26, color: '#ffd23f', from: 0, to: 0.65, width: 0.5, size: 2 },
+      { count: 12, color: '#fff7d6', from: 0, to: 0.35, width: 0.3, size: 1.5 },
+    ];
+    layers.forEach((layer, layerIndex) => {
+      for (let puff = 0; puff < layer.count; puff += 1) {
+        const seed = layerIndex * 100 + puff;
+        const travel = (hash(seed, 3) + time * (1.6 + hash(seed, 4))) % 1;
+        const along = layer.from + (layer.to - layer.from) * travel;
+        const flicker = Math.sin(time * 18 + seed * 1.7) * 0.08;
+        const angle = game.dryerAngle + ((hash(seed, 5) - 0.5) * 2 * spread * layer.width + flicker) * (0.25 + along * 0.75);
+        const grow = 0.4 + Math.sin(Math.min(1, along) * Math.PI) * 0.8;
+        const lift = layerIndex === 0 ? -travel * 8 : 0;
+        disc(ctx, Math.round(duckX + Math.cos(angle) * (7 + along * reach)),
+          Math.round(duckY + Math.sin(angle) * (7 + along * reach) + lift), layer.size * grow, layer.color);
+      }
+    });
+    for (let ember = 0; ember < 10; ember += 1) {
+      const travel = (hash(ember, 21) + time * 1.3) % 1;
+      const angle = game.dryerAngle + (hash(ember, 22) - 0.5) * 2.6 * spread;
+      ctx.fillStyle = travel < 0.5 ? '#fff0a8' : '#ff8a3d';
+      ctx.fillRect(Math.round(duckX + Math.cos(angle) * reach * (0.6 + travel * 0.6)),
+        Math.round(duckY + Math.sin(angle) * reach * (0.6 + travel * 0.6) - travel * 6), 1, 1);
+    }
+    disc(ctx, Math.round(duckX + Math.cos(game.dryerAngle) * 7), Math.round(duckY + Math.sin(game.dryerAngle) * 7),
+      2 + (Math.floor(time * 20) % 2), '#fff7d6');
   }
   for (const orb of coilOrbs(game)) {
     const [x, y] = toBuffer(orb);
@@ -1532,7 +1686,7 @@ export function render(ctx, game, width, height, time) {
     // 날아가는 것마다 제 빛깔로 은은하게 빛난다.
     const halo = SHOT_GLOW[shot.kind ?? (shot.mega ? 'megaSpray' : 'spray')] ?? null;
     const haloSize = shot.kind === 'roller' ? shot.radius / WORLD_PER_PIXEL + 3 : shot.kind === 'staple' ? 3 : 5;
-    if (halo && shot.mega && visible([x, y])) glow(ctx,x,y,haloSize,shot.poison?[146,197,120]:halo,.12);
+    if (halo && visible([x, y])) glow(ctx, x, y, haloSize * (shot.scale ?? 1), shot.poison ? [93, 255, 154] : halo, shot.mega ? 0.5 : 0.35);
     if (shot.kind === 'summon' && shot.weapon === 'papercrane') {
       // 종이학: 날개를 접었다 펴며 하늘하늘 날아가는 흰 종이와 옅은 바람 꼬리
       const angle = Math.atan2(shot.vy, shot.vx), flap = Math.sin(time * 24 + (shot.seed ?? 0)) * 2.5;
@@ -1572,14 +1726,19 @@ export function render(ctx, game, width, height, time) {
       continue;
     }
     if (shot.kind === 'marine') {
-      drawCombatTrail(ctx,x,y,shot.vx,shot.vy,shot.acid?'poison':'electric',shot.scale??1,time);
+      const angle = Math.atan2(shot.vy, shot.vx);
+      const color = shot.acid ? '#76ff93' : '#83c8ff';
+      line(ctx, Math.round(x - Math.cos(angle) * 6), Math.round(y - Math.sin(angle) * 6), Math.round(x), Math.round(y), color);
+      disc(ctx, x, y, 2 * (shot.scale ?? 1), color);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x, y, 1, 1);
       continue;
     }
     if (shot.kind === 'bubble') {
       const wobble = Math.round(Math.sin(time * 6 + shot.seed) * 1.5);
       const size = Math.round((shot.mega ? 5 : 4) * (shot.scale ?? 1));
       ring(ctx, x, y + wobble, size, shot.mega ? '#e3c8ff' : '#cfe8ff');
-      disc(ctx, x, y + wobble, size - 1, 'rgba(155,207,218,0.08)');
+      disc(ctx, x, y + wobble, size - 1, 'rgba(255,255,255,0.35)');
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(x - 2, y + wobble - 2, 2, 1);
       continue;
@@ -1636,14 +1795,42 @@ export function render(ctx, game, width, height, time) {
       continue;
     }
     if (shot.kind === 'ice') {
-      drawFrostShard(ctx,x,y,shot.vx,shot.vy,shot.scale??1);
+      // 정수기 얼음 조각: 날아가는 쪽으로 뾰족한 하늘색 마름모
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const fx = shot.vx / pace;
+      const fy = shot.vy / pace;
+      line(ctx, Math.round(x - fx * 4), Math.round(y - fy * 4), Math.round(x + fx * 3), Math.round(y + fy * 3), '#8fd0ff');
+      ctx.fillStyle = '#d3f3ff';
+      ctx.fillRect(Math.round(x - fy), Math.round(y + fx), 1, 1);
+      ctx.fillRect(Math.round(x + fy), Math.round(y - fx), 1, 1);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(Math.round(x + fx * 2), Math.round(y + fy * 2), 1, 1);
       continue;
     }
     if (shot.kind === 'staple') {
-      drawCombatTrail(ctx,x,y,shot.vx,shot.vy,shot.poison?'poison':'physical',shot.scale??1,time);
+      // 심은 날아가는 방향으로 길쭉한 빛줄기다.
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const tail = Math.round((shot.mega ? 6 : 4) * (shot.scale ?? 1));
+      const thick = (shot.scale ?? 1) >= 1.4 ? 1 : 0;
+      for (let side = -thick; side <= thick; side += 1) {
+        line(ctx, Math.round(x - (shot.vx / pace) * tail - (shot.vy / pace) * side), Math.round(y - (shot.vy / pace) * tail + (shot.vx / pace) * side),
+          Math.round(x - (shot.vy / pace) * side), Math.round(y + (shot.vx / pace) * side), shot.poison ? '#5dff9a' : shot.mega ? '#ffb21f' : '#c4c9d1');
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x, y, 1, 1);
+      if (shot.mega) ctx.fillRect(Math.round(x - (shot.vx / pace) * 2), Math.round(y - (shot.vy / pace) * 2), 1, 1);
       continue;
     }
-    drawCombatTrail(ctx,x,y,shot.vx,shot.vy,shot.mega?'poison':'water',shot.scale??1,time);
+    const trail = shot.mega ? 'rgba(170, 240, 190, ' : 'rgba(220, 235, 255, ';
+    for (let step = 4; step >= 1; step -= 1) {
+      ctx.fillStyle = `${trail}${0.7 - step * 0.14})`;
+      const size = step < 3 ? 2 : 1;
+      ctx.fillRect(Math.round(x - shot.vx * 0.011 * step + Math.sin(time * 30 + step) * 0.8),
+        Math.round(y - shot.vy * 0.011 * step + Math.cos(time * 30 + step) * 0.8), size, size);
+    }
+    disc(ctx, x, y, (shot.mega ? 3 : 2) * (shot.scale ?? 1), shot.mega ? '#8fe6a8' : '#dcebff');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - 1, y - 1, 1, 1);
   }
   if (game.fusions.spinlaser && game.megaLaser && game.megaLaser.phase !== 'cooldown') {
     const beam = game.megaLaser;
@@ -1736,7 +1923,7 @@ export function render(ctx, game, width, height, time) {
       }
       glow(ctx, sx, sy, 6, [255, 90, 90], 0.6 * left);
     }
-    stamp(ctx, icon('dronemk2', Math.floor(time * 16) % ITEM_FRAMES), Math.round(x - 8), Math.round(y - lift - 8));
+    ctx.drawImage(icon('dronemk2', Math.floor(time * 16) % ITEM_FRAMES), Math.round(x - 8), Math.round(y - lift - 8));
     if (drone.firing) disc(ctx, Math.round(sx), Math.round(sy), 2, '#fff1f1');
   }
   for (const blade of sawBlades(game)) {
@@ -1864,7 +2051,7 @@ export function render(ctx, game, width, height, time) {
         }
       }
       const image = icon(unit.thunder ? 'thunderdragons' : unit.evolved ? 'azuredragon' : 'toydragon', Math.floor(time * 8) % ITEM_FRAMES);
-      ctx.save();ctx.translate(x, y);ctx.rotate(unit.angle);ctx.scale(size, size);stamp(ctx, image, -8, -8);ctx.restore();
+      ctx.save();ctx.translate(x, y);ctx.rotate(unit.angle);ctx.scale(size, size);ctx.drawImage(image, -8, -8);ctx.restore();
       continue;
     }
     const drone = unit.weapon === 'toydrone';
@@ -1877,7 +2064,7 @@ export function render(ctx, game, width, height, time) {
       const image = icon(unit.evolved ? EVOLUTIONS[unit.weapon].icon : unit.weapon, 0);
       for (let ghost = 3; ghost >= 1; ghost--) {
         ctx.globalAlpha = .12 * (4 - ghost);
-        stamp(ctx, image, Math.round(x - dx * ghost * 6 - 8), Math.round(y - dy * ghost * 6 - 10));
+        ctx.drawImage(image, Math.round(x - dx * ghost * 6 - 8), Math.round(y - dy * ghost * 6 - 10));
       }
       ctx.globalAlpha = 1;
       for (let puff = 0; puff < 5; puff++) {
@@ -1896,7 +2083,7 @@ export function render(ctx, game, width, height, time) {
     const spriteId = unit.spriteId ?? (unit.evolved ? EVOLUTIONS[unit.weapon].icon : unit.weapon);
     ctx.save(); ctx.translate(Math.round(x), Math.round(y + bob));
     if (Math.cos(unit.angle) < 0) ctx.scale(-1, 1);
-    stamp(ctx, icon(spriteId, frame), -8, -10); ctx.restore();
+    ctx.drawImage(icon(spriteId, frame), -8, -10); ctx.restore();
     if (firing && drone) disc(ctx, Math.round(x + Math.cos(unit.angle) * 9), Math.round(y + bob + Math.sin(unit.angle) * 6), 2, '#fff4c2');
   }
   for (const robot of game.robots) {
@@ -1909,7 +2096,7 @@ export function render(ctx, game, width, height, time) {
       ctx.save();
       ctx.translate(Math.round(x), Math.round(y));
       if (Math.cos(robot.angle) < 0) ctx.scale(-1, 1);
-      stamp(ctx, icon(robot.acid ? 'bleachbot' : 'marine', frame), -8, -10);
+      ctx.drawImage(icon(robot.acid ? 'bleachbot' : 'marine', frame), -8, -10);
       ctx.restore();
       if (firing) disc(ctx, Math.round(x + Math.cos(robot.angle) * 9), Math.round(y + Math.sin(robot.angle) * 9), 2, robot.acid ? '#8cff85' : '#ffe08a');
       continue;

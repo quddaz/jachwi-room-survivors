@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -1231,12 +1231,72 @@ function damageOverTime(game, enemy, amount, from = game.player, span = game.ste
     power *= 1 + amp.power * average;
   }
   damageEnemy(game, enemy, amount * power, false, from, 0, { hitEffects: false, showHit: false });
+  if (game.hitElement && game.time - (enemy.elementDotAt ?? -Infinity) >= ELEMENT_DOT_GAP) {
+    enemy.elementDotAt = game.time;
+    applyElements(game, enemy, 0, true);
+  }
 }
 
 function freezeOnHit(game, enemy, duration) {
   if (!duration || enemy.boss || game.time < (enemy.hitFreezeReadyAt ?? -Infinity)) return;
   enemy.chillUntil = game.time + duration;
   enemy.hitFreezeReadyAt = enemy.chillUntil + HIT_FREEZE.recoverySec;
+}
+
+// 지금 피해를 주는 무기·보물의 속성. 무기 블록과 투사체가 바꿔 끼우고 damageEnemy가 읽는다.
+const weaponElementTag = (game, id) => {
+  const list = weaponElementsOf(fusionForWeapon(game, id) ?? id);
+  return list.length ? list : null;
+};
+function useElements(game, next) {
+  const current = game.hitElement ?? null;
+  for (const list of [game.shots, game.puddles, game.slippers]) {
+    for (const item of list ?? []) if (!('elements' in item)) item.elements = current;
+  }
+  game.hitElement = next;
+}
+function slowBy(game, enemy, factor, seconds) {
+  const active = game.time < (enemy.slowUntil ?? 0);
+  enemy.slowBy = active ? Math.min(enemy.slowBy ?? 1, factor) : factor;
+  enemy.slowUntil = Math.max(active ? enemy.slowUntil : 0, game.time + seconds);
+}
+function applyElements(game, enemy, amount, fromDot = false) {
+  const elements = game.hitElement;
+  // 개별 무기의 피해량만 검증할 때는 속성 효과를 끌 수 있다.
+  if (!elements || game.elementsOff || enemy.dead || (amount <= 0 && !fromDot)) return;
+  for (const element of elements) {
+    const rule = ELEMENT_EFFECTS[element];
+    // 지속 피해에는 피해를 더하는 화상·중독·감전을 겹치지 않고 둔화·젖음만 건다.
+    if (fromDot && element !== 'ice' && element !== 'water') continue;
+    if (element === 'fire') {
+      if (game.time < (enemy.wetUntil ?? 0)) continue;
+      const active = game.time < (enemy.burnUntil ?? 0);
+      enemy.burnDps = Math.max(active ? enemy.burnDps ?? 0 : 0, amount * rule.burn);
+      enemy.burnUntil = game.time + rule.burnSec;
+    } else if (element === 'poison') {
+      const active = game.time < (enemy.poisonUntil ?? 0);
+      enemy.poisonStacks = Math.min(rule.maxStacks, (active ? enemy.poisonStacks ?? 0 : 0) + 1);
+      enemy.poisonBase = Math.max(active ? enemy.poisonBase ?? 0 : 0, amount * rule.poison);
+      enemy.poisonDps = Math.max(active ? enemy.poisonDps ?? 0 : 0, enemy.poisonBase * enemy.poisonStacks);
+      enemy.poisonUntil = game.time + rule.poisonSec;
+    } else if (element === 'ice') {
+      slowBy(game, enemy, enemy.boss ? rule.bossSlow : rule.slow, rule.slowSec);
+    } else if (element === 'water') {
+      enemy.wetUntil = game.time + rule.wetSec;
+      if (game.time < (enemy.burnUntil ?? 0)) enemy.burnUntil = game.time;
+      if (!enemy.boss) slowBy(game, enemy, rule.slow, rule.wetSec);
+    } else if (element === 'lightning' && game.random() < rule.chance) {
+      const wet = game.time < (enemy.wetUntil ?? 0);
+      const targets = near(game, enemy.x, enemy.y, rule.range)
+        .filter(other => other !== enemy && !other.dead && distance(other, enemy) <= rule.range + other.radius)
+        .sort((a, b) => distance(a, enemy) - distance(b, enemy)).slice(0, wet ? rule.wetTargets : 1);
+      const damage = amount * rule.chain * (wet ? 1 + rule.wetBonus : 1);
+      for (const other of targets) {
+        damageEnemy(game, other, 0, false, enemy, damage, { hitEffects: false, canCrit: false });
+        addEffect(game, { type: 'bolt', points: [{ x: enemy.x, y: enemy.y }, { x: other.x, y: other.y }], life: 0.15 });
+      }
+    }
+  }
 }
 
 export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true, canCrit = true } = {}) {
@@ -1278,11 +1338,18 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     enemy.burnUntil = game.time + match.burnSec;
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps, 'match') * (game.passives.idol ? 2 : 1));
   }
+  if (hitEffects) applyElements(game, enemy, amount);
   enemy.hitFlash = 0.1;
   if (showHit && amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
       life: crit ? 0.8 : 0.6, crit, critTiers: tiers });
     if (crit) addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'crit', count: 6, life: 0.35 });
+    // 2단 이상 치명타는 분홍 섬광과 십자 광선으로 한 번 더 강조한다.
+    if (tiers > 1) {
+      addEffect(game, { type: 'supercrit', x: enemy.x, y: enemy.y - enemy.radius, tiers, life: 0.42 });
+      addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y - enemy.radius, color: 'supercrit', count: 10, life: 0.45 });
+      game.shake = Math.max(game.shake, 0.06);
+    }
     addEffect(game, { type: 'burst', x: enemy.x, y: enemy.y, color: enemy.kind, count: 3, life: 0.3 });
   }
   if (slows && !enemy.boss) {
@@ -1856,6 +1923,7 @@ function updateSummons(game, dt) {
   const ids = Object.keys(game.weapons).filter(id => WEAPONS[id].summon && id !== 'robot' && activeWeapon(game, id));
   game.summons = game.summons.filter(unit => ids.includes(unit.weapon));
   for (const id of ids) {
+    useElements(game, weaponElementTag(game, id));
     const weapon = WEAPONS[id];
     const owner = fusionForWeapon(game, id);
     const evolved = evolution(game, id) ? { ...evolution(game, id), ...(owner ? FUSIONS[owner].summonBoost : {}) } : null;
@@ -2075,6 +2143,7 @@ function fireWeapons(game, dt) {
   const { player } = game;
   const { area, projectile } = statsOf(game);
   // 독침 기관총으로 합체하면 살충제는 따로 뿌리지 않는다.
+  useElements(game, weaponElementTag(game, 'spray'));
   if (activeWeapon(game, 'spray') && !game.fusions.poisongun && ready(game, 'spray', dt)) {
     const count = weaponValue(game, 'spray', 'count');
     const targets = nearestEnemies(game, count);
@@ -2096,6 +2165,7 @@ function fireWeapons(game, dt) {
         scale: projectile, hit: new Set(), mega: true });
     }
   }
+  useElements(game, weaponElementTag(game, 'broom'));
   if (activeWeapon(game, 'broom') && ready(game, 'broom', dt)) {
     const radius = weaponValue(game, 'broom', 'radius') * area;
     const damage = weaponValue(game, 'broom', 'damage');
@@ -2111,6 +2181,7 @@ function fireWeapons(game, dt) {
       game.broomEcho = false;
     }
   }
+  useElements(game, weaponElementTag(game, 'bleach'));
   if (activeWeapon(game, 'bleach') && ready(game, 'bleach', dt)) {
     const candidates = nearestEnemies(game, 12, 380);
     for (let index = 0; index < weaponValue(game, 'bleach', 'count'); index += 1) {
@@ -2123,6 +2194,7 @@ function fireWeapons(game, dt) {
         maxLife: WEAPONS.bleach.lifeSec, slow: evolution(game, 'bleach')?.slow });
     }
   }
+  useElements(game, weaponElementTag(game, 'dehumidifier'));
   if (activeWeapon(game, 'dehumidifier')) {
     const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
@@ -2133,6 +2205,7 @@ function fireWeapons(game, dt) {
     }
   }
   // 파리채 폭격기로 합체하면 파리채는 종이비행기를 따라서만 내려친다.
+  useElements(game, weaponElementTag(game, 'swatter'));
   if (activeWeapon(game, 'swatter') && !game.fusions.bomber && ready(game, 'swatter', dt)) {
     const targets = game.enemies
       .filter((enemy) => !enemy.dead && distance(enemy, player) < 420)
@@ -2149,6 +2222,7 @@ function fireWeapons(game, dt) {
     }
     if (targets.length === 0) game.cooldowns.swatter = 0.2;
   }
+  useElements(game, weaponElementTag(game, 'slipper'));
   if (activeWeapon(game, 'slipper') && ready(game, 'slipper', dt)) {
     const storm = evolution(game, 'slipper');
     const count = storm ? storm.count : weaponValue(game, 'slipper', 'count');
@@ -2167,6 +2241,7 @@ function fireWeapons(game, dt) {
     }
     addEffect(game, { weapon: 'slipper', type: 'ring', x: player.x, y: player.y, radius: 20, color: 'ball', life: 0.18, sound: 'slash' });
   }
+  useElements(game, weaponElementTag(game, 'coil'));
   if (activeWeapon(game, 'coil')) {
     const fire = fusion(game, 'firering');
     const damage = weaponValue(game, 'coil', 'damage') * (fire?.damage ?? 1);
@@ -2192,6 +2267,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
+  useElements(game, weaponElementTag(game, 'zapper'));
   if (activeWeapon(game, 'zapper') && ready(game, 'zapper', dt)) {
     const damage = weaponValue(game, 'zapper', 'damage');
     const points = [{ x: player.x, y: player.y }];
@@ -2220,6 +2296,7 @@ function fireWeapons(game, dt) {
     if (points.length > 1) addEffect(game, { weapon: 'zapper', type: 'bolt', points, life: 0.22, mega: Boolean(evolution(game, 'zapper')) });
     else game.cooldowns.zapper = 0.2;
   }
+  useElements(game, weaponElementTag(game, 'detergent'));
   if (activeWeapon(game, 'detergent') && ready(game, 'detergent', dt)) {
     const count = weaponValue(game, 'detergent', 'count') * (evolution(game, 'detergent') ? 2 : 1);
     const { speed, lifeSec } = WEAPONS.detergent;
@@ -2232,6 +2309,7 @@ function fireWeapons(game, dt) {
         pop: weaponValue(game, 'detergent', 'radius') * area, mega: Boolean(evolution(game, 'detergent')), seed: game.nextId++ });
     }
   }
+  useElements(game, weaponElementTag(game, 'roller'));
   if (activeWeapon(game, 'roller') && ready(game, 'roller', dt)) {
     const { speed, lifeSec } = WEAPONS.roller;
     const target = nearestEnemies(game, 1, speed * lifeSec)[0];
@@ -2243,6 +2321,7 @@ function fireWeapons(game, dt) {
         hit: new Set(), kind: 'roller', slows: true, mega: Boolean(evolution(game, 'roller')) });
     }
   }
+  useElements(game, weaponElementTag(game, 'dryer'));
   if (activeWeapon(game, 'dryer')) {
     const range = weaponValue(game, 'dryer', 'range') * area;
     // 물티슈가 바람이 퍼지는 폭도 넓힌다.
@@ -2270,6 +2349,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
+  useElements(game, weaponElementTag(game, 'fan'));
   if (activeWeapon(game, 'fan') && ready(game, 'fan', dt)) {
     const cone = Math.min(1.6, WEAPONS.fan.cone * area);
     const range = weaponValue(game, 'fan', 'range') * area;
@@ -2286,6 +2366,7 @@ function fireWeapons(game, dt) {
     addEffect(game, { weapon: 'fan', type: 'gust', x: player.x, y: player.y, angle, range, cone, life: 0.35,
       mega: Boolean(evolution(game, 'fan')) });
   }
+  useElements(game, weaponElementTag(game, 'laser'));
   if (activeWeapon(game, 'laser') && fusion(game, 'spinlaser')) {
     updateMegaLaser(game, dt);
   } else if (activeWeapon(game, 'laser') && ready(game, 'laser', dt)) {
@@ -2317,6 +2398,7 @@ function fireWeapons(game, dt) {
     }
     game.shake = Math.max(game.shake, 0.08);
   }
+  useElements(game, weaponElementTag(game, 'stapler'));
   if (activeWeapon(game, 'stapler') && ready(game, 'stapler', dt)) {
     const nailer = evolution(game, 'stapler');
     const forward = player.heading ?? (player.facing > 0 ? 0 : Math.PI);
@@ -2339,18 +2421,22 @@ function fireWeapons(game, dt) {
     }
     game.staplerAt = game.time;
   }
-  if (game.fusions.dryoven || game.relics.match) {
+  useElements(game, null);
+  {
     for (const enemy of game.enemies) {
+      enemy.wet = (enemy.wetUntil ?? 0) > game.time;
+      enemy.chilled = !enemy.wet && (enemy.slowUntil ?? 0) > game.time && (enemy.slowBy ?? 1) < 0.9;
       enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
       if (enemy.burning) damageOverTime(game, enemy, enemy.burnDps * dt);
     }
   }
-  if (game.fusions.poisongun) {
+  {
     for (const enemy of game.enemies) {
       enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
       if (enemy.poisoned) damageOverTime(game, enemy, enemy.poisonDps * dt);
     }
   }
+  useElements(game, weaponElementTag(game, 'ball'));
   if (activeWeapon(game, 'ball')) {
     const big = evolution(game, 'ball');
     const count = big ? big.count : weaponValue(game, 'ball', 'count');
@@ -2422,6 +2508,7 @@ function fireWeapons(game, dt) {
       }
     }
   }
+  useElements(game, weaponElementTag(game, 'robot'));
   if (activeWeapon(game, 'robot')) {
     const squad = evolution(game, 'robot');
     const summonStats = statsOf(game);
@@ -2512,7 +2599,9 @@ function fireWeapons(game, dt) {
       }
     });
   }
+  useElements(game, null);
   updateSummons(game, dt);
+  useElements(game, weaponElementTag(game, 'towel'));
   if (activeWeapon(game, 'towel') && ready(game, 'towel', dt)) {
     const beach = evolution(game, 'towel');
     const length = weaponValue(game, 'towel', 'length') * area;
@@ -2535,6 +2624,7 @@ function fireWeapons(game, dt) {
       addEffect(game, { weapon: 'towel', type: 'towel', x: player.x, y: player.y, dir, length, height, life: 0.25, mega: Boolean(beach) });
     }
   }
+  useElements(game, weaponElementTag(game, 'paperplane'));
   if (activeWeapon(game, 'paperplane') && ready(game, 'paperplane', dt)) {
     const crane = evolution(game, 'paperplane');
     const count = crane ? crane.count : weaponValue(game, 'paperplane', 'count');
@@ -2548,6 +2638,7 @@ function fireWeapons(game, dt) {
         scale: projectile, hit: new Set(), kind: 'plane', homing: turn, speed, slows: true, mega: Boolean(crane) });
     }
   }
+  useElements(game, weaponElementTag(game, 'mousetrap'));
   if (activeWeapon(game, 'mousetrap')) {
     const sticky = evolution(game, 'mousetrap');
     if (ready(game, 'mousetrap', dt)) {
@@ -2590,6 +2681,7 @@ function fireWeapons(game, dt) {
     }
     game.traps = game.traps.filter((trap) => trap.life > 0);
   }
+  useElements(game, weaponElementTag(game, 'microwave'));
   if (activeWeapon(game, 'microwave')) {
     if (ready(game, 'microwave', dt)) {
       const max = weaponValue(game, 'microwave', 'radius') * area;
@@ -2623,6 +2715,7 @@ function fireWeapons(game, dt) {
     }
     game.waves = game.waves.filter((wave) => wave.r < wave.max);
   }
+  useElements(game, weaponElementTag(game, 'shower'));
   if (activeWeapon(game, 'shower')) {
     if (ready(game, 'shower', dt)) {
       const count = weaponValue(game, 'shower', 'count') * (evolution(game, 'shower')?.double ? 2 : 1);
@@ -2659,6 +2752,7 @@ function fireWeapons(game, dt) {
     }
     game.splashes = game.splashes.filter((splash) => splash.delay > 0);
   }
+  useElements(game, weaponElementsOf('mopstorm').length ? weaponElementsOf('mopstorm') : null);
   const mop = fusion(game, 'mopstorm');
   if (mop) {
     game.mopIn = (game.mopIn ?? mop.everySec) - dt;
@@ -2677,12 +2771,15 @@ function fireWeapons(game, dt) {
       addEffect(game, { type: 'ring', x: player.x, y: player.y, radius, color: 'water', life: 0.35 });
     }
   }
+  useElements(game, null);
   updateSaws(game, dt);
   updateDroneBase(game, dt);
+  useElements(game, null);
 }
 
 function updateProjectiles(game, dt) {
   for (const shot of game.shots) {
+    game.hitElement = shot.elements ?? null;
     if (shot.kind === 'grenade') {
       shot.age += dt;
       shot.life -= dt;
@@ -2785,9 +2882,11 @@ function updateProjectiles(game, dt) {
       if (shot.hit.size > shot.pierce) { shot.life = 0; break; }
     }
   }
+  game.hitElement = null;
   game.shots = game.shots.filter((shot) => shot.life > 0);
 
   for (const slipper of game.slippers) {
+    game.hitElement = slipper.elements ?? null;
     slipper.spin += dt * 14;
     const previous = { x: slipper.x, y: slipper.y };
     if (!slipper.returning) {
@@ -2818,11 +2917,13 @@ function updateProjectiles(game, dt) {
       damageWeaponHit(game, enemy, slipper.damage, true, slipper);
     }
   }
+  game.hitElement = null;
   game.slippers = game.slippers.filter((slipper) => !slipper.done);
 
   // 장판을 무한히 겹쳐 깔아도 한 적에게는 가장 강한 세 장까지만 적용한다.
   const puddleHits = new Map();
   for (const puddle of game.puddles) {
+    game.hitElement = puddle.elements ?? null;
     puddle.life -= dt;
     if (puddle.life <= 0) continue;
     for (const enemy of near(game, puddle.x, puddle.y, puddle.radius)) {
@@ -2839,6 +2940,7 @@ function updateProjectiles(game, dt) {
     const factor = Math.min(...hits.map(puddle => puddle.slow ?? 1));
     if (factor < 1) slow(game, enemy, factor);
   }
+  game.hitElement = null;
   game.puddles = game.puddles.filter((puddle) => puddle.life > 0);
   game.slimes.forEach((slime) => { slime.life -= dt; });
   game.slimes = game.slimes.filter((slime) => slime.life > 0);
@@ -3362,6 +3464,7 @@ function detonateFirework(game, attack) {
 function updateRelicAttacks(game, dt) {
   const active=[];
   for(const attack of game.relicAttacks ?? []) {
+    game.hitElement = RELIC_ELEMENTS[attack.id] ? [RELIC_ELEMENTS[attack.id]] : null;
     if(!game.relics[attack.id] || (attack.type==='nuclear' && !nuclearUnlocked(game)))continue;
     const previous=attack.age;attack.age+=dt;
     if(attack.type==='nuclear') {
@@ -3453,7 +3556,7 @@ function updateRelicAttacks(game, dt) {
           const angle=attack.angle+(shard-(count-1)/2)*.12;
           game.shots.push({x:player.x,y:player.y,vx:Math.cos(angle)*RELICS.purifier.speed,vy:Math.sin(angle)*RELICS.purifier.speed,
             damage:attack.damage,pierce:RELICS.purifier.pierce,life:RELICS.purifier.lifeSec*attack.reach,
-            radius:7,scale:1,hit:new Set(),kind:'ice',slows:true});
+            radius:7,scale:1,hit:new Set(),kind:'ice',slows:true,elements:['ice']});
         }
         attack.nextVolley++;
         addEffect(game,{type:'ring',x:player.x+Math.cos(attack.angle)*24,y:player.y+Math.sin(attack.angle)*24,radius:28,color:'water',life:.2,sound:'shoot'});
@@ -3461,6 +3564,7 @@ function updateRelicAttacks(game, dt) {
     }
     if(attack.age<attack.life)active.push(attack);
   }
+  game.hitElement=null;
   game.relicAttacks=active;
 }
 
@@ -3493,7 +3597,9 @@ function updateSummonMist(game, dt) {
     }
   }
   const damage = relicDamage(game, mist.dps, 'humidifier') * statsOf(game).summonPower * elapsed;
+  game.hitElement = ['water'];
   for (const { enemy, source, stacks } of coverage.values()) damageOverTime(game, enemy, damage * stacks, source, elapsed);
+  game.hitElement = null;
 }
 
 function updateDamageRelics(game, dt) {

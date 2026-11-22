@@ -216,6 +216,7 @@ describe('공속 전용 고정 피해 패시브', () => {
     game.passives = { protein: 10, lightgear: 5, counterweight: 5 };
     game.relics = { firecracker: true };
     game.fireIn = 0;
+    game.elementsOff = true;
     const enemy = target(game);
     update(game, 1 / 60);
     for(let frame=0;frame<25;frame++)update(game,1/60);
