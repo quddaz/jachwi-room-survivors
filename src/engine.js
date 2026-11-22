@@ -522,7 +522,9 @@ function sweepHits(game, from, to, radius) {
 
 function addEffect(game, effect) {
   if (game.effects.length > 240) {
-    const index = game.effects.findIndex((candidate) => candidate.type !== 'banner');
+    // 소리를 내는 연출은 먼저 지우지 않아 효과음이 빠지지 않게 한다.
+    let index = game.effects.findIndex((candidate) => candidate.type !== 'banner' && !candidate.sound);
+    if (index < 0) index = game.effects.findIndex((candidate) => candidate.type !== 'banner');
     if (index >= 0) game.effects.splice(index, 1);
   }
   game.effects.push({ age: 0, seed: game.nextId++, ...effect });
@@ -1299,7 +1301,7 @@ function applyElements(game, enemy, amount, fromDot = false) {
       const damage = amount * rule.chain * (wet ? 1 + rule.wetBonus : 1);
       for (const other of targets) {
         damageEnemy(game, other, 0, false, enemy, damage, { hitEffects: false, canCrit: false });
-        addEffect(game, { type: 'bolt', points: [{ x: enemy.x, y: enemy.y }, { x: other.x, y: other.y }], life: 0.15 });
+        addEffect(game, { type: 'bolt', points: [{ x: enemy.x, y: enemy.y }, { x: other.x, y: other.y }], life: 0.15, sound: '' });
       }
     }
   }

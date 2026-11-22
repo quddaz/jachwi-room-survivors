@@ -266,3 +266,21 @@ test('효과음을 꺼도 배경음악은 계속 재생하고 대기 효과음�
   assert.ok(context.sources.length > count);
   assert.equal(timers.size, 0);
 });
+
+test('배경음악을 꺼도 전투 중에는 효과음이 끝날 때마다 오디오를 잠재우지 않는다', async (t) => {
+  const { instances } = audioEnvironment(t);
+  const music = createMusic();
+  t.after(() => music.destroy());
+  await music.unlock();
+  music.setPlaying(false);
+  for (const active of [true, false]) {
+    music.setActive(active);
+    music.playEffect('xp');
+    await settle();
+    const context = instances[0];
+    for (const source of [...context.sources]) source.onended?.();
+    await settle();
+    assert.equal(context.state, active ? 'running' : 'suspended');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+});

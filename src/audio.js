@@ -19,6 +19,7 @@ const MELODY = [
   [79, 76, 74, 71, 72, 0, 72, 0],
 ];
 const CHORDS = [[48, 52, 55], [45, 48, 52], [41, 45, 48], [43, 47, 50]];
+const MAX_EFFECT_VOICES = 24;
 const EFFECT_COOLDOWN = { kill: 100, hurt: 160, levelup: 400, boss: 800, gameover: 500, select: 80,
   shoot: 120, slash: 180, impact: 180, zap: 180, pickup: 160, xp: 110, chest: 500, evolve: 500, laserCharge: 200, laserBlast: 350, nuclearWarning: 1000, nuclearBlast: 1000, bounce: 140, roll: 180, pulse: 250 };
 const minor = (note) => note - ([4, 9, 11].includes(note % 12) ? 1 : 0);
@@ -34,6 +35,7 @@ export function createMusic() {
   let muted = false;
   let effectsMuted = false;
   let destroyed = false;
+  let active = false;
   let timer = null;
   let step = 0;
   let boss = false;
@@ -44,8 +46,9 @@ export function createMusic() {
   const lastEffect = new Map();
   const wantsMusic = () => unlocked && playing && !muted && !destroyed;
 
+  // 배경음악을 꺼도 전투 중에는 오디오를 잠재우지 않는다. 효과음마다 재개하면 소리가 끊긴다.
   function idle() {
-    if (context && !destroyed && !wantsMusic() && voices.size === 0 && pendingEffects === 0) {
+    if (context && !destroyed && (!active || muted) && !wantsMusic() && voices.size === 0 && pendingEffects === 0) {
       void context.suspend().catch(() => {});
     }
   }
@@ -171,13 +174,13 @@ export function createMusic() {
     if (!unlocked || !context || muted || effectsMuted || destroyed || !Object.hasOwn(EFFECT_COOLDOWN, name)) return;
     const now = Date.now();
     if (now - (lastEffect.get(name) ?? -Infinity) < EFFECT_COOLDOWN[name]) return;
-    if ([...voices].filter((voice) => voice.group === 'effect').length >= 12) return;
+    if ([...voices].filter((voice) => voice.group === 'effect').length >= MAX_EFFECT_VOICES) return;
     lastEffect.set(name, now);
     const generation = effectGeneration;
     pendingEffects += 1;
     void context.resume().then(() => {
       if (destroyed || muted || effectsMuted || generation !== effectGeneration || context.state !== 'running') return;
-      if ([...voices].filter((voice) => voice.group === 'effect').length >= 12) return;
+      if ([...voices].filter((voice) => voice.group === 'effect').length >= MAX_EFFECT_VOICES) return;
       const start = context.currentTime + 0.01;
       if (name === 'nuclearWarning') {
         [72,60,72].forEach((note,index)=>tone(note,start+index*.3,.22,'square',.05,'effect'));
@@ -220,6 +223,11 @@ export function createMusic() {
   return {
     unlock,
     setBoss(value) { boss = Boolean(value); },
+    setActive(value) {
+      active = Boolean(value);
+      if (active && context && unlocked && !muted && !destroyed) void context.resume().catch(() => {});
+      else idle();
+    },
     setPlaying(value) {
       if (playing === Boolean(value)) return;
       playing = Boolean(value);

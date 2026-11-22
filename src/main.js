@@ -56,6 +56,7 @@ function syncSound() {
   music.setMuted(document.hidden || paused);
   music.setPlaying(Boolean(!musicMuted && game && !game.over && !game.choices && !paused && !document.hidden
     && gameScreen.classList.contains('is-active')));
+  music.setActive(Boolean(game && !game.over && !paused && !document.hidden && gameScreen.classList.contains('is-active')));
 }
 
 function drawSoundButtons() {
