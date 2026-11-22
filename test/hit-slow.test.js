@@ -247,9 +247,11 @@ describe('지속 피해의 치명타와 타격 효과 분리', () => {
         assert.ok(start - enemy.x > 10);
         return { damage: enemy.maxHp - enemy.hp, critDamage: statsOf(game).critDamage };
       };
-      const normal = sample(false), critical = sample(true);
-      assert.ok(normal.damage > 0);
-      assert.ok(Math.abs(critical.damage - normal.damage * critical.critDamage) < 0.0001);
+      const single = sample(false), double = sample(true);
+      assert.ok(single.damage > 0);
+      // 치확 141.2%이므로 두 경우 모두 치명타다. 2중은 치명 보너스만 한 번 더한다.
+      const additiveRatio = (1 + (double.critDamage - 1) * 2) / single.critDamage;
+      assert.ok(Math.abs(double.damage - single.damage * additiveRatio) < 0.0001);
     });
   }
 });

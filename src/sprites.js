@@ -2740,7 +2740,7 @@ function makeCanvas(width, height) {
 }
 
 // 글자 격자를 캔버스로 바꾸고 월드 한 칸 너비의 외곽선을 두른다.
-function build(rows, { outline = true, scale = 1, overlay = null, density = 1 } = {}) {
+function build(rows, { outline = true, scale = 1, overlay = null, density = 1, outlineColor = OUTLINE } = {}) {
   const height = rows.length;
   const width = Math.max(...rows.map((row) => row.length));
   const pad = outline ? density : 0;
@@ -2750,7 +2750,7 @@ function build(rows, { outline = true, scale = 1, overlay = null, density = 1 } 
   const filled = (x, y) => y >= 0 && y < height && x >= 0 && x < rows[y].length && rows[y][x] !== '.';
   if (outline) {
     const steps = Array.from({ length: density }, (_, n) => n + 1);
-    ctx.fillStyle = OUTLINE;
+    ctx.fillStyle = outlineColor;
     for (let y = -pad; y < height + pad; y += 1) {
       for (let x = -pad; x < width + pad; x += 1) {
         if (!filled(x, y) && steps.some(step =>
@@ -2799,10 +2799,18 @@ function tinted(source, color) {
   return canvas;
 }
 
+// 몹·보스는 개편 전 원본과 외곽선을 사용한다. 새 원본이 ART를 덮기 전에 보관한다.
+const legacyEnemyArt = Object.fromEntries([
+  'roach','trash','scrap','rust','mold','fly','mosquito','spider','milk','mouse','moth','ant','slug','sock','dustbunny','pigeon',
+  'kingRoach','garbageGiant','rustBoiler','kingFly','washer','riceCooker','moldQueen',
+].flatMap(kind => (kind === 'scrap' ? [kind] : [`${kind}A`,`${kind}B`]).map(name => [name, ART[name]])));
+
 // 시작 화면·도감·월드가 같은 원본 도트와 애니메이션을 공유한다.
 Object.assign(ART, PIXEL_ACTORS);
 function buildArt(name, scale = 1) {
-  return build(PIXEL_ACTORS[name] ?? materialPixels(ART[name]), { scale, density: ART_DENSITY });
+  if (legacyEnemyArt[name]) return build(legacyEnemyArt[name], { scale, outlineColor: '#2a1c14' });
+  return build(PIXEL_ACTORS[name] ?? materialPixels(ART[name]), { scale, density: ART_DENSITY,
+    outlineColor: name.startsWith('character_') ? '#2a1c14' : OUTLINE });
 }
 const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);

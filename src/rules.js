@@ -26,7 +26,7 @@ export const BUILD = {
     perks: {
       5: { name: '약점 포착', text: '보스·정예에게 치명타 확률 +10%', eliteCrit: 0.1 },
       10: { name: '치명 폭발', text: '치명타로 쓰러뜨린 적이 터져 주변에 그 피해의 40%', blastShare: 0.4, blastRadius: 70 },
-      20: { name: '급소 마스터', text: '치명타 확률 +70%p, 치명타 피해 +50%, 치명 전용 장비 해금. 치확 100% 초과분으로 추가 치명타 배율 적용. 치명타마다 피해 30% 광역 폭발, 0.8초 기절(보스 제외, 해제 후 1.2초 면역)', critChance: 0.7, critDamage: 0.5, stun: 0.8, blastShare: 0.3, blastRadius: 90, blastVisualEverySec: 0.1 },
+      20: { name: '급소 마스터', text: '치명타 확률 +70%p, 치명타 피해 +50%, 치명 전용 장비 해금. 치확 100% 초과분으로 추가 치명 단계 적용(치명 보너스 합연산). 치명타마다 피해 30% 광역 폭발, 0.8초 기절(보스 제외, 해제 후 1.2초 면역)', critChance: 0.7, critDamage: 0.5, stun: 0.8, blastShare: 0.3, blastRadius: 90, blastVisualEverySec: 0.1 },
     } },
   haste: { label: '공속', icon: 'battery', per: { attackSpeed: 0.005 },
     perks: {
@@ -836,7 +836,7 @@ export const RELICS = {
   rubyglass: { label: '루비 안경', critOnly: true, category: 'crit', description: '급소를 더 쉽게, 더 깊게 찌른다',
     stats: ['치명 20점 전용', '치명타 확률 +15%p · 치명타 피해 +40%'], critChance: 0.15, critDamage: 0.4 },
   redthread: { label: '운명의 실', critOnly: true, category: 'crit', description: '네 번째 직접 공격의 치명 단계를 하나 더 올린다',
-    stats: ['치명 20점 전용', '직접 타격 적중 4회마다 치명 배율 1회 추가(기존 치명타와 중첩)', '지속 피해·추가 고정 피해·치명 폭발은 횟수 제외', '고무망치 보유 시 확정 치명타 비활성화'], everyHits: 4 },
+    stats: ['치명 20점 전용', '직접 타격 적중 4회마다 치명 단계 +1(치명 보너스 합연산)', '지속 피해·추가 고정 피해·치명 폭발은 횟수 제외', '고무망치 보유 시 확정 치명타 비활성화'], everyHits: 4 },
   prism: { label: '오색 프리즘', dot20Only: true, category: 'dot', description: '속성 무기와 공격 보물의 속성 에너지를 응축한다',
     stats: ['지속·속성 20점 전용', '화염·냉기·번개·독·물 속성 피해 +45%', '여러 속성이 있어도 한 번만 적용 · 고정 피해 제외'], elementalPower: 0.45 },
   contagion: { label: '전염 플라스크', dot20Only: true, category: 'dot', description: '독·화상에 걸린 적이 쓰러지면 주변에 옮긴다',

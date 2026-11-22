@@ -1251,13 +1251,14 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     game.threadHits = (game.threadHits ?? 0) + 1;
     guaranteed = game.threadHits % thread.everyHits === 0;
   }
-  // 100%마다 치명 배율 한 번을 보장하고 나머지 확률로 한 번 더 적용한다.
+  // 100%마다 치명 단계를 보장하고 나머지 확률로 한 단계 더 적용한다.
   // 130% → 1회 보장 + 30%로 2회, 200% → 2회 보장. 고정 피해는 이후에 더한다.
   const whole = Math.floor(chance + 1e-12);
   const remainder = Math.max(0, chance - whole);
   const tiers = canCrit ? whole + (remainder > 0 && game.random() < remainder ? 1 : 0) + (guaranteed ? 1 : 0) : 0;
   const crit = tiers > 0;
-  if (crit) amount *= critDamageOf(game) ** tiers;
+  // 기본 피해는 한 번만 두고 단계마다 치명 보너스만 더한다. 300% 치피: 3배·5배·7배.
+  if (crit) amount *= 1 + (critDamageOf(game) - 1) * tiers;
   amount += flatBonus;
   let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
   if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);

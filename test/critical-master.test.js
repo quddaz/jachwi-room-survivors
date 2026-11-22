@@ -36,7 +36,7 @@ describe('급소 마스터 적중 폭발', () => {
     game.relics = { icetray: true, match: true, resonator: true };
     const source = target(game), adjacent = target(game, 60);
     damageEnemy(game, source, 100, false, game.player, 60);
-    near(adjacent.maxHp - adjacent.hp, (100 * statsOf(game).critDamage ** 2 + 60) * 0.3);
+    near(adjacent.maxHp - adjacent.hp, (100 * (1 + (statsOf(game).critDamage - 1) * 2) + 60) * 0.3);
     assert.ok(source.burnUntil > 0);
     for (const key of ['burnUntil', 'chillUntil', 'resonatorHits']) assert.equal(adjacent[key], undefined);
   });

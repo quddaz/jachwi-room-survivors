@@ -88,7 +88,7 @@ describe('지속 피해 보물',()=>{
  it('지속 피해 강화 후에도 기절·빙결·고정 피해를 매 틱 발동하지 않는다',()=>{
   const g=quiet({dehumidifier:1});applyBuild(g,{crit:20});g.random=()=>0;g.passives={clover:10,precision:5};g.relics={thermos:true,concentrate:true,resonator:true,icetray:true};
   const e=target(g,40);update(g,.1);assert.equal(e.chillUntil,undefined);assert.equal(e.resonatorHits,undefined);
-  near(e.maxHp-e.hp,18*.1*1.4*1.01*statsOf(g).critDamage**2);
+  near(e.maxHp-e.hp,18*.1*1.4*1.01*(1 + (statsOf(g).critDamage - 1) * 2));
  });
 });
 

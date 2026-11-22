@@ -225,14 +225,14 @@ describe('100% 초과 치명타', () => {
       const e = target(g, 300); damageEnemy(g, e, 10, false, g.player, 37, { showHit: false, hitEffects: false });
       return e.maxHp - e.hp;
     };
-    near(sample(chance - 1 - 0.001), 10 * statsOf(g).critDamage ** 2 + 37);
-    near(sample(chance - 1 + 0.001), 10 * statsOf(g).critDamage + 37);
+    near(sample(chance - 1 - 0.001), 98.4);
+    near(sample(chance - 1 + 0.001), 72.7);
   });
   it('200% 이상이면 2중을 보장하며 추가 폭발·고정 피해는 재치명타가 없다', () => {
     const g = chanceGame(1); applyCharacter(g, 'normal'); g.passives.redink = 5;
     assert.ok(statsOf(g).critChance > 2); g.random = () => 0.99;
     const e = target(g, 300); damageEnemy(g, e, 10, false, g.player, 23, { hitEffects: false });
-    near(e.maxHp - e.hp, 10 * statsOf(g).critDamage ** 2 + 23);
+    near(e.maxHp - e.hp, 10 * (1 + (statsOf(g).critDamage - 1) * 2) + 23);
     const f = target(g, 600); damageEnemy(g, f, 23, false, g.player, 0, { canCrit: false, hitEffects: false });
     near(f.maxHp - f.hp, 23);
     assert.ok(g.effects.some(effect => effect.type === 'number' && effect.critTiers === 2));
@@ -257,6 +257,6 @@ describe('100% 초과 치명타', () => {
     for (let n = 0; n < 3; n++) damageEnemy(g, e, 10, false, g.player, 0, { showHit: false });
     const before = e.hp;
     damageEnemy(g, e, 10, false, g.player, 19, { showHit: false });
-    near(before - e.hp, 10 * statsOf(g).critDamage ** 2 + 19);
+    near(before - e.hp, 10 * (1 + (statsOf(g).critDamage - 1) * 2) + 19);
   });
 });

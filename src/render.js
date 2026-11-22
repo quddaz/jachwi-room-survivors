@@ -209,9 +209,6 @@ const FRAMES = {
   garbageGiant: ['garbageGiantA', 'garbageGiantB'], rustBoiler: ['rustBoilerA', 'rustBoilerB'], kingFly: ['kingFlyA', 'kingFlyB'],
   washer: ['washerA', 'washerB'], riceCooker: ['riceCookerA', 'riceCookerB'], moldQueen: ['moldQueenA', 'moldQueenB'],
 };
-for (const kind of ['roach','trash','rust','mold','fly','mosquito','spider','milk','mouse','moth','ant','slug','sock','dustbunny','pigeon']) {
-  FRAMES[kind] = ['A', 'B', 'C', 'D'].map(frame => `${kind}${frame}`);
-}
 const FRAME_RATE = { washer: 6, riceCooker: 3, moldQueen: 2.5, ant: 14, slug: 2, sock: 4, dustbunny: 6, pigeon: 8, mosquito: 20, spider: 7, milk: 4, mouse: 11, moth: 9, roach: 10, fly: 18, trash: 3, rust: 4, mold: 3, kingRoach: 8, garbageGiant: 2.5, rustBoiler: 5, kingFly: 16 };
 const PARTICLES = {
   washer: ['#efece6', '#7fb7e0', '#ffffff'], riceCooker: ['#ffb3bf', '#ffffff', '#e0645b'], moldQueen: ['#6f9646', '#a9c77f', '#ffcf3f'],
