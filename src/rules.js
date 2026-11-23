@@ -14,7 +14,7 @@ export const CHARACTERS = {
   alchemist: { label: '연금술사 오리', description: '열기와 독, 속성 반응으로 적을 녹이는 연구자',
     stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer' },
   necromancer: { label: '강령술사 오리', description: '영혼으로 해골 군단을 모집하고, 병사를 바쳐 거인을 키우는 지휘관',
-    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 거인을 1차에서 3차까지 키운다', '레벨업에서 무기 대신 강령술과 지휘 능력을 고른다'],
+    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 거인을 1차에서 3차까지 키운다', '레벨업에서 무기 대신 강령술과 지휘 능력을 고르고, 레벨마다 병력 +1'],
     souls: true, undeadStarter: 'bone' },
 };
 
@@ -37,7 +37,7 @@ export const UNDEAD_EVOLUTIONS = {
   wraith: { label: '망령 군무', needs: 'march', description: '망령 7마리가 더 넓게 돌며 닿은 적을 거의 멈춰 세운다',
     stats: ['망령 7마리, 도는 거리 1.3배', '피해 1.7배, 0.3초마다 벤다', '느려짐 65%'], count: 7, damage: 1.7, orbit: 1.3, hitEverySec: 0.3, slow: 0.35 },
   scythe: { label: '사신의 대낫', needs: 'harvest', description: '거대한 낫으로 앞뒤 두 번 베고, 영혼으로 얻는 피해 상한이 두 배가 된다',
-    stats: ['범위 1.4배, 피해 1.5배', '0.22초 뒤 반대로 한 번 더 벤다', '영혼 피해 상한 +200%'], damage: 1.5, radius: 1.4, maxSoulBonus: 2, echo: 0.22 },
+    stats: ['범위 2.1배, 피해 1.5배', '0.22초 뒤 반대로 한 번 더 벤다', '영혼 피해 상한 +200%'], damage: 1.5, radius: 2.1, maxSoulBonus: 2, echo: 0.22 },
 };
 export const COMMANDS = {
   legion: { icon: 'soldier', label: '군단 확장', description: '거느릴 수 있는 병력이 늘어난다', cap: [8, 16, 24, 32, 40] },

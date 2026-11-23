@@ -387,6 +387,13 @@ describe('강령술 능력치', () => {
     assert.equal(armyUsed(game), 12);
   });
 
+  it('레벨이 오를 때마다 병력 한도가 1칸씩 는다', () => {
+    const game = quiet();
+    assert.equal(armyCap(game), ARMY_CAP);
+    game.level = 11;
+    assert.equal(armyCap(game), ARMY_CAP + 10);
+  });
+
   it('20점이면 의식에 바치는 병사가 4명 줄어든다', async () => {
     const { applyBuild } = await import('../src/engine.js');
     const game = quiet();

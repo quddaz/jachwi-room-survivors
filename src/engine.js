@@ -1442,7 +1442,8 @@ const giantUnit = type => type.startsWith('giant');
 const bigUnit = type => giantUnit(type) || type.startsWith('ranger');
 
 export function armyCap(game) {
-  return ARMY_CAP + levelOf(COMMANDS, game.commands, 'legion', 'cap') + (perk(game, 'necro', 10)?.cap ?? 0);
+  // 레벨이 오를 때마다 병력 한도가 1칸씩 는다.
+  return ARMY_CAP + Math.max(0, (game.level ?? 1) - 1) + levelOf(COMMANDS, game.commands, 'legion', 'cap') + (perk(game, 'necro', 10)?.cap ?? 0);
 }
 // 강령술 파트: 점수마다 해골 피해와 체력, 20점이면 크게 더 오른다.
 const necroPower = (game, key) => 1 + buildValue(game, key) + (perk(game, 'necro', 20)?.power ?? 0);
