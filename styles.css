@@ -520,7 +520,17 @@ img { display: block; max-width: 100%; }
 .souls kbd { font-size: 10px; padding: 0 4px; border-radius: 4px; background: #4a2a72; color: #f3e8ff; }
 .souls i { font-style: normal; color: #b36bff; }
 .choice-undead { padding: 1px 7px; border-radius: 999px; background: #4a2a72; color: #e3c8ff !important; }
-.levelup.is-shop .panel { border-color: #b36bff; }
+.levelup.is-shop .panel { border-color: #b36bff; background: linear-gradient(180deg, #2a1840 0 104px, #f4edff 104px); box-shadow: 0 0 0 3px rgb(179 107 255 / 35%), 0 0 28px rgb(124 58 237 / 35%); }
+.levelup.is-shop .panel-title { color: #e3c8ff; text-shadow: 0 0 10px rgb(179 107 255 / 70%); }
+.levelup.is-shop .panel-sub { color: #fff; opacity: 0.85; margin-bottom: 14px; }
+.choice.is-soul { border-color: #b36bff; background: linear-gradient(160deg, #fbf7ff, #ecdcff); box-shadow: 0 0 0 3px rgb(74 42 114 / 22%), 0 0 14px rgb(179 107 255 / 40%), var(--shadow-card); }
+.choice.is-soul .choice-icon { background: radial-gradient(circle, #f6edff 0%, #c79bff 55%, #2a1840 140%); }
+.choice.is-soul .choice-stats span { background: #4a2a72; color: #f0e2ff; }
+.choice.is-soul .choice-relic, .choice.is-soul .choice-fusion { background: #4a2a72; color: #f0e2ff !important; }
+.choice.is-ritual { border-color: #e3c8ff; background: linear-gradient(160deg, #f3e8ff, #d9bcff); box-shadow: 0 0 0 3px rgb(124 58 237 / 35%), 0 0 22px rgb(179 107 255 / 70%), var(--shadow-card); animation: choice-in 0.28s cubic-bezier(0.2, 1.4, 0.4, 1) backwards, ritual-pulse 1.6s ease-in-out infinite; }
+@keyframes ritual-pulse { 50% { box-shadow: 0 0 0 3px rgb(124 58 237 / 50%), 0 0 30px rgb(179 107 255 / 90%), var(--shadow-card); } }
+.loadout .is-necro { padding: 2px 4px; background: #4a2a72; color: #f0e2ff; }
+.loadout .is-necro .item { filter: drop-shadow(0 0 3px #b36bff); }
 
 /* ───── 메인 화면: 실제 전투 장면 위에 타이틀과 메뉴를 올린 게임 화면 ───── */
 .app:has(.screen-start.is-active) { max-width: none; }

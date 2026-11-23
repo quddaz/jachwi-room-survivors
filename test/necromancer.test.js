@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyCharacter, armyCap, armyUsed, choose, createGame, declineChoice, openSoulShop, recruitPrice, reroll, rollChoices, rollRelics, update, wraithOrbiters } from '../src/engine.js';
-import { ARMY, ARMY_CAP, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, SOULS, UNDEAD } from '../src/rules.js';
+import { ARMY, ARMY_CAP, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, SOULS, UNDEAD, UNDEAD_EVOLUTIONS } from '../src/rules.js';
 
 const DT = 1 / 60;
 
@@ -289,6 +289,34 @@ describe('지휘 패시브', () => {
   });
 });
 
+describe('강령술 완성형', () => {
+  it('Lv 5 강령술과 짝 지휘 능력이 있으면 레벨업에 완성형이 먼저 나온다', () => {
+    const game = quiet();
+    game.undead = { bone: 5 };
+    game.commands = { drill: 1 };
+    const choices = rollChoices(game);
+    game.choices = choices;
+    assert.equal(choices[0].kind, 'undead-evolve');
+    assert.equal(choices[0].id, 'bone');
+    choose(game, 0);
+    assert.ok(game.undeadEvolved.bone);
+    assert.ok(!rollChoices(game).some(choice => choice.kind === 'undead-evolve'));
+  });
+
+  it('뼈 폭풍은 큰 뼈 6개를 던지고, 망령 군무는 7마리가 돌고, 사신의 대낫은 반대로 한 번 더 벤다', () => {
+    const game = quiet();
+    game.undead = { bone: 5, wraith: 5, scythe: 5 };
+    game.undeadEvolved = { bone: true, wraith: true, scythe: true };
+    for (let n = 0; n < 8; n += 1) add(game, 80 + n * 20, n * 10);
+    update(game, DT);
+    assert.equal(game.shots.filter(shot => shot.kind === 'bone').length, UNDEAD_EVOLUTIONS.bone.count);
+    assert.equal(wraithOrbiters(game).length, UNDEAD_EVOLUTIONS.wraith.count);
+    run(game, 0.7);
+    const reaps = game.effects.filter(effect => effect.type === 'reap');
+    assert.ok(reaps.some(effect => effect.turn === -1 && effect.evolved));
+  });
+});
+
 describe('궁수 계열', () => {
   const archers = (game, count) => { for (let n = 0; n < count; n += 1) game.army.push({ id: game.nextId++, type: 'archer', x: game.player.x, y: game.player.y, attackIn: 0, facing: 1, swingAt: -1, slot: n }); };
 
@@ -345,6 +373,18 @@ describe('강령술 능력치', () => {
     game.souls = 0;
     kill(game, add(game, 60));
     assert.equal(game.souls, SOULS.normal + 1);
+  });
+
+  it('의식을 하면 바친 해골이 사라지고 병력 칸은 바친 만큼만 쓴다', async () => {
+    const { applyBuild } = await import('../src/engine.js');
+    const game = quiet();
+    applyBuild(game, { necro: 20 });
+    recruitSoldiers(game, 12);
+    game.souls = RITUALS.giant1.souls;
+    openSoulShop(game);
+    choose(game, game.choices.findIndex(choice => choice.id === 'giant1'));
+    assert.equal(game.army.filter(unit => unit.type === 'soldier').length, 12 - (RITUALS.giant1.cost.soldier - 4));
+    assert.equal(armyUsed(game), 12);
   });
 
   it('20점이면 의식에 바치는 병사가 4명 줄어든다', async () => {

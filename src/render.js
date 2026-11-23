@@ -811,7 +811,8 @@ function drawSkull(ctx, x, y, color = '#efe6d2') {
 function drawReap(ctx, cx, cy, effect, progress) {
   const radius = effect.radius / WORLD_PER_PIXEL;
   const eased = 1 - (1 - progress) ** 3;
-  const turn = effect.angle + eased * Math.PI * 1.85;
+  const dir = effect.turn ?? 1;
+  const turn = effect.angle + dir * eased * Math.PI * 1.85;
   const fade = progress < 0.75 ? 1 : 1 - (progress - 0.75) / 0.25;
   const power = effect.power ?? 0;
   const at = (angle, distance) => [cx + Math.cos(angle) * distance, cy + Math.sin(angle) * distance * 0.85];
@@ -821,15 +822,15 @@ function drawReap(ctx, cx, cy, effect, progress) {
   ctx.save();
   for (let step = 0; step < steps; step += 1) {
     const back = step / (radius * 1.05);
-    const angle = turn - back;
+    const angle = turn - dir * back;
     const strength = 1 - step / steps;
-    const inner = radius * (1 - 0.5 * strength);
+    const inner = radius * (1 - (effect.evolved ? 0.7 : 0.5) * strength);
     const outer = radius * (1.04 + 0.04 * strength);
     ctx.globalAlpha = fade * (0.12 + 0.8 * strength * strength);
     for (let d = inner; d <= outer; d += 1) {
       const [px, py] = at(angle, d);
       const rim = (outer - d) / (outer - inner + 0.001);
-      ctx.fillStyle = rim < 0.12 ? '#ffffff' : rim < 0.3 ? '#e3c8ff' : rim < 0.65 ? '#b36bff' : '#7a57b8';
+      ctx.fillStyle = rim < 0.12 ? '#ffffff' : rim < 0.3 ? '#e3c8ff' : rim < 0.65 ? '#b36bff' : effect.evolved ? (rim < 0.85 ? '#7a2a9c' : '#3a0f4f') : '#7a57b8';
       ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
     }
   }
@@ -837,18 +838,18 @@ function drawReap(ctx, cx, cy, effect, progress) {
   // 자루: 오리 곁에서 바깥으로 뻗는 나무 자루, 끝에 쇠 고리
   const handleEnd = radius * 0.74;
   for (let d = 6; d <= handleEnd; d += 0.5) {
-    const [px, py] = at(turn - 0.04, d);
+    const [px, py] = at(turn - dir * 0.04, d);
     ctx.fillStyle = '#1b1410';ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 4, 4);
   }
   for (let d = 6; d <= handleEnd; d += 0.5) {
-    const [px, py] = at(turn - 0.04, d);
+    const [px, py] = at(turn - dir * 0.04, d);
     ctx.fillStyle = '#8a4a1e';ctx.fillRect(Math.round(px), Math.round(py), 2, 2);
     ctx.fillStyle = d % 7 < 1.5 ? '#ffe08a' : '#c9965c';ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
   }
-  const [hx, hy] = at(turn - 0.04, handleEnd);
+  const [hx, hy] = at(turn - dir * 0.04, handleEnd);
   ctx.fillStyle = '#c4c9d1';ctx.fillRect(Math.round(hx) - 1, Math.round(hy) - 1, 3, 3);
   // 날: 자루 끝에서 휘두르는 쪽으로 길게 뻗어 안쪽으로 휜다. 등은 어둡고 날은 하얗게 빛난다.
-  const tangent = turn + Math.PI / 2;
+  const tangent = turn + dir * Math.PI / 2;
   const blade = radius * (0.7 + power * 0.12);
   const points = [];
   for (let n = 0; n <= 40; n += 1) {
@@ -878,12 +879,14 @@ function drawReap(ctx, cx, cy, effect, progress) {
   }
   const [tx, ty] = points[40];
   ctx.restore();
-  glow(ctx, Math.round(tx), Math.round(ty), 5 + power * 4, [227, 200, 255], 0.8 * fade);
+  glow(ctx, Math.round(tx), Math.round(ty), 5 + power * 4 + (effect.evolved ? 6 : 0), [227, 200, 255], 0.8 * fade);
+  if (effect.evolved) glow(ctx, cx, cy, radius * 0.9, [122, 42, 156], 0.14 * fade);
   if (progress < 0.6) sparkle(ctx, Math.round(tx), Math.round(ty), '#ffffff', true);
 }
 
-function drawWraith(ctx, x, y, time, seed) {
-  glow(ctx, x, y, 7, [127, 233, 255], 0.35);
+function drawWraith(ctx, x, y, time, seed, evolved = false) {
+  glow(ctx, x, y, evolved ? 11 : 7, evolved ? [179, 107, 255] : [127, 233, 255], evolved ? 0.5 : 0.35);
+  if (evolved) { ctx.fillStyle = 'rgba(179,107,255,0.45)';ctx.fillRect(x - 4, y - 5, 9, 8); }
   const sway = Math.round(Math.sin(time * 6 + seed) * 1);
   ctx.fillStyle = 'rgba(211,243,255,0.85)';ctx.fillRect(x - 3, y - 4, 7, 6);
   ctx.fillStyle = 'rgba(160,220,255,0.6)';
@@ -891,13 +894,15 @@ function drawWraith(ctx, x, y, time, seed) {
   ctx.fillStyle = '#2a1c14';ctx.fillRect(x - 1, y - 2, 1, 2);ctx.fillRect(x + 1, y - 2, 1, 2);
 }
 
-function drawBone(ctx, x, y, spin) {
-  const dx = Math.round(Math.cos(spin) * 3);
-  const dy = Math.round(Math.sin(spin) * 3);
+function drawBone(ctx, x, y, spin, size = 1) {
+  const dx = Math.round(Math.cos(spin) * 3 * size);
+  const dy = Math.round(Math.sin(spin) * 3 * size);
   line(ctx, x - dx, y - dy, x + dx, y + dy, '#efe6d2');
+  if (size > 1) line(ctx, x - dx + 1, y - dy, x + dx + 1, y + dy, '#d8ccb2');
+  const knob = size > 1 ? 4 : 3;
   for (const [ex, ey] of [[x - dx, y - dy], [x + dx, y + dy]]) {
-    ctx.fillStyle = '#2a1c14';ctx.fillRect(ex - 1, ey - 1, 3, 3);
-    ctx.fillStyle = '#ffffff';ctx.fillRect(ex - 1, ey - 1, 2, 2);
+    ctx.fillStyle = '#2a1c14';ctx.fillRect(ex - 1, ey - 1, knob, knob);
+    ctx.fillStyle = '#ffffff';ctx.fillRect(ex - 1, ey - 1, knob - 1, knob - 1);
   }
 }
 
@@ -1959,7 +1964,7 @@ export function render(ctx, game, width, height, time) {
     }
     if (shot.kind === 'bone') {
       if (shot.mega) glow(ctx, x, y, 7, [179, 107, 255], 0.5);
-      drawBone(ctx, x, y, time * 14 + shot.x * 0.01);
+      drawBone(ctx, x, y, time * 14 + shot.x * 0.01, shot.scale ?? 1);
       continue;
     }
     const trail = shot.mega ? 'rgba(170, 240, 190, ' : 'rgba(220, 235, 255, ';
@@ -2200,7 +2205,7 @@ export function render(ctx, game, width, height, time) {
   for (const orbiter of wraithOrbiters(game)) {
     const [x, y] = toBuffer(orbiter);
     if (!visible([x, y], 12)) continue;
-    drawWraith(ctx, x, y, time, orbiter.angle);
+    drawWraith(ctx, x, y, time, orbiter.angle, orbiter.evolved);
   }
   for (const unit of game.summons ?? []) {
     const [x, y] = toBuffer(unit);

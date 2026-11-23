@@ -30,14 +30,23 @@ export const UNDEAD = {
   scythe: { label: '리치의 낫', description: '주위를 크게 베며, 가진 영혼이 많을수록 세게 벤다',
     damage: [34, 45, 58, 74, 92], cooldown: [1.6, 1.5, 1.4, 1.3, 1.2], radius: [80, 86, 92, 100, 110], perSoul: 0.01, maxSoulBonus: 1 },
 };
+// 강령술 완성형: Lv 5에 짝이 되는 지휘 능력을 가지고 있으면 레벨업에서 나온다.
+export const UNDEAD_EVOLUTIONS = {
+  bone: { label: '뼈 폭풍', needs: 'drill', description: '커다란 뼈 6개를 한꺼번에 던져 모든 적을 꿰뚫는다',
+    stats: ['뼈 6개, 크기 1.7배', '피해 1.5배, 모든 적을 꿰뚫음', '쿨타임 0.6초'], count: 6, damage: 1.5, cooldown: 0.6, pierce: 99, size: 1.7 },
+  wraith: { label: '망령 군무', needs: 'march', description: '망령 7마리가 더 넓게 돌며 닿은 적을 거의 멈춰 세운다',
+    stats: ['망령 7마리, 도는 거리 1.3배', '피해 1.7배, 0.3초마다 벤다', '느려짐 65%'], count: 7, damage: 1.7, orbit: 1.3, hitEverySec: 0.3, slow: 0.35 },
+  scythe: { label: '사신의 대낫', needs: 'harvest', description: '거대한 낫으로 앞뒤 두 번 베고, 영혼으로 얻는 피해 상한이 두 배가 된다',
+    stats: ['범위 1.4배, 피해 1.5배', '0.22초 뒤 반대로 한 번 더 벤다', '영혼 피해 상한 +200%'], damage: 1.5, radius: 1.4, maxSoulBonus: 2, echo: 0.22 },
+};
 export const COMMANDS = {
-  legion: { label: '군단 확장', description: '거느릴 수 있는 병력이 늘어난다', cap: [8, 16, 24, 32, 40] },
-  harvest: { label: '영혼 수확', description: '처치할 때 얻는 영혼이 늘어난다', soulGain: [0.08, 0.16, 0.24, 0.32, 0.4] },
-  drill: { label: '군단 훈련', description: '모든 해골의 공격력이 늘어난다', damage: [0.15, 0.3, 0.45, 0.6, 0.8] },
-  thrift: { label: '값싼 뼈', description: '해골 모집 비용이 줄어든다', discount: [0.08, 0.16, 0.24, 0.32, 0.4] },
-  reach: { label: '긴 뼈창', description: '해골의 공격 범위와 궁수 사거리가 늘어난다', range: [0.12, 0.24, 0.36, 0.48, 0.6] },
-  drum: { label: '전쟁 북', description: '해골의 공격 속도가 빨라진다', attackSpeed: [0.1, 0.2, 0.3, 0.4, 0.5] },
-  march: { label: '행군', description: '해골의 이동 속도가 빨라진다', speed: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  legion: { icon: 'soldier', label: '군단 확장', description: '거느릴 수 있는 병력이 늘어난다', cap: [8, 16, 24, 32, 40] },
+  harvest: { icon: 'soul', label: '영혼 수확', description: '처치할 때 얻는 영혼이 늘어난다', soulGain: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  drill: { icon: 'giant2', label: '군단 훈련', description: '모든 해골의 공격력이 늘어난다', damage: [0.15, 0.3, 0.45, 0.6, 0.8] },
+  thrift: { icon: 'soul', label: '값싼 뼈', description: '해골 모집 비용이 줄어든다', discount: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  reach: { icon: 'archer', label: '긴 뼈창', description: '해골의 공격 범위와 궁수 사거리가 늘어난다', range: [0.12, 0.24, 0.36, 0.48, 0.6] },
+  drum: { icon: 'giant3', label: '전쟁 북', description: '해골의 공격 속도가 빨라진다', attackSpeed: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  march: { icon: 'wraith', label: '행군', description: '해골의 이동 속도가 빨라진다', speed: [0.1, 0.2, 0.3, 0.4, 0.5] },
 };
 
 // 군단 유닛. cap은 병력 한도에서 차지하는 칸이다. 거인은 모집하지 않고 보물 상자의 의식으로만 만든다.
@@ -68,9 +77,9 @@ export const RITUALS = {
 };
 // 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
 export const NECRO_RELICS = {
-  gravesoil: { label: '묘지 흙', description: '처치한 적이 보라빛 구울로 일어나 잠시 함께 싸운다',
+  gravesoil: { icon: 'ghoul', label: '묘지 흙', description: '처치한 적이 보라빛 구울로 일어나 잠시 함께 싸운다',
     stats: ['처치한 적의 25%가 구울로 일어난다', '구울은 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 15 },
-  corpsebomb: { label: '시체 폭탄', description: '쓰러진 적의 시체가 잠시 뒤 터진다',
+  corpsebomb: { icon: 'corpse', label: '시체 폭탄', description: '쓰러진 적의 시체가 잠시 뒤 터진다',
     stats: ['처치한 적의 35%가 시체를 남긴다', '0.7초 뒤 반경 70 안에 피해 45'], chance: 0.35, damage: 45, radius: 70, fuseSec: 0.7 },
   bonepipe: { label: '뼈 피리', description: '무덤을 깨우는 피리. 모집이 싸진다', stats: ['해골 모집 비용 -30%'], discount: 0.3 },
   darkcrown: { label: '검은 왕관', description: '의식으로 키운 해골이 더 강해진다', stats: ['거인 계열과 석궁수 계열의 피해 +50%'], giantPower: 0.5 },

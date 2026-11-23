@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  ARMY, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
+  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -269,11 +269,19 @@ function drawLoadout() {
   ];
   const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}${relicCount(game, id) > 1 ? `×${relicCount(game, id)}` : ''}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
-  document.querySelector('.loadout').innerHTML = owned + fused + items
+  // 강령술사: 강령 보물, 강령술, 지휘 능력도 보라색으로 함께 보여 준다.
+  const necro = [
+    ...Object.keys(game.necroRelics ?? {}).map((id) => `<span class="is-relic is-necro">${itemIcon(NECRO_RELICS[id].icon ?? id)}</span>`),
+    ...Object.entries(game.undead ?? {}).map(([id, level]) => `<span class="is-necro${game.undeadEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.undeadEvolved?.[id] ? '★' : level}</span>`),
+    ...Object.entries(game.commands ?? {}).map(([id, level]) => `<span class="is-necro">${itemIcon(COMMANDS[id].icon)}${level}</span>`),
+  ].join('');
+  document.querySelector('.loadout').innerHTML = owned + necro + fused + items
     .map(([id, level]) => (game.evolved[id]
       ? `<span class="is-evolved">${itemIcon(id, true)}★</span>`
       : `<span>${itemIcon(id)}${level}</span>`)).join('');
 }
+
+const SOUL_KINDS = ['soul', 'ritual', 'shop-leave', 'relic-necro', 'undead', 'command', 'undead-evolve'];
 
 function drawChoices() {
   if (game.choices === shownChoices) return;
@@ -294,7 +302,7 @@ function drawChoices() {
   levelupOverlay.classList.toggle('is-shop', shop);
   document.querySelector('.levelup .panel-title').textContent = shop ? '영혼 쓰기' : weaponSwapping ? '무기 교체' : swapping ? '보물 교체'
     : treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
-  document.querySelector('.levelup .panel-sub').textContent = shop ? `영혼 ${game.souls}개, 병력 ${armyUsed(game)}/${armyCap(game)}. 모집하거나 해골을 합치세요 (R 또는 Q로 닫기)` : weaponSwapping
+  document.querySelector('.levelup .panel-sub').textContent = shop ? `영혼 ${game.souls}개, 병력 ${armyUsed(game)}/${armyCap(game)} (R 또는 Q로 닫기)` : weaponSwapping
     ? `무기 칸이 가득 찼어요 (${maxWeaponsOf(game)}/${maxWeaponsOf(game)}). ${WEAPONS[game.weaponSwap.id].label} 대신 내려놓을 무기를 골라 주세요`
     : swapping ? `${RELICS[game.swapIn].label} 대신 내려놓을 보물을 골라 주세요`
     : treasure && owned >= maxRelicsOf(game) ? `보물이 가득 찼어요 (${owned}/${maxRelicsOf(game)}). 바꾸거나 그대로 두세요`
@@ -303,7 +311,8 @@ function drawChoices() {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
-    const tag = choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 강령술' : `Lv ${choice.level}`}</small>`
+    const tag = choice.kind === 'undead-evolve' ? '<small class="choice-evolve">강령술 완성형</small>'
+      : choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 강령술' : `Lv ${choice.level}`}</small>`
       : choice.kind === 'command' ? `<small class="choice-undead">지휘 Lv ${choice.level}</small>`
       : choice.kind === 'ritual' ? `<small class="choice-fusion">의식 영혼 ${choice.price}</small>`
       : choice.kind === 'relic-necro' ? '<small class="choice-relic">강령 보물</small>'
@@ -313,7 +322,7 @@ function drawChoices() {
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'ritual' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
         ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
@@ -604,8 +613,9 @@ const CODEX_TABS = [
       <h3 class="recipe-heading">모집과 의식</h3><ul class="evolve-list">${Object.entries(RECRUITS).map(([id, recruit]) => row(recruit.unit, recruit.label, `영혼 ${recruit.price}개로 ${recruit.amount}명`)).join('')}
         ${Object.entries(RITUALS).map(([id, ritual]) => row(id, ritual.label, `${Object.entries(ritual.cost).map(([type, count]) => `${ARMY[type].label} ${count}`).join(' + ')}, 영혼 ${ritual.souls}개 → ${ARMY[id].label}`)).join('')}</ul>
       <h3 class="recipe-heading">강령술과 지휘</h3><ul class="evolve-list">${Object.entries(UNDEAD).map(([id, spell]) => row(id, spell.label, spell.description)).join('')}
-        ${Object.entries(COMMANDS).map(([id, command]) => row('soul', command.label, command.description)).join('')}</ul>
-      <h3 class="recipe-heading">강령 보물</h3><ul class="evolve-list">${Object.entries(NECRO_RELICS).map(([id, relic]) => row({ gravesoil: 'ghoul', corpsebomb: 'corpse' }[id] ?? id, relic.label, relic.stats.join(', '))).join('')}</ul>`;
+        ${Object.entries(COMMANDS).map(([id, command]) => row(command.icon, command.label, command.description)).join('')}</ul>
+      <h3 class="recipe-heading">강령술 완성형</h3><ul class="evolve-list">${Object.entries(UNDEAD_EVOLUTIONS).map(([id, evolution]) => row(id, evolution.label, `${UNDEAD[id].label} Lv 5 + ${COMMANDS[evolution.needs].label}. ${evolution.stats.join(', ')}`, ' ★')).join('')}</ul>
+      <h3 class="recipe-heading">강령 보물</h3><ul class="evolve-list">${Object.entries(NECRO_RELICS).map(([id, relic]) => row(relic.icon ?? id, relic.label, relic.stats.join(', '))).join('')}</ul>`;
   }],
   ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
     <ul class="evolve-list">${BOSSES.map((boss, index) => `
