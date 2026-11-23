@@ -766,7 +766,7 @@ export const EVOLUTIONS = {
   sockpuppet: { label: '양말 기사단', icon: 'sockknight', description: '투구를 쓴 인형 셋이 주먹으로 주변 적을 함께 때린다', damage: 1.7, count: 3, speed: 1.15, cleave: 64 },
   toydrone: { label: '쌍포 드론', icon: 'dronemk2', description: '드론 셋이 두 발씩 관통탄을 발사한다', damage: 1.6, count: 3, shots: 2, pierce: 2 },
   windcar: { label: '태엽 전차', icon: 'windtank', description: '전차 셋이 돌진하고 끝에서 충격파를 터뜨린다', damage: 1.7, count: 3, size: 1.25, blast: 90 },
-  toydragon: { label: '청룡', icon: 'azuredragon', description: '한 마리의 청룡으로 자라 몸통이 더 굵고 길어진다. 증원은 머리 수 대신 몸통 마디를 늘린다', damage: 1.6, count: 4, size: 1.2, speed: 1.1 },
+  toydragon: { label: '청룡', icon: 'azuredragon', description: '한 마리의 청룡으로 자라 몸통이 더 굵고 길어진다. 증원은 머리 수 대신 몸통 마디를 늘린다', damage: 1.6, count: 4, size: 1.2, speed: 2.0 },
   toyknight: { label: '검흔 수호자', icon: 'bladeguardian', description: '대검을 든 검사 셋이 더 넓게 베고 겹친 검흔을 남긴다', damage: 1.65, count: 3, range: 1.2, arc: 3.5, scarSec: 1 },
   plantspirit: { label: '숲의 수호자', icon: 'plantguardian', description: '정령 셋이 씨앗 두 발씩 던지고 폭발 범위가 커진다', damage: 1.6, count: 3, shots: 2, radius: 1.35 },
 };
