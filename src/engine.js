@@ -1706,6 +1706,17 @@ function updateArmy(game, dt) {
       unit.swingAt = game.time;
       const aim = Math.atan2(target.y - unit.y, target.x - unit.x);
       const damage = unitDamage(game, unit.type);
+      if (spec.slam) {
+        // 골렘과 거인은 앞쪽 땅을 내려찍어 둥근 충격파를 일으킨다.
+        const radius = reach * spec.slam;
+        const center = { x: unit.x + Math.cos(aim) * reach * 0.35, y: unit.y + Math.sin(aim) * reach * 0.35 };
+        for (const enemy of near(game, center.x, center.y, radius + 40)) {
+          if (!enemy.dead && distance(enemy, center) <= radius + enemy.radius) damageWeaponHit(game, enemy, damage, true, unit);
+        }
+        addEffect(game, { type: 'shockwave', x: center.x, y: center.y, radius, seed: game.random() * 1000, big: unit.type !== 'giant1', life: 0.6, sound: 'impact' });
+        game.shake = Math.max(game.shake, unit.type === 'giant1' ? 0.1 : 0.16);
+        return;
+      }
       for (const enemy of near(game, unit.x, unit.y, reach + 40)) {
         if (enemy.dead) continue;
         const gap = distance(enemy, unit);
@@ -1720,7 +1731,7 @@ function updateArmy(game, dt) {
         addEffect(game, { type: 'slash', x: unit.x + Math.cos(aim) * reach * 0.5, y: unit.y + Math.sin(aim) * reach * 0.5, angle: aim, life: 0.18 });
         return;
       }
-      addEffect(game, { type: 'cleave', x: unit.x, y: unit.y, angle: aim, radius: reach, arc: spec.arc, weapon: { giant1: 'club', giant2: 'sword', giant3: 'axe' }[unit.type], life: 0.7, sound: 'slash' });
+      addEffect(game, { type: 'cleave', x: unit.x, y: unit.y, angle: aim, radius: reach, arc: spec.arc, weapon: 'axe', life: 0.7, sound: 'slash' });
       game.shake = Math.max(game.shake, spec.quake ?? 0.06);
     }
   });

@@ -974,6 +974,52 @@ function drawCleave(ctx, cx, cy, effect, progress) {
   if (progress < 0.45) sparkle(ctx, Math.round(tx), Math.round(ty), '#ffffff', true);
 }
 
+// 골렘과 거인의 내려찍기: 땅이 갈라지고 보라빛 충격파가 둥글게 퍼진다.
+function drawShockwave(ctx, cx, cy, effect, progress) {
+  const radius = effect.radius / WORLD_PER_PIXEL;
+  const spread = 1 - (1 - Math.min(1, progress / 0.55)) ** 3;
+  const fade = 1 - progress;
+  ctx.save();
+  // 갈라진 땅: 중심에서 바깥으로 지그재그 금이 뻗는다.
+  const cracks = effect.big ? 10 : 7;
+  let seed = effect.seed ?? 1;
+  const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  ctx.globalAlpha = Math.min(1, fade * 1.6);
+  for (let n = 0; n < cracks; n += 1) {
+    let angle = (n / cracks) * Math.PI * 2 + rand() * 0.5;
+    let [x, y] = [cx, cy];
+    const length = radius * (0.45 + rand() * 0.35) * Math.min(1, progress / 0.25);
+    const steps = 5;
+    for (let step = 0; step < steps; step += 1) {
+      angle += (rand() - 0.5) * 0.7;
+      const nx = x + Math.cos(angle) * length / steps, ny = y + Math.sin(angle) * length / steps * 0.85;
+      ctx.strokeStyle = '#1b1020'; ctx.lineWidth = 3 - step * 0.4; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+      ctx.strokeStyle = '#b36bff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
+      [x, y] = [nx, ny];
+    }
+  }
+  // 충격파 고리: 바깥은 하얗게, 안쪽은 보랏빛으로 겹친다.
+  const rings = [[1, 3, '#ffffff', 1], [0.94, 5, '#e3c8ff', 0.9], [0.84, 7, '#b36bff', 0.7], [0.7, 6, '#7a2a9c', 0.45]];
+  for (const [scale, width, color, alpha] of rings) {
+    const r = radius * spread * scale;
+    if (r < 2) continue;
+    ctx.globalAlpha = fade * alpha;
+    ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, width * (1 - progress * 0.7));
+    ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.85, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 튀어 오르는 흙과 뼛조각
+  ctx.globalAlpha = fade;
+  for (let n = 0; n < (effect.big ? 22 : 14); n += 1) {
+    const angle = rand() * Math.PI * 2, distance = radius * spread * (0.6 + rand() * 0.45);
+    const lift = Math.sin(Math.min(1, progress * 1.6) * Math.PI) * (4 + rand() * 8);
+    ctx.fillStyle = n % 3 ? '#5a3a2a' : '#efe6d2';
+    ctx.fillRect(Math.round(cx + Math.cos(angle) * distance), Math.round(cy + Math.sin(angle) * distance * 0.85 - lift), 2, 2);
+  }
+  ctx.restore();
+  glow(ctx, cx, cy, radius * (0.35 + spread * 0.3), [179, 107, 255], 0.45 * fade);
+  if (progress < 0.18) glow(ctx, cx, cy, radius * 0.3, [255, 255, 255], 0.9 * (1 - progress / 0.18));
+}
+
 function drawBone(ctx, x, y, spin, size = 1) {
   const dx = Math.round(Math.cos(spin) * 3 * size);
   const dy = Math.round(Math.sin(spin) * 3 * size);
@@ -1008,6 +1054,10 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
     }
     if (effect.type === 'cleave') {
       drawCleave(ctx, x, y, effect, progress);
+      continue;
+    }
+    if (effect.type === 'shockwave') {
+      drawShockwave(ctx, x, y, effect, progress);
       continue;
     }
     if (effect.type === 'relic-pulse' || effect.type === 'relic-awaken') {

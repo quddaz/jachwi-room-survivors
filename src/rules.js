@@ -55,8 +55,8 @@ export const COMMANDS = {
 export const ARMY = {
   soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 46, arc: 2.4, radius: 8, cap: 1 },
   archer: { label: '해골 궁수', damage: 22, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
-  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 170, arc: 3.6, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
-  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 240, arc: 4.6, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
+  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 170, slam: 0.7, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
+  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 240, slam: 0.75, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
   ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
   ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
   ranger3: { label: '해골 명궁', damage: 400, cooldown: 1.1, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 800, bolts: 5, pierce: 99, size: 4 },
