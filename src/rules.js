@@ -19,6 +19,8 @@ export const CHARACTERS = {
 };
 
 // 강령술사 전용. 영혼은 처치할 때 바로 모이고, R을 눌러 영혼 창에서 쓴다.
+// 영혼 흡수: 지금까지 모은 영혼이 많을수록 해골과 강령술 피해가 오른다. 후반 적 체력을 따라가도록 거듭제곱으로 키운다.
+export const SOUL_GROWTH = { per: 1000, power: 0.75, scale: 0.25 };
 export const SOULS = { normal: 1, elite: 5, boss: 30 };
 
 // 강령술사의 레벨업 선택지. 오리가 직접 쓰는 강령술과 군단을 키우는 지휘 능력뿐이다.

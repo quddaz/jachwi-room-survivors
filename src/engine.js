@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, UNDEAD, COMMANDS, ARMY, ARMY_CAP, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -347,6 +347,7 @@ export function statSheet(game) {
     ['치명타 피해', `${Math.round(stats.critDamage * 100)}%`],
     ...(guaranteedCrit ? [['다중 치명', `${guaranteedCrit}회 확정`]] : []),
     ...(guaranteedCrit && extraCrit > 1e-12 ? [[`${guaranteedCrit + 1}중 치명 확률`, `${Math.round(extraCrit * 1000) / 10}%`]] : []),
+    ...(game.souls !== undefined && CHARACTERS[game.character]?.souls ? [['영혼 흡수', percent(soulGrowth(game) - 1)]] : []),
     ...(stats.summonPower > 1 ? [['소환 피해', percent(stats.summonPower - 1)], ['소환 이동 속도', percent(stats.summonSpeed - 1)]] : []),
     ...(stats.summonHaste > 1 ? [['소환 공격 속도', percent(stats.summonHaste - 1)]] : []),
     ...(stats.summonCount ? [['추가 소환수', `+${stats.summonCount}`]] : []),
@@ -1437,7 +1438,8 @@ const undeadValue = (game, id, key) => {
 };
 const necroRelic = (game, id) => (game.necroRelics?.[id] ? NECRO_RELICS[id] : null);
 const undeadEvolution = (game, id) => (game.undeadEvolved?.[id] ? UNDEAD_EVOLUTIONS[id] : null);
-const undeadDamage = (game, id) => undeadValue(game, id, 'damage') * (undeadEvolution(game, id)?.damage ?? 1) * mightOf(game);
+export const soulGrowth = (game) => 1 + SOUL_GROWTH.scale * ((game.soulsTotal ?? 0) / SOUL_GROWTH.per) ** SOUL_GROWTH.power;
+const undeadDamage = (game, id) => undeadValue(game, id, 'damage') * (undeadEvolution(game, id)?.damage ?? 1) * mightOf(game) * soulGrowth(game);
 const giantUnit = type => type.startsWith('giant');
 const bigUnit = type => giantUnit(type) || type.startsWith('ranger');
 
@@ -1457,7 +1459,7 @@ export function armyUsed(game) {
 const armyCount = (game, type) => game.army.filter(unit => unit.type === type).length;
 function unitDamage(game, type) {
   const crown = bigUnit(type) ? necroRelic(game, 'darkcrown')?.giantPower ?? 0 : 0;
-  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower');
+  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game);
 }
 
 function spawnUnit(game, type, at, index = 0) {
@@ -1477,12 +1479,13 @@ function harvestSoul(game, enemy) {
   const gained = Math.floor(game.soulCarry);
   game.soulCarry -= gained;
   game.souls = (game.souls ?? 0) + gained;
+  game.soulsTotal = (game.soulsTotal ?? 0) + gained;
   addEffect(game, { type: 'soul', x: enemy.x, y: enemy.y, life: 0.45, big: Boolean(enemy.boss || enemy.elite) });
   if (enemy.dummy) return;
   const bomb = necroRelic(game, 'corpsebomb');
   if (bomb && game.random() < bomb.chance) {
     game.corpses.push({ x: enemy.x, y: enemy.y, delay: bomb.fuseSec, total: bomb.fuseSec,
-      radius: bomb.radius * statsOf(game).area, damage: bomb.damage * mightOf(game) });
+      radius: bomb.radius * statsOf(game).area, damage: bomb.damage * mightOf(game) * soulGrowth(game) });
   }
   const soil = necroRelic(game, 'gravesoil');
   if (soil && game.ghouls.length < soil.max && game.random() < soil.chance) {
@@ -1735,7 +1738,7 @@ function updateGhouls(game, dt) {
     if (stepToward(ghoul, target, 20 + target.radius, 175 * attackTempoOf(game), dt) && ghoul.attackIn <= 0) {
       ghoul.attackIn = 0.6;
       // 구울은 수가 많으므로 피해 숫자를 띄우지 않는다.
-      damageEnemy(game, target, soil.damage * mightOf(game) * ghoul.damageScale, true, ghoul, 0, { showHit: false });
+      damageEnemy(game, target, soil.damage * mightOf(game) * soulGrowth(game) * ghoul.damageScale, true, ghoul, 0, { showHit: false });
     }
   }
   const expired = game.ghouls.filter(ghoul => ghoul.life <= 0);

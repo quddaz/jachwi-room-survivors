@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyCharacter, armyCap, armyUsed, choose, createGame, declineChoice, openSoulShop, recruitPrice, reroll, rollChoices, rollRelics, update, wraithOrbiters } from '../src/engine.js';
+import { applyCharacter, soulGrowth, armyCap, armyUsed, choose, createGame, declineChoice, openSoulShop, recruitPrice, reroll, rollChoices, rollRelics, update, wraithOrbiters } from '../src/engine.js';
 import { ARMY, ARMY_CAP, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, SOULS, UNDEAD, UNDEAD_EVOLUTIONS } from '../src/rules.js';
 
 const DT = 1 / 60;
@@ -286,6 +286,21 @@ describe('지휘 패시브', () => {
       return Math.hypot(game.army[0].x - enemy.x, game.army[0].y - enemy.y);
     };
     assert.ok(gap({ reach: 5 }) > gap({}) + 40);
+  });
+});
+
+describe('영혼 흡수', () => {
+  it('모은 영혼이 많을수록 해골과 강령술 피해가 커진다', () => {
+    const game = quiet();
+    assert.equal(soulGrowth(game), 1);
+    game.souls = 0;
+    kill(game, add(game, 60));
+    assert.equal(game.soulsTotal, SOULS.normal);
+    game.soulsTotal = 16000;
+    assert.ok(Math.abs(soulGrowth(game) - 3) < 1e-9);
+    game.souls = 0;
+    game.soulsTotal = 80000;
+    assert.ok(soulGrowth(game) > 7);
   });
 });
 
