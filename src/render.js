@@ -894,6 +894,86 @@ function drawWraith(ctx, x, y, time, seed, evolved = false) {
   ctx.fillStyle = '#2a1c14';ctx.fillRect(x - 1, y - 2, 1, 2);ctx.fillRect(x + 1, y - 2, 1, 2);
 }
 
+// 거인 계열 해골의 휘두르기: 낫처럼 짙은 보라 궤적을 남기고, 끝에 몽둥이, 대검, 도끼를 그린다.
+function drawCleave(ctx, cx, cy, effect, progress) {
+  const radius = effect.radius / WORLD_PER_PIXEL;
+  const swing = Math.min(1, progress / 0.42);
+  const eased = 1 - (1 - swing) ** 3;
+  const fade = progress < 0.55 ? 1 : 1 - (progress - 0.55) / 0.45;
+  const start = effect.angle - effect.arc / 2;
+  const turn = start + effect.arc * eased;
+  const swept = effect.arc * eased;
+  ctx.save();
+  ctx.lineCap = 'butt';
+  // 궤적: 날 바로 뒤가 가장 두껍고 밝으며, 지나간 자리는 얇아지며 남는다.
+  const bands = [[1.04, 0.97, '#ffffff'], [0.97, 0.9, '#e3c8ff'], [0.9, 0.76, '#b36bff'], [0.76, 0.62, '#7a2a9c'], [0.62, 0.5, '#3a0f4f']];
+  const segments = Math.max(6, Math.ceil(swept * 28));
+  for (let n = 0; n < segments; n += 1) {
+    const from = turn - swept * (n + 1) / segments, to = turn - swept * n / segments + 0.01;
+    const strength = 1 - n / segments;
+    ctx.globalAlpha = fade * (0.1 + 0.8 * strength * strength);
+    for (const [outer, inner, color] of bands) {
+      const depth = 1 - (1 - inner) * (0.35 + 0.65 * strength);
+      const top = 1 - (1 - outer) * (0.35 + 0.65 * strength);
+      if (top <= depth) continue;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1, (top - depth) * radius);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, radius * (top + depth) / 2, radius * (top + depth) / 2 * 0.85, 0, from, to);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = fade;
+  const at = (angle, distance) => [cx + Math.cos(angle) * distance, cy + Math.sin(angle) * distance * 0.85];
+  const bar = (from, to, width, color) => {
+    const [x0, y0] = at(turn, from), [x1, y1] = at(turn, to);
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  };
+  const lead = turn + Math.PI / 2;
+  const side = (angle, distance, push) => { const [x, y] = at(angle, distance); return [x + Math.cos(lead) * push, y + Math.sin(lead) * push * 0.85]; };
+  if (swing < 1 || progress < 0.6) {
+    if (effect.weapon === 'club') {
+      // 골렘: 뼈를 묶은 큰 몽둥이
+      bar(radius * 0.12, radius * 0.92, 7, '#1b1410');
+      bar(radius * 0.12, radius * 0.92, 5, '#d8ccb2');
+      bar(radius * 0.12, radius * 0.92, 2, '#fff6e2');
+      for (const d of [0.86, 0.98]) {
+        const [x, y] = at(turn, radius * d);
+        ctx.fillStyle = '#1b1410'; ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#efe6d2'; ctx.beginPath(); ctx.arc(x - 1, y - 1, 4.5, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (effect.weapon === 'axe') {
+      // 군주: 긴 자루 끝의 넓은 양날 도끼
+      bar(radius * 0.1, radius * 1.02, 5, '#1b1410');
+      bar(radius * 0.1, radius * 1.02, 3, '#8a4a1e');
+      const head = [side(turn, radius * 0.7, -radius * 0.05), side(turn, radius * 0.62, radius * 0.2), side(turn, radius * 0.86, radius * 0.27),
+        side(turn, radius * 1.02, radius * 0.18), side(turn, radius * 0.98, -radius * 0.05)];
+      ctx.fillStyle = '#1b1410'; ctx.beginPath(); head.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#1b1410'; ctx.stroke();
+      ctx.fillStyle = '#9aa1ad'; ctx.fill();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.beginPath();
+      ctx.moveTo(...head[1]); ctx.lineTo(...head[2]); ctx.lineTo(...head[3]); ctx.stroke();
+      const [rx, ry] = side(turn, radius * 0.8, radius * 0.1);
+      ctx.fillStyle = '#b36bff'; ctx.fillRect(Math.round(rx), Math.round(ry), 2, 2);
+    } else {
+      // 거인: 넓은 대검. 날 쪽이 하얗게 번뜩인다.
+      bar(radius * 0.08, radius * 0.24, 4, '#8a4a1e');
+      const guard = [side(turn, radius * 0.24, -radius * 0.08), side(turn, radius * 0.24, radius * 0.08)];
+      ctx.strokeStyle = '#ffd866'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(...guard[0]); ctx.lineTo(...guard[1]); ctx.stroke();
+      bar(radius * 0.24, radius * 1.02, 9, '#1b1410');
+      bar(radius * 0.24, radius * 1.0, 7, '#8a8f98');
+      bar(radius * 0.24, radius * 0.98, 4, '#dcebff');
+      const edge = [side(turn, radius * 0.26, 3), side(turn, radius * 0.98, 3)];
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(...edge[0]); ctx.lineTo(...edge[1]); ctx.stroke();
+      for (const d of [0.4, 0.55, 0.7]) { const [x, y] = at(turn, radius * d); ctx.fillStyle = '#b36bff'; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); }
+    }
+  }
+  ctx.restore();
+  const [tx, ty] = at(turn, radius);
+  glow(ctx, Math.round(tx), Math.round(ty), 8, [227, 200, 255], 0.8 * fade);
+  if (progress < 0.45) sparkle(ctx, Math.round(tx), Math.round(ty), '#ffffff', true);
+}
+
 function drawBone(ctx, x, y, spin, size = 1) {
   const dx = Math.round(Math.cos(spin) * 3 * size);
   const dy = Math.round(Math.sin(spin) * 3 * size);
@@ -924,6 +1004,10 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
     }
     if (effect.type === 'reap') {
       drawReap(ctx, x, y, effect, progress);
+      continue;
+    }
+    if (effect.type === 'cleave') {
+      drawCleave(ctx, x, y, effect, progress);
       continue;
     }
     if (effect.type === 'relic-pulse' || effect.type === 'relic-awaken') {

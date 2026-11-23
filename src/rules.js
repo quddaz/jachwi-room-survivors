@@ -51,14 +51,14 @@ export const COMMANDS = {
 
 // 군단 유닛. cap은 병력 한도에서 차지하는 칸이다. 거인은 모집하지 않고 보물 상자의 의식으로만 만든다.
 export const ARMY = {
-  soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 14, radius: 8, cap: 1 },
+  soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 46, arc: 2.4, radius: 8, cap: 1 },
   archer: { label: '해골 궁수', damage: 22, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
-  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 75, radius: 18, cap: 10, taunt: 160, scale: 1 },
-  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 105, radius: 26, cap: 22, taunt: 210, scale: 1 },
+  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 170, arc: 3.6, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
+  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 240, arc: 4.6, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
   ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
   ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
   ranger3: { label: '해골 명궁', damage: 400, cooldown: 1.1, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 800, bolts: 5, pierce: 99, size: 4 },
-  giant3: { label: '해골 군주', damage: 550, cooldown: 1.4, speed: 180, range: 145, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
+  giant3: { label: '해골 군주', damage: 550, cooldown: 1.4, speed: 180, range: 320, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
 };
 export const ARMY_CAP = 30;
 // 영혼 모집 창. 한 번에 여러 마리를 뽑으며, 남은 병력 칸만큼만 들어온다.

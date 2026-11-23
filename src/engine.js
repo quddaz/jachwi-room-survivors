@@ -1695,26 +1695,30 @@ function updateArmy(game, dt) {
       stepToward(unit, formation, 4, regroup ? rush : walk, dt);
       return;
     }
-    const flank = unit.slot;
-    const spot = giantUnit(unit.type) ? target : { x: target.x + Math.cos(flank) * (target.radius + 6), y: target.y + Math.sin(flank) * (target.radius + 6) };
-    const reach = giantUnit(unit.type) ? range * 0.5 : range;
-    const close = stepToward(unit, spot, giantUnit(unit.type) ? reach : 2, regroup ? rush : walk, dt) || distance(unit, target) <= range + target.radius;
+    // 넓은 부채꼴로 휘둘러 범위 안의 적을 모두 벤다. 의식으로 키운 해골은 바닥에 검흔을 남긴다.
+    const reach = range * stats.area;
+    const close = stepToward(unit, target, Math.max(4, reach * 0.55), regroup ? rush : walk, dt) || distance(unit, target) <= reach * 0.8 + target.radius;
     if (close && unit.attackIn <= 0) {
       unit.attackIn = spec.cooldown * cooldownScale;
       unit.swingAt = game.time;
-      if (!giantUnit(unit.type)) {
-        damageEnemy(game, target, unitDamage(game, unit.type), true, unit, 0, { showHit: false });
-        addEffect(game, { type: 'burst', x: target.x, y: target.y, color: 'bone', count: 3, life: 0.2 });
+      const aim = Math.atan2(target.y - unit.y, target.x - unit.x);
+      const damage = unitDamage(game, unit.type);
+      for (const enemy of near(game, unit.x, unit.y, reach + 40)) {
+        if (enemy.dead) continue;
+        const gap = distance(enemy, unit);
+        const offset = Math.atan2(enemy.y - unit.y, enemy.x - unit.x) - aim;
+        const angle = Math.abs(Math.atan2(Math.sin(offset), Math.cos(offset)));
+        const edge = Math.asin(Math.min(1, enemy.radius / Math.max(gap, 1)));
+        if (gap > reach + enemy.radius || angle > spec.arc / 2 + edge) continue;
+        if (spec.scar) damageWeaponHit(game, enemy, damage, true, unit);
+        else damageEnemy(game, enemy, damage, true, unit, 0, { showHit: false });
+      }
+      if (!spec.scar) {
+        addEffect(game, { type: 'slash', x: unit.x + Math.cos(aim) * reach * 0.5, y: unit.y + Math.sin(aim) * reach * 0.5, angle: aim, life: 0.18 });
         return;
       }
-      const radius = range * stats.area;
-      const center = { x: unit.x + unit.facing * radius * 0.35, y: unit.y + 4 };
-      for (const enemy of near(game, center.x, center.y, radius)) {
-        if (!enemy.dead && distance(enemy, center) < radius + enemy.radius) damageWeaponHit(game, enemy, unitDamage(game, unit.type), true, unit);
-      }
-      addEffect(game, { type: 'ring', x: center.x, y: center.y, radius, color: 'soul', life: 0.35, sound: 'impact' });
-      addEffect(game, { type: 'burst', x: center.x, y: center.y, color: 'bone', count: 12, life: 0.45, big: true });
-      game.shake = Math.max(game.shake, spec.quake ?? 0.08);
+      addEffect(game, { type: 'cleave', x: unit.x, y: unit.y, angle: aim, radius: reach, arc: spec.arc, weapon: { giant1: 'club', giant2: 'sword', giant3: 'axe' }[unit.type], life: 0.7, sound: 'slash' });
+      game.shake = Math.max(game.shake, spec.quake ?? 0.06);
     }
   });
 }
