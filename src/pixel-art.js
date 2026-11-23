@@ -124,6 +124,13 @@ function duck(role, frame, blink = false, idle = false) {
     rect(11, 12, 4, 4, 'G');rect(12, 13, 2, 2, 'g');
     rect(18, 10, 2, 2, 'n');rect(17, 12, 4, 5, 'E');rect(18, 14, 2, 3, 'G');rect(17, 12, 1, 2, 'W');
   }
+  if (role === 'necromancer') {
+    // 보라 두건과 해골 지팡이만 덧그린다.
+    rect(6, 1 + bob, 10, 2, 'v');rect(5, 3 + bob, 12, 2, 'V');rect(5, 5 + bob, 2, 3, 'v');rect(15, 5 + bob, 2, 3, 'v');
+    rect(10, 0 + bob, 3, 1, 'v');
+    rect(19, 7, 1, 12, 'N');rect(18, 4, 3, 3, 'W');rect(18, 5, 1, 1, 'K');rect(20, 5, 1, 1, 'K');rect(19, 3, 1, 1, 'V');
+    rect(4, 12, 3, 5, 'v');rect(5, 13, 2, 3, 'V');
+  }
   return rows.flatMap(row => {
     const scaled = row.map(pixel => pixel.repeat(ART_DENSITY)).join('');
     return Array(ART_DENSITY).fill(scaled);
@@ -244,7 +251,7 @@ function creature(kind, frame) {
 }
 
 export const PIXEL_ACTORS = {};
-for (const role of ['normal', 'summoner', 'hunter', 'gunner', 'alchemist']) {
+for (const role of ['normal', 'summoner', 'hunter', 'gunner', 'alchemist', 'necromancer']) {
   for (let frame = 0; frame < WALK_FRAMES; frame++) PIXEL_ACTORS[`character_${role}_duckWalk${frame}`] = duck(role, frame);
   for (let frame = 0; frame < 4; frame++) PIXEL_ACTORS[`character_${role}_duckIdle${frame}`] = duck(role, frame, frame === 3, true);
   PIXEL_ACTORS[`character_${role}_duckA`] = duck(role, 0);

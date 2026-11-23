@@ -1,9 +1,9 @@
 import { createMusic } from './audio.js';
-import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
+import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, applyCharacter, applyBuild, maxRelicsOf, relicCount, relicSlotsUsed, maxWeaponsOf, armyCap, armyUsed, openSoulShop, choose, createGame, declineChoice, formatTime, passiveLines, reroll, startWithRelic, statSheet, statsOf, update } from './engine.js';
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
+  ARMY, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -84,13 +84,69 @@ function playCombatSounds() {
   for (const shot of game.shots) {
     if (heardObjects.has(shot)) continue;
     heardObjects.add(shot);
-    music.playEffect(shot.sound ?? 'shoot');
+    if (!shot.silent) music.playEffect(shot.sound ?? 'shoot');
   }
 }
 
 function show(name) {
   screens.forEach((screen) => screen.classList.toggle('is-active', screen.dataset.screen === name));
+  if (name === 'start') runTitleDemo();
   syncSound();
+}
+
+// 메인 화면 뒤에서 실제 엔진으로 전투 장면을 돌린다. 오리는 죽지 않고 원을 그리며 걷는다.
+const startScreen = document.querySelector('.screen-start');
+const titleCanvas = document.querySelector('.title-bg');
+const titleCtx = titleCanvas.getContext('2d');
+let titleDemo = null;
+let titleFrameId = 0;
+let titleLast = 0;
+const TITLE_WEAPONS = [['dryer', 'zapper', 'coil', 'detergent'], ['spray', 'slipper', 'laser', 'towel'], ['sockpuppet', 'toydrone', 'toyknight', 'microwave']];
+function makeTitleDemo() {
+  const demo = createGame();
+  const roles = Object.keys(CHARACTERS);
+  applyCharacter(demo, roles[Math.floor(Math.random() * roles.length)]);
+  demo.map = Object.keys(MAPS)[Math.floor(Math.random() * Object.keys(MAPS).length)];
+  demo.nextBossAt = Infinity;
+  demo.nextXp = Infinity;
+  if (CHARACTERS[demo.character].souls) {
+    demo.weapons = {};
+    demo.undead = { bone: 3, wraith: 3, scythe: 3 };
+    const types = [...Array(16).fill('soldier'), ...Array(6).fill('archer'), 'giant2'];
+    types.forEach((type, index) => demo.army.push({ id: demo.nextId++, type, x: demo.player.x + Math.cos(index) * 40, y: demo.player.y + Math.sin(index) * 40,
+      hp: ARMY[type].hp * 5, maxHp: ARMY[type].hp * 5, attackIn: index * 0.05, facing: 1, swingAt: -1, slot: index * 2.399 }));
+  } else {
+    const set = TITLE_WEAPONS[Math.floor(Math.random() * TITLE_WEAPONS.length)];
+    demo.weapons = Object.fromEntries(set.map(id => [id, 5]));
+    demo.evolved = Object.fromEntries(set.slice(0, 2).map(id => [id, true]));
+  }
+  demo.time = 120;
+  return demo;
+}
+function titleLoop(now) {
+  if (!startScreen.classList.contains('is-active')) { titleFrameId = 0; return; }
+  titleFrameId = requestAnimationFrame(titleLoop);
+  if (document.hidden) return;
+  const box = startScreen.getBoundingClientRect();
+  const width = Math.ceil(box.width / PIXEL), height = Math.ceil(box.height / PIXEL);
+  if (titleCanvas.width !== width || titleCanvas.height !== height) { titleCanvas.width = width; titleCanvas.height = height; }
+  if (!titleDemo || titleDemo.over || titleDemo.time > 210) titleDemo = makeTitleDemo();
+  const dt = Math.min(0.05, (now - (titleLast || now)) / 1000);
+  titleLast = now;
+  const t = now / 1000;
+  titleDemo.player.hp = 1e6;
+  update(titleDemo, dt, { x: Math.cos(t * 0.35) * 0.55, y: Math.sin(t * 0.5) * 0.55 });
+  titleDemo.choices = null;
+  titleCtx.imageSmoothingEnabled = false;
+  render(titleCtx, titleDemo, width, height, t);
+}
+function runTitleDemo() {
+  titleLast = 0;
+  if (!titleFrameId) titleFrameId = requestAnimationFrame(titleLoop);
+}
+function setSetup(open) {
+  startScreen.classList.toggle('is-setup', open);
+  startScreen.scrollTop = 0;
 }
 
 function remember(key, value) {
@@ -168,6 +224,13 @@ function drawHud() {
   const { player } = game;
   setHud('.time-value', 'text', formatTime(game.time));
   setHud('.kills-value', 'text', game.kills.toLocaleString('ko-KR'));
+  const necromancer = Boolean(CHARACTERS[game.character]?.souls);
+  const souls = document.querySelector('.souls');
+  if (souls.hidden === necromancer) souls.hidden = !necromancer;
+  if (necromancer) {
+    setHud('.souls-value', 'text', String(game.souls));
+    setHud('.army-value', 'text', `${armyUsed(game)}/${armyCap(game)}`);
+  }
   setHud('.level-value', 'text', String(game.level));
   setHud('.xp-fill', 'bar', `scaleX(${Math.round(Math.min(1, game.xp / game.nextXp) * 200) / 200})`);
   const { maxHp } = statsOf(game);
@@ -227,9 +290,11 @@ function drawChoices() {
   const owned = relicSlotsUsed(game);
   levelupOverlay.classList.toggle('is-relic', treasure);
   levelupOverlay.classList.toggle('is-weapon-swap', weaponSwapping);
-  document.querySelector('.levelup .panel-title').textContent = weaponSwapping ? '무기 교체' : swapping ? '보물 교체'
+  const shop = Boolean(game.shop);
+  levelupOverlay.classList.toggle('is-shop', shop);
+  document.querySelector('.levelup .panel-title').textContent = shop ? '영혼 쓰기' : weaponSwapping ? '무기 교체' : swapping ? '보물 교체'
     : treasure ? (game.time === 0 ? '시작 보물' : '보물 상자!') : '레벨 업!';
-  document.querySelector('.levelup .panel-sub').textContent = weaponSwapping
+  document.querySelector('.levelup .panel-sub').textContent = shop ? `영혼 ${game.souls}개, 병력 ${armyUsed(game)}/${armyCap(game)}. 모집하거나 해골을 합치세요 (R 또는 Q로 닫기)` : weaponSwapping
     ? `무기 칸이 가득 찼어요 (${maxWeaponsOf(game)}/${maxWeaponsOf(game)}). ${WEAPONS[game.weaponSwap.id].label} 대신 내려놓을 무기를 골라 주세요`
     : swapping ? `${RELICS[game.swapIn].label} 대신 내려놓을 보물을 골라 주세요`
     : treasure && owned >= maxRelicsOf(game) ? `보물이 가득 찼어요 (${owned}/${maxRelicsOf(game)}). 바꾸거나 그대로 두세요`
@@ -238,12 +303,17 @@ function drawChoices() {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
-    const tag = choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
+    const tag = choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 강령술' : `Lv ${choice.level}`}</small>`
+      : choice.kind === 'command' ? `<small class="choice-undead">지휘 Lv ${choice.level}</small>`
+      : choice.kind === 'ritual' ? `<small class="choice-fusion">의식 영혼 ${choice.price}</small>`
+      : choice.kind === 'relic-necro' ? '<small class="choice-relic">강령 보물</small>'
+      : choice.kind === 'soul' ? `<small class="choice-undead">영혼 ${choice.price}</small>`
+      : choice.kind === 'shop-leave' ? '' : choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
       : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'ritual' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
         ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
@@ -252,7 +322,7 @@ function drawChoices() {
       </button>`;
   }).join('');
   const button = document.querySelector('.reroll');
-  button.disabled = game.rerollLeft <= 0 || swapping;
+  button.disabled = game.rerollLeft <= 0 || swapping || shop;
   button.querySelector('b').textContent = game.rerollLeft;
 }
 
@@ -317,7 +387,9 @@ function start(practice = false) {
   game = createGame();
   game.map = selectedMap;
   applyCharacter(game, selectedCharacter);
-  game.weapons = { [CHARACTERS[selectedCharacter].starter ?? 'spray']: 1 };
+  const undeadStarter = CHARACTERS[selectedCharacter].undeadStarter;
+  game.weapons = undeadStarter ? {} : { [CHARACTERS[selectedCharacter].starter ?? 'spray']: 1 };
+  if (undeadStarter) game.undead = { [undeadStarter]: 1 };
   applyBuild(game, selectedBuild);
   paused = false;
   carry = 0;
@@ -524,6 +596,17 @@ const CODEX_TABS = [
   ['map', '맵', () => `<p class="ranking-note">바닥 타일만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
+  ['necro', '강령술', () => {
+    const row = (icon, label, text, extra = '') => `<li>${itemIcon(icon)}<span><b>${escapeHtml(label)}${extra}</b><em>${escapeHtml(text)}</em></span></li>`;
+    return `<p class="ranking-note">강령술사 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 거인으로 키워요. 능력치의 <b>강령술</b> 파트가 해골 군단을 강하게 만들어요.</p>
+      <h3 class="recipe-heading">군단</h3><ul class="evolve-list">${Object.entries(ARMY).map(([id, unit]) => row(id, unit.label,
+        `피해 ${unit.damage}, 병력 ${unit.cap}칸${unit.taunt ? ', 주변 적을 끌어당겨 내리친다' : ''}`)).join('')}</ul>
+      <h3 class="recipe-heading">모집과 의식</h3><ul class="evolve-list">${Object.entries(RECRUITS).map(([id, recruit]) => row(recruit.unit, recruit.label, `영혼 ${recruit.price}개로 ${recruit.amount}명`)).join('')}
+        ${Object.entries(RITUALS).map(([id, ritual]) => row(id, ritual.label, `${Object.entries(ritual.cost).map(([type, count]) => `${ARMY[type].label} ${count}`).join(' + ')}, 영혼 ${ritual.souls}개 → ${ARMY[id].label}`)).join('')}</ul>
+      <h3 class="recipe-heading">강령술과 지휘</h3><ul class="evolve-list">${Object.entries(UNDEAD).map(([id, spell]) => row(id, spell.label, spell.description)).join('')}
+        ${Object.entries(COMMANDS).map(([id, command]) => row('soul', command.label, command.description)).join('')}</ul>
+      <h3 class="recipe-heading">강령 보물</h3><ul class="evolve-list">${Object.entries(NECRO_RELICS).map(([id, relic]) => row({ gravesoil: 'ghoul', corpsebomb: 'corpse' }[id] ?? id, relic.label, relic.stats.join(', '))).join('')}</ul>`;
+  }],
   ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
     <ul class="evolve-list">${BOSSES.map((boss, index) => `
       <li>${spriteImg(`${boss.kind}A`)}<span><b>${escapeHtml(boss.label)}</b><em>${escapeHtml(boss.description ?? '')}</em><i>첫 등장 ${clock(BOSS_EVERY_SEC * (index + 1))}</i></span></li>`).join('')}</ul>`],
@@ -565,6 +648,7 @@ const BUILD_TEXT = {
   drop: ['아이템 드랍', (value) => `+${Math.round(value * 100)}%`],
   relicPower: ['보물 피해', (value) => `+${Math.round(value * 100)}%`],
   relicHaste: ['보물 발동 주기', (value) => `-${Math.round(value * 100)}%`],
+  armyPower: ['해골 피해', (value) => `+${Math.round(value * 100)}%`],
 };
 
 // 그 파트에 points점을 넣었을 때의 효과 글
@@ -573,7 +657,7 @@ function buildEffect(tree, points) {
   return Object.entries(BUILD[tree].per).map(([key, per]) => `${BUILD_TEXT[key][0]} ${BUILD_TEXT[key][1](per * points * efficiency)}`).join(', ');
 }
 
-const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10},alchemist:{dot:20,haste:10} })[role] ?? {});
+const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10},alchemist:{dot:20,haste:10},necromancer:{necro:20,haste:10} })[role] ?? {});
 const balancedBuild = () => normalizeBuild({crit:6,haste:6,summon:6,treasure:6,dot:6});
 const sameBuild = (a,b) => Object.keys(BUILD).every(key=>a[key]===b[key]);
 function drawStartSummary() {
@@ -657,11 +741,21 @@ async function openRanking(season = SEASON) {
   try {
     const ranking = await fetchRanking(season);
     if (season !== rankingSeason) return; // 탭을 빨리 바꾸면 늦게 온 응답은 버린다.
+    // 1~3위는 시상대로, 나머지는 목록으로 보여 준다.
+    const podium = ranking.slice(0, 3).map((entry, index) => ({ entry, index })).sort((a, b) => [1, 0, 2].indexOf(a.index) - [1, 0, 2].indexOf(b.index));
     list.innerHTML = ranking.length === 0
       ? `<li class="ranking-empty">${season === SEASON ? '새 시즌이 막 시작했어요. 첫 기록을 남겨 보세요.' : '기록이 없어요.'}</li>`
-      : ranking.map((entry, index) => `
+      : `<li class="podium">${podium.map(({ entry, index }) => `
+          <div class="podium-spot is-${index + 1}${entry.crewName === crewName ? ' is-me' : ''}">
+            <span class="podium-medal">${index + 1}</span>
+            <b class="podium-crew">${escapeHtml(entry.crewName)}</b>
+            <span class="podium-time">${formatTime(entry.survivedMs / 1000)}</span>
+            <small>${entry.kills.toLocaleString('ko-KR')}마리</small>
+            <i class="podium-base" aria-hidden="true"></i>
+          </div>`).join('')}</li>`
+        + ranking.slice(3).map((entry, index) => `
           <li class="${entry.crewName === crewName ? 'is-me' : ''}">
-            <span class="rank${index < 3 ? ' is-top' : ''}">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
+            <span class="rank">${index + 4}</span>
             <span class="crew">${escapeHtml(entry.crewName)}<small>${entry.kills.toLocaleString('ko-KR')}마리</small></span>
             <span class="points">${formatTime(entry.survivedMs / 1000)}</span>
           </li>`).join('');
@@ -715,8 +809,15 @@ window.addEventListener('keydown', (event) => {
     event.preventDefault();
   }
   if (event.code === 'Escape' && pickerOpen) { closePicker(); return; }
+  const onTitle = startScreen.classList.contains('is-active');
+  const typing = document.activeElement?.matches('input, textarea');
+  if (onTitle && !startScreen.classList.contains('is-setup') && event.code === 'Enter' && !typing) { setSetup(true); event.preventDefault(); return; }
+  if (onTitle && startScreen.classList.contains('is-setup') && event.code === 'Escape') { setSetup(false); return; }
   if (event.code === 'Escape' && playing) setPaused(!paused);
   if (game?.choices && event.repeat) return;
+  // 강령술사: R로 영혼 창을 열고 닫는다. 다른 선택 창에서는 원래대로 다시 뽑기다.
+  if (event.code === 'KeyR' && game?.shop) { declineChoice(game); drawChoices(); return; }
+  if (event.code === 'KeyR' && playing && !paused && !game.choices && openSoulShop(game)) { drawChoices(); return; }
   if (event.code === 'KeyR' && game?.choices) rerollChoices();
   if (playing && game.practice && !game.choices && !paused && event.code === 'KeyB') { if (pickerOpen) closePicker(); else openPicker(); }
   if (event.code === 'KeyQ' && game?.choices && declineChoice(game)) drawChoices();
@@ -829,7 +930,9 @@ app.addEventListener('click', (event) => {
   if (codex) openRecipes(codex);
   const category = event.target.closest('[data-weapon-category]')?.dataset.weaponCategory;
   if (category && (category === 'all' || Object.hasOwn(WEAPON_CATEGORIES, category))) { weaponCategoryFilter = category; openRecipes(codexTab); }
-  if (action === 'home') show('start');
+  if (action === 'home') { setSetup(false); show('start'); }
+  if (action === 'setup') setSetup(true);
+  if (action === 'title') setSetup(false);
   if (action === 'retry') start(Boolean(game?.practice));
   if (action === 'practice') start(true);
   if (action === 'practice-open' && game?.practice && !game.choices) openPicker();
@@ -851,6 +954,11 @@ app.addEventListener('click', (event) => {
     } else practicePicker.querySelector('.practice-note').textContent = '더 받을 수 없어요. 칸이 가득 찼거나 이미 최고 단계예요';
   }
   if (action === 'pause') setPaused(true);
+  if (action === 'souls' && game && !paused) {
+    if (game.shop) declineChoice(game);
+    else openSoulShop(game);
+    drawChoices();
+  }
   if (action === 'reroll') rerollChoices();
   if (action === 'decline-choice' && game && declineChoice(game)) drawChoices();
   if (action === 'stats') document.querySelector('.stats').classList.toggle('is-open');
@@ -877,3 +985,4 @@ nameInput.value = crewName;
 
 drawSoundButtons();
 syncSound();
+runTitleDemo();

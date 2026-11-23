@@ -1338,6 +1338,274 @@ function sockPuppet(body, fx, frame, knight = false) {
   if (frame === 1) fx.set(14, 7, 'W').set(15, 6, 'Y');
 }
 ITEMS.sockpuppet = item([], (body, fx, f) => sockPuppet(body, fx, f));
+// 강령술사 해골 군단 도트. 몸통은 같은 뼈대를 쓰고 무기와 덩치로 구분한다.
+function skull(g, x, y) {
+  g.ellipse(x, y, 4, 3, 'K').ellipse(x, y, 3, 2, 'w').rect(x - 2, y + 3, 5, 2, 'K').rect(x - 1, y + 3, 3, 1, 'w');
+  g.rect(x - 2, y - 1, 2, 2, 'K').rect(x + 1, y - 1, 2, 2, 'K').set(x, y + 1, 'K');
+}
+// 해골 머리: 이마 밝은 뼈, 아래 그늘, 눈구멍 안 보라 불빛, 이빨 줄
+function skullHead(g, cx, top, glow = 'V') {
+  g.rect(cx - 3, top, 7, 1, 'w').rect(cx - 4, top + 1, 9, 4, 'w').rect(cx - 3, top + 5, 7, 1, 'p');
+  g.set(cx - 2, top + 1, 'W').set(cx - 1, top + 1, 'W');
+  g.rect(cx - 3, top + 2, 2, 2, 'K').rect(cx + 1, top + 2, 2, 2, 'K').set(cx - 2, top + 2, glow).set(cx + 2, top + 2, glow);
+  g.set(cx, top + 4, 'K');
+  g.rect(cx - 2, top + 6, 5, 1, 'w').set(cx - 1, top + 6, 'K').set(cx + 1, top + 6, 'K');
+}
+function skeletonBody(g, cx, top, step) {
+  skullHead(g, cx, top);
+  g.set(cx, top + 7, 'p');
+  g.rect(cx - 3, top + 8, 7, 1, 'w').rect(cx - 3, top + 10, 7, 1, 'w').rect(cx - 2, top + 12, 5, 1, 'p');
+  g.rect(cx, top + 8, 1, 5, 'p').set(cx - 3, top + 9, 'p').set(cx + 3, top + 9, 'p');
+  g.rect(cx - 2, top + 13, 5, 1, 'w');
+  const left = step ? 1 : 0, right = step ? 0 : 1;
+  g.rect(cx - 2, top + 14, 1, 3 - left, 'w').rect(cx + 2, top + 14, 1, 3 - right, 'w');
+  g.rect(cx - 3, top + 17 - left, 2, 1, 'p').rect(cx + 2, top + 17 - right, 2, 1, 'p');
+}
+function soldierArt(frame) {
+  const g = canvasGrid(22, 19);
+  skeletonBody(g, 9, 0, frame === 1);
+  // 녹슨 방패와 칼
+  g.rect(2, 8, 4, 6, 'r').rect(2, 8, 4, 1, 'N').rect(2, 13, 4, 1, 'N').set(3, 10, 'O').rect(6, 9, 1, 1, 'w');
+  g.line(12, 9, 13, 10, 'w');
+  if (frame === 2) {
+    g.rect(14, 10, 7, 1, 'z').rect(14, 9, 6, 1, 'd').rect(13, 9, 1, 3, 'N');
+  } else {
+    g.rect(14, 1, 1, 9, 'z').rect(15, 2, 1, 7, 'd').rect(13, 10, 3, 1, 'N').set(14, 11, 'n');
+  }
+  return g.rows();
+}
+function archerArt(frame) {
+  const g = canvasGrid(20, 20);
+  skeletonBody(g, 8, 1, frame === 1);
+  // 해진 두건과 활
+  g.rect(4, 0, 9, 2, 'v').rect(3, 2, 2, 4, 'v').rect(12, 2, 2, 4, 'v');
+  const pull = frame === 2 ? 2 : 0;
+  g.line(15, 3, 17, 7, 'N').line(17, 8, 17, 12, 'N').line(17, 13, 15, 17, 'N');
+  g.line(15, 3, 15 - pull, 10, 'W').line(15 - pull, 10, 15, 17, 'W');
+  g.line(11, 9, 14 - pull, 10, 'w');
+  if (frame === 2) g.rect(10, 10, 6, 1, 'n').set(16, 10, 'z');
+  return g.rows();
+}
+// 1차 골렘: 뼈를 돌덩이로 묶은 덩치. 큰 주먹으로 내리친다.
+function golemArt(frame) {
+  const g = canvasGrid(30, 30);
+  const step = frame === 1 ? 1 : 0, swing = frame === 2;
+  g.ellipse(15, 15, 10, 8, 'S').ellipse(15, 14, 9, 6, 'd').ellipse(13, 12, 5, 3, 'z');
+  for (const [x, y] of [[9, 13], [12, 18], [18, 11], [21, 16], [15, 20]]) g.rect(x, y, 3, 1, 'w').set(x - 1, y, 'p');
+  g.rect(13, 12, 5, 6, 'p').rect(14, 13, 3, 4, 'K').rect(15, 14, 1, 2, 'V');
+  skullHead(g, 15, 1);
+  g.rect(9, 5, 2, 2, 'd').rect(20, 5, 2, 2, 'd');
+  const fist = swing ? 4 : 0;
+  g.ellipse(4, 16 + fist, 3, 4, 'S').ellipse(4, 15 + fist, 2, 3, 'd').rect(2, 20 + fist, 5, 3, 'w').rect(2, 22 + fist, 5, 1, 'p');
+  g.ellipse(26, 16 + fist, 3, 4, 'S').ellipse(26, 15 + fist, 2, 3, 'd').rect(24, 20 + fist, 5, 3, 'w').rect(24, 22 + fist, 5, 1, 'p');
+  g.rect(9, 23, 4, 5 - step, 'S').rect(18, 23, 4, 4 + step, 'S').rect(9, 27 - step, 5, 2, 'd').rect(17, 26 + step, 5, 2, 'd');
+  return g.rows();
+}
+// 2차 거인: 갑옷 조각과 보라 룬, 거대한 대검
+function giantArt(frame) {
+  const g = canvasGrid(40, 40);
+  const step = frame === 1 ? 1 : 0, swing = frame === 2;
+  skullHead(g, 18, 1);
+  g.rect(11, 0, 3, 3, 'd').rect(23, 0, 3, 3, 'd').set(12, 0, 'z').set(24, 0, 'z');
+  g.rect(9, 8, 19, 3, 'S').rect(10, 8, 17, 1, 'd').rect(7, 9, 4, 4, 'D').rect(26, 9, 4, 4, 'D');
+  for (let y = 12; y < 23; y += 3) g.rect(12, y, 13, 1, 'w').set(11, y, 'p').set(25, y, 'p');
+  g.rect(18, 11, 1, 13, 'p').rect(16, 14, 5, 5, 'K').rect(17, 15, 3, 3, 'v').set(18, 16, 'V');
+  g.rect(13, 24, 11, 3, 'S').rect(14, 24, 9, 1, 'd');
+  g.rect(13, 27, 3, 9 - step, 'w').rect(21, 27, 3, 8 + step, 'w').rect(12, 36 - step, 5, 2, 'D').rect(20, 35 + step, 5, 2, 'D');
+  g.rect(6, 13, 2, 9, 'w').rect(5, 22, 4, 3, 'p');
+  if (swing) {
+    g.rect(29, 18, 2, 4, 'w').rect(30, 21, 10, 2, 'z').rect(30, 23, 10, 1, 'd').rect(28, 20, 3, 4, 'N').set(39, 21, 'W');
+  } else {
+    g.rect(29, 12, 2, 9, 'w').rect(33, 1, 3, 20, 'z').rect(34, 1, 1, 19, 'W').rect(36, 2, 1, 18, 'd').rect(31, 20, 7, 2, 'N').rect(33, 22, 3, 3, 'n');
+  }
+  for (const [x, y] of [[10, 10], [27, 10], [15, 25], [21, 25]]) g.set(x, y, 'V');
+  return g.rows();
+}
+// 3차 군주: 금관과 보라 망토, 양날 도끼. 눈에서 푸른 불꽃이 탄다.
+function lordArt(frame) {
+  const g = canvasGrid(48, 48);
+  const step = frame === 1 ? 1 : 0, swing = frame === 2;
+  // 망토는 어깨 뒤로 양옆에만 늘어뜨려 갈비뼈가 보이게 한다.
+  g.rect(8, 12, 7, 27, 'v').rect(34, 12, 7, 27, 'v').rect(9, 13, 1, 25, 'V').rect(39, 13, 1, 25, 'V');
+  g.rect(7, 38, 9, 3, 'v').rect(33, 38, 9, 3, 'v');
+  for (const x of [8, 11, 14, 34, 37, 40]) g.set(x, 41, 'V');
+  skullHead(g, 24, 4, 'E');
+  g.rect(18, 1, 13, 3, 'O').set(18, 0, 'O').set(21, 0, 'O').set(24, 0, 'O').set(27, 0, 'O').set(30, 0, 'O').rect(19, 2, 11, 1, 'o');
+  g.set(24, 2, 'R').set(21, 2, 'E').set(27, 2, 'E');
+  g.rect(13, 12, 23, 4, 'S').rect(14, 12, 21, 1, 'd').rect(10, 12, 5, 5, 'D').rect(34, 12, 5, 5, 'D').set(12, 13, 'O').set(36, 13, 'O');
+  for (let y = 17; y < 29; y += 3) g.rect(17, y, 15, 1, 'w').set(16, y, 'p').set(32, y, 'p');
+  g.rect(24, 16, 1, 14, 'p').rect(21, 19, 7, 6, 'K').rect(22, 20, 5, 4, 'v').rect(23, 21, 3, 2, 'E');
+  g.rect(18, 30, 13, 3, 'S').rect(19, 30, 11, 1, 'O');
+  g.rect(19, 33, 4, 8 - step, 'w').rect(27, 33, 4, 7 + step, 'w').rect(18, 41 - step, 6, 3, 'D').rect(26, 40 + step, 6, 3, 'D');
+  g.rect(7, 16, 3, 12, 'w').rect(6, 28, 5, 3, 'p');
+  if (swing) {
+    g.rect(37, 22, 3, 4, 'w').rect(38, 25, 10, 2, 'N').ellipse(45, 22, 3, 5, 'z').ellipse(45, 22, 2, 4, 'd').ellipse(45, 30, 3, 4, 'z').rect(44, 20, 1, 12, 'W');
+  } else {
+    g.rect(37, 16, 3, 10, 'w').rect(41, 4, 2, 30, 'N').ellipse(41, 7, 6, 4, 'z').ellipse(41, 7, 5, 3, 'd').rect(41, 3, 1, 8, 'W').set(41, 34, 'O');
+  }
+  return g.rows();
+}
+// 궁수 계열: 1차 석궁수, 2차 쇠뇌병, 3차 명궁. 두건과 활이 커진다.
+function crossbowArt(frame) {
+  const g = canvasGrid(26, 24);
+  const step = frame === 1, fire = frame === 2;
+  skeletonBody(g, 10, 4, step);
+  g.rect(5, 2, 11, 2, 'v').rect(4, 4, 2, 6, 'v').rect(15, 4, 2, 6, 'v').rect(6, 2, 9, 1, 'V');
+  g.rect(3, 11, 3, 8, 'N').rect(3, 9, 1, 2, 'W').rect(5, 8, 1, 3, 'W').set(4, 10, 'V');
+  const kick = fire ? 1 : 0;
+  g.rect(13 - kick, 13, 9, 2, 'N').rect(14 - kick, 13, 7, 1, 'n');
+  g.line(21 - kick, 8, 23 - kick, 13, 'z').line(23 - kick, 14, 21 - kick, 19, 'z').line(21 - kick, 8, 19 - kick, 13, 'W').line(19 - kick, 14, 21 - kick, 19, 'W');
+  if (fire) g.rect(22, 13, 4, 1, 'W').set(25, 13, 'V'); else g.rect(16, 12, 7, 1, 'd').set(23, 12, 'W');
+  return g.rows();
+}
+function ballistaArt(frame) {
+  const g = canvasGrid(36, 34);
+  const step = frame === 1 ? 1 : 0, fire = frame === 2;
+  g.rect(9, 1, 13, 3, 'v').rect(7, 3, 3, 9, 'v').rect(21, 3, 3, 9, 'v').rect(10, 1, 11, 1, 'V').set(8, 2, 'v').set(22, 2, 'v');
+  skullHead(g, 15, 3);
+  g.rect(8, 11, 15, 3, 'S').rect(9, 11, 13, 1, 'd').rect(6, 12, 4, 3, 'D').rect(21, 12, 4, 3, 'D');
+  for (let y = 15; y < 23; y += 3) g.rect(11, y, 9, 1, 'w').set(10, y, 'p').set(20, y, 'p');
+  g.rect(15, 14, 1, 10, 'p').rect(13, 16, 5, 4, 'K').rect(14, 17, 3, 2, 'v');
+  g.rect(11, 24, 9, 2, 'S');
+  g.rect(11, 26, 3, 6 - step, 'w').rect(17, 26, 3, 5 + step, 'w').rect(10, 31 - step, 5, 2, 'D').rect(16, 30 + step, 5, 2, 'D');
+  g.rect(2, 13, 4, 12, 'N').rect(3, 14, 2, 10, 'n').rect(2, 10, 1, 3, 'W').rect(4, 9, 1, 4, 'W').set(3, 11, 'V');
+  const kick = fire ? 2 : 0;
+  g.rect(18 - kick, 17, 14, 3, 'N').rect(19 - kick, 17, 12, 1, 'n').rect(22 - kick, 20, 3, 3, 'N');
+  g.line(30 - kick, 8, 34 - kick, 17, 'z').line(34 - kick, 19, 30 - kick, 28, 'z').line(31 - kick, 8, 35 - kick, 17, 'd').line(35 - kick, 19, 31 - kick, 28, 'd');
+  g.line(30 - kick, 8, 26 - kick, 17, 'W').line(26 - kick, 19, 30 - kick, 28, 'W');
+  for (const dy of [-2, 0, 2]) {
+    if (fire) g.rect(28, 18 + dy, 8, 1, 'W').set(35, 18 + dy, 'V');
+    else g.rect(24, 18 + dy, 9, 1, dy ? 'd' : 'z').set(33, 18 + dy, 'W');
+  }
+  return g.rows();
+}
+function marksmanArt(frame) {
+  const g = canvasGrid(44, 44);
+  const step = frame === 1 ? 1 : 0, fire = frame === 2;
+  g.rect(9, 12, 6, 24, 'v').rect(29, 12, 6, 24, 'v').rect(10, 13, 1, 22, 'V').rect(33, 13, 1, 22, 'V');
+  for (const x of [9, 12, 30, 33]) g.set(x, 36, 'V');
+  g.rect(13, 0, 17, 3, 'v').rect(11, 2, 3, 11, 'v').rect(30, 2, 3, 11, 'v').rect(14, 0, 15, 1, 'V').set(21, 0, 'O').set(22, 0, 'O').rect(21, 1, 2, 1, 'o');
+  skullHead(g, 21, 4, 'E');
+  g.rect(12, 12, 19, 4, 'S').rect(13, 12, 17, 1, 'd').rect(10, 12, 4, 4, 'D').rect(29, 12, 4, 4, 'D').set(11, 13, 'O').set(31, 13, 'O');
+  for (let y = 17; y < 27; y += 3) g.rect(16, y, 11, 1, 'w').set(15, y, 'p').set(27, y, 'p');
+  g.rect(21, 16, 1, 12, 'p').rect(18, 18, 7, 5, 'K').rect(19, 19, 5, 3, 'v').rect(20, 20, 3, 1, 'E');
+  g.rect(16, 28, 11, 3, 'S').rect(17, 28, 9, 1, 'O');
+  g.rect(16, 31, 4, 8 - step, 'w').rect(23, 31, 4, 7 + step, 'w').rect(15, 39 - step, 6, 3, 'D').rect(22, 38 + step, 6, 3, 'D');
+  g.rect(4, 14, 4, 14, 'N').rect(5, 15, 2, 12, 'n');
+  for (const x of [4, 5, 6, 7]) g.rect(x, 10 + (x % 2), 1, 4, 'W').set(x, 10 + (x % 2), 'V');
+  const pull = fire ? 0 : 3;
+  g.line(36, 2, 40, 10, 'N').line(40, 11, 41, 21, 'N').line(41, 22, 40, 32, 'N').line(40, 33, 36, 41, 'N');
+  g.line(37, 2, 41, 10, 'O').line(37, 41, 41, 33, 'O').set(41, 21, 'V').set(41, 22, 'V');
+  g.line(36, 2, 36 - pull * 2, 21, 'W').line(36 - pull * 2, 22, 36, 41, 'W');
+  g.rect(31, 20, 4, 3, 'w');
+  if (fire) {
+    for (const dy of [-4, -2, 0, 2, 4]) g.rect(38, 21 + dy, 6, 1, 'V').set(43, 21 + dy, 'E');
+  } else {
+    g.rect(28, 21, 14, 1, 'd').rect(41, 20, 2, 3, 'V').set(43, 21, 'E');
+  }
+  return g.rows();
+}
+const ARMY_ART = { soldier: soldierArt, archer: archerArt, giant1: golemArt, giant2: giantArt, giant3: lordArt, ranger1: crossbowArt, ranger2: ballistaArt, ranger3: marksmanArt };
+for (const [type, draw] of Object.entries(ARMY_ART)) for (let frame = 0; frame < 3; frame += 1) ART[`army_${type}_${frame}`] = draw(frame);
+
+// 상점과 보물 아이콘. 해골 군단은 도트를 줄여 쓰지 않고 아이콘 크기에 맞춰 따로 그린다.
+ITEMS.soldier = item([], (body, fx, f) => {
+  skullHead(body, 7, 0);
+  body.rect(4, 8, 7, 1, 'w').rect(4, 10, 7, 1, 'w').rect(7, 7, 1, 6, 'p').rect(5, 13, 1, 3, 'w').rect(9, 13, 1, 3, 'w');
+  body.rect(0, 8, 3, 5, 'r').set(1, 10, 'O').rect(12, 1 + (f % 2), 1, 10, 'z').rect(11, 10, 3, 1, 'N');
+});
+ITEMS.archer = item([], (body, fx, f) => {
+  body.rect(3, 0, 9, 2, 'v').rect(2, 2, 2, 4, 'v').rect(11, 2, 2, 4, 'v');
+  skullHead(body, 7, 1);
+  body.rect(4, 9, 7, 1, 'w').rect(4, 11, 7, 1, 'w').rect(7, 8, 1, 6, 'p');
+  body.line(13, 2, 15, 7, 'N').line(15, 8, 13, 14, 'N').line(13, 2, 13 - (f % 2), 14, 'W');
+});
+ITEMS.ranger1 = item([], (body, fx, f) => {
+  body.rect(3, 0, 9, 2, 'v').rect(2, 2, 2, 5, 'v').rect(11, 2, 2, 5, 'v');
+  skullHead(body, 7, 1);
+  body.rect(4, 9, 7, 1, 'w').rect(4, 11, 7, 1, 'w').rect(7, 8, 1, 6, 'p');
+  body.rect(8, 10, 7, 2, 'N').line(14, 6, 15, 10, 'z').line(15, 12, 14, 15, 'z').rect(9, 9, 6, 1, 'W');
+});
+ITEMS.ranger2 = item([], (body, fx, f) => {
+  body.rect(2, 0, 11, 2, 'v').rect(1, 2, 2, 6, 'v').rect(12, 2, 2, 6, 'v').rect(3, 0, 9, 1, 'V');
+  skullHead(body, 7, 1);
+  body.rect(2, 8, 11, 2, 'S').rect(4, 11, 7, 1, 'w').rect(4, 13, 7, 1, 'w');
+  body.rect(6, 10, 9, 2, 'N').line(14, 5, 15, 10, 'z').line(15, 12, 14, 16, 'z');
+  for (const dy of [-2, 0, 2]) body.rect(9, 10 + dy, 6, 1, dy ? 'd' : 'W');
+});
+ITEMS.ranger3 = item([], (body, fx, f) => {
+  body.rect(2, 0, 11, 2, 'v').rect(1, 2, 2, 7, 'v').rect(12, 2, 2, 7, 'v').set(7, 0, 'O');
+  skullHead(body, 7, 1, 'E');
+  body.rect(2, 8, 11, 2, 'S').set(3, 8, 'O').set(11, 8, 'O').rect(4, 11, 7, 1, 'w').rect(4, 13, 7, 1, 'w');
+  body.line(12, 1, 15, 6, 'N').line(15, 7, 15, 11, 'N').line(15, 12, 12, 16, 'N').line(12, 1, 12, 16, 'W');
+  for (const dy of [-2, 0, 2]) body.rect(6, 9 + dy, 8, 1, 'V');
+  fx.set(14, 9 + (f % 2) - 1, 'E');
+});
+ITEMS.giant1 = item([], (body, fx, f) => {
+  body.ellipse(8, 10, 7, 5, 'S').ellipse(8, 9, 6, 4, 'd').rect(5, 9, 3, 1, 'w').rect(10, 12, 3, 1, 'w');
+  skullHead(body, 8, 0);
+  body.rect(0, 9, 2, 4, 'S').rect(14, 9, 2, 4, 'S').rect(0, 13 + (f % 2), 3, 2, 'w').rect(13, 13 + (f % 2), 3, 2, 'w');
+});
+ITEMS.giant2 = item([], (body, fx, f) => {
+  skullHead(body, 7, 0);
+  body.rect(1, 0, 2, 2, 'd').rect(11, 0, 2, 2, 'd').rect(2, 7, 11, 2, 'S').rect(3, 10, 9, 1, 'w').rect(3, 12, 9, 1, 'w').rect(6, 9, 3, 4, 'K').set(7, 10, 'V');
+  body.rect(14, 0, 1, 12, 'z').rect(15, 1, 1, 10, 'd').rect(13, 11, 3, 1, 'N');
+  fx.set(1, 8 + (f % 2), 'V').set(12, 8 - (f % 2) + 1, 'V');
+});
+ITEMS.giant3 = item([], (body, fx, f) => {
+  body.rect(4, 0, 8, 2, 'O').set(4, 0, 'y').set(8, 0, 'y').set(11, 0, 'y').set(8, 1, 'R');
+  skullHead(body, 8, 2, 'E');
+  body.rect(1, 9, 14, 7, 'v').rect(4, 10, 8, 1, 'w').rect(4, 12, 8, 1, 'w').rect(7, 11, 2, 3, 'E');
+  fx.set(1, 4 + (f % 2), 'E').set(15, 6 - (f % 2), 'E');
+});
+ITEMS.bone = item([], (body, fx, f) => {
+  const tilt = f % 2;
+  body.line(4, 11 - tilt, 11, 4 + tilt, 'w');
+  for (const [x, y] of [[3, 11 - tilt], [4, 12 - tilt], [11, 3 + tilt], [12, 4 + tilt]]) body.rect(x, y, 2, 2, 'W');
+  fx.set(13, 9, 'V').set(2, 6, 'V');
+});
+ITEMS.corpse = item([], (body, fx, f) => {
+  skull(body, 8, 8);
+  const r = 6 + (f % 2);
+  for (let a = 0; a < 12; a++) fx.set(8 + Math.round(Math.cos(a * Math.PI / 6) * r), 8 + Math.round(Math.sin(a * Math.PI / 6) * r), a % 2 ? 'V' : 'v');
+});
+ITEMS.ghoul = item([], (body, fx, f) => {
+  body.ellipse(8, 9, 5, 4, 'v').ellipse(8, 8, 4, 3, 'V').rect(4, 12, 2, 3, 'v').rect(10, 12, 2, 3, 'v');
+  body.rect(5, 5, 6, 3, 'V').set(6, 6, 'E').set(9, 6, 'E').rect(7, 10, 3, 1, 'K');
+  fx.set(3, 3 + (f % 2), 'V').set(13, 5 - (f % 2), 'V');
+});
+ITEMS.wraith = item([], (body, fx, f) => {
+  body.ellipse(8, 6, 4, 4, 'i').rect(4, 7, 9, 4, 'i').rect(4, 11, 2, 2 + (f % 2), 'l').rect(8, 11, 2, 3 - (f % 2), 'l').rect(11, 11, 2, 2, 'l');
+  body.rect(6, 5, 1, 2, 'K').rect(9, 5, 1, 2, 'K');
+  fx.set(2, 8, 'E').set(14, 4, 'E');
+});
+ITEMS.scythe = item([], (body, fx, f) => {
+  body.line(3, 15, 8, 3, 'N').line(4, 15, 9, 3, 'n').rect(7, 2, 3, 2, 'z');
+  // 자루 끝에서 오른쪽으로 길게 휜 날. 위는 어두운 등, 아래는 밝은 날
+  body.rect(9, 1, 4, 1, 'D').rect(13, 2, 2, 1, 'D').set(15, 3, 'D').set(15, 4, 'D');
+  body.rect(9, 2, 4, 1, 'z').rect(13, 3, 2, 1, 'z').set(14, 4, 'z').set(14, 5, 'W').set(15, 5, 'W').set(15, 6, 'W');
+  body.rect(10, 3, 3, 1, 'W').set(11, 2, 'V');
+  fx.set(15, 7 + (f % 2), 'V').set(2, 9 - (f % 2), 'V');
+});
+ITEMS.bonepipe = item([], (body, fx, f) => {
+  body.line(3, 12, 12, 3, 'w').line(4, 12, 13, 3, 'p').set(6, 9, 'K').set(8, 7, 'K').set(10, 5, 'K');
+  fx.set(13, 9 + (f % 2), 'V').set(11, 12 - (f % 2), 'V');
+});
+ITEMS.darkcrown = item([], (body, fx, f) => {
+  body.rect(2, 7, 12, 5, 'h').rect(2, 7, 12, 1, 'v').set(2, 5, 'h').set(5, 4, 'h').set(8, 3, 'h').set(11, 4, 'h').set(13, 5, 'h');
+  body.set(5, 9, 'V').set(8, 9, 'E').set(11, 9, 'V');
+  fx.set(8, 1 + (f % 2), 'V');
+});
+ITEMS.soulurn = item([], (body, fx, f) => {
+  body.ellipse(8, 10, 5, 4, 'N').ellipse(8, 9, 4, 3, 'n').rect(5, 4, 6, 2, 'N').rect(6, 3, 4, 1, 'n');
+  body.ellipse(8, 9, 2, 2, 'V');
+  fx.set(7, 1 - (f % 2) + 1, 'E').set(9, 0 + (f % 2), 'V');
+});
+ITEMS.soul = item([], (body, fx, f) => {
+  body.ellipse(8, 7, 3, 4, 'v').ellipse(8, 7, 2, 3, 'V').rect(7, 11, 2, 2, 'V').set(8 + (f % 2), 13, 'v');
+  body.set(7, 6, 'W').set(9, 6, 'W');
+  fx.set(4, 4 + (f % 2), 'E').set(12, 9 - (f % 2), 'E');
+});
 ITEMS.sockknight = item([], (body, fx, f) => sockPuppet(body, fx, f, true));
 function toyDragon(body, fx, frame, azure = false) {
   const color = azure ? 'B' : 'G', light = azure ? 'b' : 'g';
@@ -2808,7 +3076,7 @@ for (const [name, rows] of Object.entries(PIXEL_ACTORS)) {
 function buildArt(name, scale = 1) {
   return build(ART[name], { scale });
 }
-const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist'].includes(role) ? role : 'normal'}_${frame}`;
+const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist','necromancer'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
 export const duckIconUrl = role => iconUrl(characterFrame(role, 'duckA'));
 

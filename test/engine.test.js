@@ -1311,8 +1311,8 @@ describe('능력치 투자', () => {
   });
 
   it('배분은 파트당 20, 합계 30을 넘지 못한다', () => {
-    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, treasure: 'x' }), { crit: 20, haste: 10, summon: 0, treasure: 0, dot: 0 });
-    assert.deepEqual(normalizeBuild({ crit: 5.7, treasure: 3 }), { crit: 5, haste: 0, summon: 0, treasure: 3, dot: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 25, haste: 20, survival: -3, treasure: 'x' }), { crit: 20, haste: 10, summon: 0, treasure: 0, dot: 0, necro: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 5.7, treasure: 3 }), { crit: 5, haste: 0, summon: 0, treasure: 3, dot: 0, necro: 0 });
   });
 
   it('소환 기본 수치는 소환 피해와 이동 속도만 올린다', () => {

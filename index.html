@@ -20,16 +20,25 @@
   <body>
     <main class="app">
       <section class="screen screen-start is-active" data-screen="start">
+        <canvas class="title-bg" aria-hidden="true"></canvas>
+        <div class="title-shade" aria-hidden="true"></div>
         <div class="start-intro">
           <div class="hero"><img src="./assets/duck-room.jpg" alt="방에서 휴대폰을 든 오리" /></div>
           <p class="start-season"></p>
           <h1 class="title"><img class="logo" src="./assets/logo.png" alt="자취선배" />자취방 <span>서바이벌</span></h1>
           <p class="lead">오리를 고르고, 나만의 조합으로 살아남으세요.</p>
+          <nav class="title-menu" aria-label="메인 메뉴">
+            <button class="title-play" type="button" data-action="setup"><span>게임 시작</span><small>ENTER</small></button>
+            <button type="button" data-action="practice">연습장</button>
+            <button type="button" data-action="recipes">도감</button>
+            <button type="button" data-action="ranking">순위</button>
+          </nav>
           <div class="start-character-preview"></div>
           <p class="start-how"><b>WASD · 드래그</b>로 이동하면 공격은 자동이에요.</p>
           <div class="start-highlights"><span>90초마다 보스</span><span>무기 진화와 보물</span><span>시즌별 최고 기록</span></div>
         </div>
         <form class="start-form" novalidate>
+          <header class="setup-head"><button class="back" type="button" data-action="title" aria-label="메인으로">‹</button><h2>출전 준비</h2><small>ESC 뒤로</small></header>
           <div class="start-character">
             <p class="field-label" id="character-label"><span class="setup-step">1</span> 함께할 오리</p>
             <div class="character-picker" role="group" aria-labelledby="character-label"></div>
@@ -77,6 +86,7 @@
           <span class="time-value">0:00</span>
           <div class="hud-right">
             <span class="kills"><img class="px kills-icon" alt="" /><b class="kills-value">0</b></span>
+            <button class="souls" type="button" data-action="souls" hidden aria-label="영혼 쓰기 (R)"><i aria-hidden="true">✦</i><b class="souls-value">0</b><i aria-hidden="true">☠</i><b class="army-value">0/20</b><kbd>R</kbd></button>
             <button class="sound-toggle sound-compact" type="button" data-action="sound" aria-label="배경음악 끄기" aria-pressed="true"><span aria-hidden="true">♪</span></button>
             <button class="sound-toggle sound-compact sound-effects" type="button" data-action="effects" aria-label="효과음 끄기" aria-pressed="true"><span aria-hidden="true">FX</span></button>
             <button class="pause" type="button" data-action="pause" aria-label="일시정지">Ⅱ</button>

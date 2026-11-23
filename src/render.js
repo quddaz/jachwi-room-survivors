@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -212,13 +212,14 @@ const PARTICLES = {
   mosquito: ['#3d3d42', '#dcebff', '#e0645b'], spider: ['#3d3d42', '#55555d', '#e0645b'], milk: ['#ffffff', '#6f8a4a', '#5f86cf'],
   mouse: ['#8a8f98', '#c4c9d1', '#ffb3bf'], moth: ['#c9965c', '#8a4a1e', '#ffe08a'],
   spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], supercrit: ['#ff4fd8', '#ffffff', '#ffcf3f', '#b36bff'], popcorn: ['#fff4c2', '#ffffff', '#ffcf3f'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
+  bone: ['#efe6d2', '#b8ac94', '#ffffff'], soul: ['#b36bff', '#e3c8ff', '#7fe9ff'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.
 // 내 투사체 빛무리 색
 const SHOT_GLOW = {
   spray: [150, 210, 255], megaSpray: [120, 255, 170], staple: [255, 230, 160], plane: [255, 255, 255],
-  bubble: [200, 170, 255], laser: [120, 255, 140], ice: [150, 230, 255],
+  bubble: [200, 170, 255], laser: [120, 255, 140], ice: [150, 230, 255], bone: [190, 150, 255], arrow: [200, 160, 255],
 };
 const ENEMY_SHOT = { core: '#ffffff', body: '#ff3b2f', edge: '#c0150d', outline: '#2a0a08', glow: 'rgba(255, 59, 47, 0.32)', trail: 'rgba(255,59,47,0.55)' };
 
@@ -796,11 +797,130 @@ function drawDuck(ctx, game, x, y, time) {
   }
 }
 
+// 언데드 도트. 버퍼 1픽셀 단위로 직접 찍는다.
+const SKULL = ['.KKKKK.', 'KwwwwwK', 'KwKwKwK', 'KwwwwwK', '.KwKwK.', '..KKK..'];
+function drawSkull(ctx, x, y, color = '#efe6d2') {
+  SKULL.forEach((row, dy) => [...row].forEach((pixel, dx) => {
+    if (pixel === '.') return;
+    ctx.fillStyle = pixel === 'K' ? '#2a1c14' : color;
+    ctx.fillRect(x - 3 + dx, y - 3 + dy, 1, 1);
+  }));
+}
+
+// 리치의 낫: 오리를 축으로 큰 낫이 한 바퀴 돌며, 지나간 자리에 보랏빛 초승달 궤적을 남긴다.
+function drawReap(ctx, cx, cy, effect, progress) {
+  const radius = effect.radius / WORLD_PER_PIXEL;
+  const eased = 1 - (1 - progress) ** 3;
+  const turn = effect.angle + eased * Math.PI * 1.85;
+  const fade = progress < 0.75 ? 1 : 1 - (progress - 0.75) / 0.25;
+  const power = effect.power ?? 0;
+  const at = (angle, distance) => [cx + Math.cos(angle) * distance, cy + Math.sin(angle) * distance * 0.85];
+  // 궤적: 날 끝 바로 뒤가 가장 밝고 두껍고, 멀어질수록 얇고 옅어진다. 픽셀이 비지 않게 바깥 둘레 1픽셀 간격으로 찍는다.
+  const tail = Math.min(eased * Math.PI * 1.85, 1.7 + power * 0.6);
+  const steps = Math.max(1, Math.round(tail * radius * 1.05));
+  ctx.save();
+  for (let step = 0; step < steps; step += 1) {
+    const back = step / (radius * 1.05);
+    const angle = turn - back;
+    const strength = 1 - step / steps;
+    const inner = radius * (1 - 0.5 * strength);
+    const outer = radius * (1.04 + 0.04 * strength);
+    ctx.globalAlpha = fade * (0.12 + 0.8 * strength * strength);
+    for (let d = inner; d <= outer; d += 1) {
+      const [px, py] = at(angle, d);
+      const rim = (outer - d) / (outer - inner + 0.001);
+      ctx.fillStyle = rim < 0.12 ? '#ffffff' : rim < 0.3 ? '#e3c8ff' : rim < 0.65 ? '#b36bff' : '#7a57b8';
+      ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
+    }
+  }
+  ctx.globalAlpha = fade;
+  // 자루: 오리 곁에서 바깥으로 뻗는 나무 자루, 끝에 쇠 고리
+  const handleEnd = radius * 0.74;
+  for (let d = 6; d <= handleEnd; d += 0.5) {
+    const [px, py] = at(turn - 0.04, d);
+    ctx.fillStyle = '#1b1410';ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 4, 4);
+  }
+  for (let d = 6; d <= handleEnd; d += 0.5) {
+    const [px, py] = at(turn - 0.04, d);
+    ctx.fillStyle = '#8a4a1e';ctx.fillRect(Math.round(px), Math.round(py), 2, 2);
+    ctx.fillStyle = d % 7 < 1.5 ? '#ffe08a' : '#c9965c';ctx.fillRect(Math.round(px), Math.round(py), 1, 1);
+  }
+  const [hx, hy] = at(turn - 0.04, handleEnd);
+  ctx.fillStyle = '#c4c9d1';ctx.fillRect(Math.round(hx) - 1, Math.round(hy) - 1, 3, 3);
+  // 날: 자루 끝에서 휘두르는 쪽으로 길게 뻗어 안쪽으로 휜다. 등은 어둡고 날은 하얗게 빛난다.
+  const tangent = turn + Math.PI / 2;
+  const blade = radius * (0.7 + power * 0.12);
+  const points = [];
+  for (let n = 0; n <= 40; n += 1) {
+    const s = n / 40;
+    const along = blade * s;
+    const curl = Math.sin(s * Math.PI * 0.85) * blade * 0.32 - s * s * blade * 0.18;
+    points.push([hx + Math.cos(tangent) * along + Math.cos(turn) * curl, hy + (Math.sin(tangent) * along + Math.sin(turn) * curl) * 0.85, s]);
+  }
+  ctx.globalAlpha = fade * 0.5;
+  for (const [px, py] of points) { ctx.fillStyle = '#b36bff';ctx.fillRect(Math.round(px) - 2, Math.round(py) - 2, 6, 6); }
+  ctx.globalAlpha = fade;
+  for (const [px, py, s] of points) {
+    const width = Math.max(1, Math.round(6 * (1 - s) + 1));
+    ctx.fillStyle = '#1b1410';ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, width + 2, width + 2);
+  }
+  for (const [px, py, s] of points) {
+    const width = Math.max(1, Math.round(6 * (1 - s)));
+    ctx.fillStyle = '#8a8f98';ctx.fillRect(Math.round(px), Math.round(py), width, width);
+    ctx.fillStyle = '#dcebff';ctx.fillRect(Math.round(px), Math.round(py), Math.max(1, width - 1), Math.max(1, width - 2));
+  }
+  // 휘두르는 쪽 날끝은 하얗게 번뜩인다.
+  for (const [px, py] of points) { ctx.fillStyle = '#ffffff';ctx.fillRect(Math.round(px), Math.round(py), 1, 1); }
+  // 날에 새긴 보라 룬과 끝의 불빛
+  for (const s of [0.18, 0.36, 0.54]) {
+    const [px, py] = points[Math.round(s * 40)];
+    ctx.fillStyle = '#b36bff';ctx.fillRect(Math.round(px) + 1, Math.round(py) + 1, 1, 1);
+  }
+  const [tx, ty] = points[40];
+  ctx.restore();
+  glow(ctx, Math.round(tx), Math.round(ty), 5 + power * 4, [227, 200, 255], 0.8 * fade);
+  if (progress < 0.6) sparkle(ctx, Math.round(tx), Math.round(ty), '#ffffff', true);
+}
+
+function drawWraith(ctx, x, y, time, seed) {
+  glow(ctx, x, y, 7, [127, 233, 255], 0.35);
+  const sway = Math.round(Math.sin(time * 6 + seed) * 1);
+  ctx.fillStyle = 'rgba(211,243,255,0.85)';ctx.fillRect(x - 3, y - 4, 7, 6);
+  ctx.fillStyle = 'rgba(160,220,255,0.6)';
+  ctx.fillRect(x - 3 + sway, y + 2, 2, 2);ctx.fillRect(x + 1 - sway, y + 2, 2, 3);
+  ctx.fillStyle = '#2a1c14';ctx.fillRect(x - 1, y - 2, 1, 2);ctx.fillRect(x + 1, y - 2, 1, 2);
+}
+
+function drawBone(ctx, x, y, spin) {
+  const dx = Math.round(Math.cos(spin) * 3);
+  const dy = Math.round(Math.sin(spin) * 3);
+  line(ctx, x - dx, y - dy, x + dx, y + dy, '#efe6d2');
+  for (const [ex, ey] of [[x - dx, y - dy], [x + dx, y + dy]]) {
+    ctx.fillStyle = '#2a1c14';ctx.fillRect(ex - 1, ey - 1, 3, 3);
+    ctx.fillStyle = '#ffffff';ctx.fillRect(ex - 1, ey - 1, 2, 2);
+  }
+}
+
 function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
   for (const effect of game.effects) {
     const progress = effect.age / effect.life;
     if (effect.type === 'banner' || effect.type === 'flash') continue;
     const [x, y] = effect.points ? [0, 0] : toBuffer(effect);
+    if (effect.type === 'soul') {
+      // 영혼이 쓰러진 자리에서 떠올라 오리에게 빨려 든다.
+      const [px, py] = toBuffer(game.player);
+      const pull = progress * progress;
+      const sx = Math.round(x + (px - x) * pull);
+      const sy = Math.round(y + (py - y) * pull - Math.sin(progress * Math.PI) * 10);
+      glow(ctx, sx, sy, effect.big ? 6 : 4, [179, 107, 255], 0.7);
+      ctx.fillStyle = '#e3c8ff';ctx.fillRect(sx - 1, sy - 1, effect.big ? 3 : 2, effect.big ? 3 : 2);
+      ctx.fillStyle = 'rgba(179,107,255,0.6)';ctx.fillRect(sx, sy + 2, 1, 2);
+      continue;
+    }
+    if (effect.type === 'reap') {
+      drawReap(ctx, x, y, effect, progress);
+      continue;
+    }
     if (effect.type === 'relic-pulse' || effect.type === 'relic-awaken') {
       drawRelicEffect(ctx,effect,x,y);
     } else if (effect.type === 'sweep') {
@@ -1821,6 +1941,27 @@ export function render(ctx, game, width, height, time) {
       if (shot.mega) ctx.fillRect(Math.round(x - (shot.vx / pace) * 2), Math.round(y - (shot.vy / pace) * 2), 1, 1);
       continue;
     }
+    if (shot.kind === 'arrow') {
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const ux = shot.vx / pace, uy = shot.vy / pace;
+      const size = shot.size ?? 1, tail = 6 + size * 3;
+      if (size > 1) {
+        glow(ctx, x, y, 3 + size * 2, [179, 107, 255], 0.35 + size * 0.08);
+        line(ctx, Math.round(x - ux * tail), Math.round(y - uy * tail), x, y, size > 3 ? '#b36bff' : '#8a8fa3');
+        line(ctx, Math.round(x - ux * tail - uy), Math.round(y - uy * tail + ux), Math.round(x - uy), Math.round(y + ux), '#5b3a8a');
+        ctx.fillStyle = '#f2e6ff';ctx.fillRect(x - 1, y - 1, 2, 2);
+      } else {
+        line(ctx, Math.round(x - ux * 6), Math.round(y - uy * 6), x, y, '#c9965c');
+        ctx.fillStyle = '#e3c8ff';ctx.fillRect(x, y, 1, 1);
+      }
+      ctx.fillStyle = '#e6dccb';ctx.fillRect(Math.round(x - ux * tail), Math.round(y - uy * tail), 1, 1);
+      continue;
+    }
+    if (shot.kind === 'bone') {
+      if (shot.mega) glow(ctx, x, y, 7, [179, 107, 255], 0.5);
+      drawBone(ctx, x, y, time * 14 + shot.x * 0.01);
+      continue;
+    }
     const trail = shot.mega ? 'rgba(170, 240, 190, ' : 'rgba(220, 235, 255, ';
     for (let step = 4; step >= 1; step -= 1) {
       ctx.fillStyle = `${trail}${0.7 - step * 0.14})`;
@@ -2022,6 +2163,44 @@ export function render(ctx, game, width, height, time) {
         ctx.fillRect(Math.round(x + Math.cos(angle) * radius * .7), Math.round(y + Math.sin(angle) * radius * .55 - phase * 8), 2, 2);
       }
     }
+  }
+  for (const corpse of game.corpses ?? []) {
+    const [x, y] = toBuffer(corpse);
+    if (!visible([x, y], 40)) continue;
+    const charge = 1 - corpse.delay / corpse.total;
+    ring(ctx, x, y, corpse.radius / WORLD_PER_PIXEL * charge, 'rgba(179,107,255,0.55)', 3, Math.floor(time * 10));
+    drawSkull(ctx, x, y - 2, Math.floor(time * 12) % 2 && charge > 0.6 ? '#e3c8ff' : '#efe6d2');
+  }
+  for (const ghoul of game.ghouls ?? []) {
+    const [x, y] = toBuffer(ghoul);
+    if (!visible([x, y], 30)) continue;
+    // 구울은 쓰러진 적의 도트를 보랏빛으로 물들여 다시 세운다. 사라지기 직전에는 깜빡인다.
+    const frames = FRAMES[ghoul.kind] ?? FRAMES.roach;
+    const frame = Math.floor(game.time * 8 + ghoul.id) % frames.length;
+    if (ghoul.life < 1 && Math.floor(game.time * 12) % 2) continue;
+    const image = sprite(frames[frame], { flip: ghoul.facing < 0, tint: 'rgba(150, 90, 230, 0.6)' });
+    disc(ctx, x, y + Math.round(image.height * 0.35), Math.round(image.width * 0.3), 'rgba(80,40,120,0.25)');
+    drawCentered(ctx, image, x, y);
+    ctx.fillStyle = '#7fe9ff';ctx.fillRect(x - 2, Math.round(y - image.height / 2) + 2, 1, 1);ctx.fillRect(x + 1, Math.round(y - image.height / 2) + 2, 1, 1);
+  }
+  // 해골 군단: 작은 해골부터 그려 거인이 위에 보이게 한다.
+  const army = [...(game.army ?? [])].sort((a, b) => a.y - b.y);
+  for (const unit of army) {
+    const [x, y] = toBuffer(unit);
+    const giant = unit.type.startsWith('giant') || unit.type.startsWith('ranger');
+    if (!visible([x, y], giant ? 50 : 16)) continue;
+    const attacking = game.time - unit.swingAt < (giant ? 0.3 : 0.16);
+    const frame = attacking ? 2 : Math.floor(game.time * (giant ? 3 : 7) + unit.id) % 2;
+    const image = sprite(`army_${unit.type}_${frame}`, { flip: unit.facing < 0 });
+    const foot = Math.round(image.height / 2);
+    disc(ctx, x, y + foot - 2, Math.round(image.width * 0.3), 'rgba(40,20,60,0.28)');
+    if (giant) glow(ctx, x, y - foot / 2, image.width * 0.5, [179, 107, 255], 0.25);
+    drawCentered(ctx, image, x, y);
+  }
+  for (const orbiter of wraithOrbiters(game)) {
+    const [x, y] = toBuffer(orbiter);
+    if (!visible([x, y], 12)) continue;
+    drawWraith(ctx, x, y, time, orbiter.angle);
   }
   for (const unit of game.summons ?? []) {
     const [x, y] = toBuffer(unit);

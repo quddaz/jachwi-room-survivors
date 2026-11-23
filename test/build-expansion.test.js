@@ -21,12 +21,12 @@ const RELIC_IDS = ['rubyglass', 'redthread', 'prism', 'contagion', 'jewelcase', 
 
 describe('무기 계열과 다섯 번째 능력치', () => {
   it('기존 배분을 보존하고 지속 점수도 총 30점·최대 20점으로 제한한다', () => {
-    assert.deepEqual(normalizeBuild({ crit: 20, haste: 10, dot: 20 }), { crit: 20, haste: 10, summon: 0, treasure: 0, dot: 0 });
+    assert.deepEqual(normalizeBuild({ crit: 20, haste: 10, dot: 20 }), { crit: 20, haste: 10, summon: 0, treasure: 0, dot: 0, necro: 0 });
     assert.equal(normalizeBuild({ dot: 99 }).dot, 20);
     assert.equal(normalizeBuild({ dot: -1 }).dot, 0);
     assert.equal(normalizeBuild({ dot: 'invalid' }).dot, 0);
     assert.equal(normalizeBuild({ survival: 20, dot: 10 }).summon, 20);
-    assert.equal(Object.keys(BUILD).length, 5);
+    assert.equal(Object.keys(BUILD).length, 6);
   });
   it('모든 무기·완성형·합체를 분류하고 소환·보물의 주 계열을 보존한다', () => {
     for (const id of [...Object.keys(WEAPONS), ...Object.keys(FUSIONS)]) {

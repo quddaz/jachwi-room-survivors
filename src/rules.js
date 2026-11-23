@@ -13,6 +13,68 @@ export const CHARACTERS = {
     stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8', '전체 고정 피해 +25%'], attackSpeed: 0.15, hitDamage: 8, fixedPower: 0.25 },
   alchemist: { label: '연금술사 오리', description: '열기와 독, 속성 반응으로 적을 녹이는 연구자',
     stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer' },
+  necromancer: { label: '강령술사 오리', description: '영혼으로 해골 군단을 모집하고, 병사를 바쳐 거인을 키우는 지휘관',
+    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 거인을 1차에서 3차까지 키운다', '레벨업에서 무기 대신 강령술과 지휘 능력을 고른다'],
+    souls: true, undeadStarter: 'bone' },
+};
+
+// 강령술사 전용. 영혼은 처치할 때 바로 모이고, R을 눌러 영혼 창에서 쓴다.
+export const SOULS = { normal: 1, elite: 5, boss: 30 };
+
+// 강령술사의 레벨업 선택지. 오리가 직접 쓰는 강령술과 군단을 키우는 지휘 능력뿐이다.
+export const UNDEAD = {
+  bone: { label: '뼈 투척', description: '빙글빙글 도는 뼈를 던져 줄지어 선 적을 꿰뚫는다',
+    count: [1, 2, 2, 3, 3], damage: [18, 24, 31, 40, 52], cooldown: [1.1, 1, 0.92, 0.84, 0.75], pierce: [2, 2, 3, 3, 4], speed: 420, range: 480 },
+  wraith: { label: '망령', description: '오리 둘레를 도는 망령이 닿은 적을 베고 얼려 느리게 한다',
+    count: [2, 2, 3, 3, 4], damage: [11, 15, 19, 24, 30], orbit: [70, 75, 80, 88, 96], spin: 2.2, hitEverySec: 0.5, slow: 0.6, slowSec: 0.8 },
+  scythe: { label: '리치의 낫', description: '주위를 크게 베며, 가진 영혼이 많을수록 세게 벤다',
+    damage: [34, 45, 58, 74, 92], cooldown: [1.6, 1.5, 1.4, 1.3, 1.2], radius: [80, 86, 92, 100, 110], perSoul: 0.01, maxSoulBonus: 1 },
+};
+export const COMMANDS = {
+  legion: { label: '군단 확장', description: '거느릴 수 있는 병력이 늘어난다', cap: [8, 16, 24, 32, 40] },
+  harvest: { label: '영혼 수확', description: '처치할 때 얻는 영혼이 늘어난다', soulGain: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  drill: { label: '군단 훈련', description: '모든 해골의 공격력이 늘어난다', damage: [0.15, 0.3, 0.45, 0.6, 0.8] },
+  thrift: { label: '값싼 뼈', description: '해골 모집 비용이 줄어든다', discount: [0.08, 0.16, 0.24, 0.32, 0.4] },
+  reach: { label: '긴 뼈창', description: '해골의 공격 범위와 궁수 사거리가 늘어난다', range: [0.12, 0.24, 0.36, 0.48, 0.6] },
+  drum: { label: '전쟁 북', description: '해골의 공격 속도가 빨라진다', attackSpeed: [0.1, 0.2, 0.3, 0.4, 0.5] },
+  march: { label: '행군', description: '해골의 이동 속도가 빨라진다', speed: [0.1, 0.2, 0.3, 0.4, 0.5] },
+};
+
+// 군단 유닛. cap은 병력 한도에서 차지하는 칸이다. 거인은 모집하지 않고 보물 상자의 의식으로만 만든다.
+export const ARMY = {
+  soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 14, radius: 8, cap: 1 },
+  archer: { label: '해골 궁수', damage: 22, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
+  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 75, radius: 18, cap: 10, taunt: 160, scale: 1 },
+  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 105, radius: 26, cap: 22, taunt: 210, scale: 1 },
+  ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
+  ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
+  ranger3: { label: '해골 명궁', damage: 400, cooldown: 1.1, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 800, bolts: 5, pierce: 99, size: 4 },
+  giant3: { label: '해골 군주', damage: 550, cooldown: 1.4, speed: 180, range: 145, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
+};
+export const ARMY_CAP = 30;
+// 영혼 모집 창. 한 번에 여러 마리를 뽑으며, 남은 병력 칸만큼만 들어온다.
+export const RECRUITS = {
+  soldier: { label: '해골 병사 모집', description: '해골 병사 2명이 무덤에서 일어난다. 많이 깔려 꾸준히 싸운다', unit: 'soldier', amount: 2, price: 30 },
+  archer: { label: '해골 궁수 모집', description: '해골 궁수 2명이 뒤에서 활을 쏜다. 약해서 지켜 줘야 한다', unit: 'archer', amount: 2, price: 60 },
+};
+// R로 여는 영혼 창에서 고르는 의식. 해골과 영혼을 함께 바치며, 바친 병사만큼 병력 칸을 그대로 차지한다.
+export const RITUALS = {
+  giant1: { label: '골렘 의식', description: '해골 병사 10명을 바쳐 해골 골렘을 세운다. 적을 끌어모아 내리친다', cost: { soldier: 10 }, souls: 1200 },
+  giant2: { label: '거인 의식', description: '골렘과 해골 병사 12명을 합쳐 해골 거인으로 키운다', cost: { giant1: 1, soldier: 12 }, souls: 5000 },
+  ranger1: { label: '석궁 의식', description: '해골 궁수 8명을 바쳐 꿰뚫는 석궁을 쏘는 해골 석궁수를 세운다', cost: { archer: 8 }, souls: 1000 },
+  ranger2: { label: '쇠뇌 의식', description: '석궁수와 해골 궁수 10명을 합쳐 볼트 3발을 쏘는 해골 쇠뇌병으로 키운다', cost: { ranger1: 1, archer: 10 }, souls: 4000 },
+  ranger3: { label: '명궁 의식', description: '쇠뇌병과 해골 궁수 12명을 합쳐 모든 적을 꿰뚫는 화살 5발을 쏘는 해골 명궁으로 키운다', cost: { ranger2: 1, archer: 12 }, souls: 12000 },
+  giant3: { label: '군주 의식', description: '거인과 해골 병사 15명을 합쳐 해골 군주로 키운다. 내리칠 때 땅이 흔들린다', cost: { giant2: 1, soldier: 15 }, souls: 15000 },
+};
+// 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
+export const NECRO_RELICS = {
+  gravesoil: { label: '묘지 흙', description: '처치한 적이 보라빛 구울로 일어나 잠시 함께 싸운다',
+    stats: ['처치한 적의 25%가 구울로 일어난다', '구울은 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 15 },
+  corpsebomb: { label: '시체 폭탄', description: '쓰러진 적의 시체가 잠시 뒤 터진다',
+    stats: ['처치한 적의 35%가 시체를 남긴다', '0.7초 뒤 반경 70 안에 피해 45'], chance: 0.35, damage: 45, radius: 70, fuseSec: 0.7 },
+  bonepipe: { label: '뼈 피리', description: '무덤을 깨우는 피리. 모집이 싸진다', stats: ['해골 모집 비용 -30%'], discount: 0.3 },
+  darkcrown: { label: '검은 왕관', description: '의식으로 키운 해골이 더 강해진다', stats: ['거인 계열과 석궁수 계열의 피해 +50%'], giantPower: 0.5 },
+  soulurn: { label: '영혼 항아리', description: '영혼을 더 많이 담는다', stats: ['처치할 때 얻는 영혼 +50%'], soulGain: 0.5 },
 };
 
 // 능력치 투자. 게임을 시작할 때 모두 같은 30점을 다섯 파트에 나눈다(파트당 최대 20).
@@ -53,6 +115,13 @@ export const BUILD = {
       5: { name: '농도 조절', text: '지속 피해 +15%', dotPower: 0.15 },
       10: { name: '속성 연구', text: '화염·냉기·번개·독·물 속성 피해 +20%', elementalPower: 0.2 },
       20: { name: '연금술 완성', text: '보스·정예에게 지속 피해 +25%, 지속·속성 전용 패시브와 보물 해금', dotElitePower: 0.25 },
+    } },
+  // 강령술사의 해골 군단을 키운다. 다른 오리에게는 효과가 없다.
+  necro: { label: '강령술', icon: 'soldier', per: { armyPower: 0.03 },
+    perks: {
+      5: { name: '무덤 파기', text: '모집할 때 해골이 1명 더 일어난다', recruitBonus: 1 },
+      10: { name: '사령 군단', text: '병력 한도 +20, 처치할 때 영혼 +1', cap: 20, souls: 1 },
+      20: { name: '죽음의 군주', text: '해골 피해 +40%, 의식에 바치는 병사와 궁수 -4명', power: 0.4, ritualDiscount: 4 },
     } },
 };
 

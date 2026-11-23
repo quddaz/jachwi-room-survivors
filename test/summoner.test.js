@@ -18,8 +18,8 @@ function run(g, frames) { for (let n = 0; n < frames; n++) update(g, DT); }
 
 describe('생존 대신 소환 능력치', () => {
   it('세 번째 항목을 소환으로 바꾸고 기존 저장 포인트는 이전한다', () => {
-    assert.deepEqual(Object.keys(BUILD), ['crit', 'haste', 'summon', 'treasure', 'dot']);
-    assert.deepEqual(normalizeBuild({ crit: 10, survival: 20 }), { crit: 10, haste: 0, summon: 20, treasure: 0, dot: 0 });
+    assert.deepEqual(Object.keys(BUILD), ['crit', 'haste', 'summon', 'treasure', 'dot', 'necro']);
+    assert.deepEqual(normalizeBuild({ crit: 10, survival: 20 }), { crit: 10, haste: 0, summon: 20, treasure: 0, dot: 0, necro: 0 });
     assert.equal(normalizeBuild({ summon: 0, survival: 20 }).summon, 0);
   });
   it('20점은 패시브 해금이며 즉시 추가 소환수를 주지는 않는다', () => {

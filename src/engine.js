@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -59,6 +59,14 @@ export function createGame(random = Math.random) {
     xpCarry: 0,
     nextId: 1,
     rerollLeft: 1,
+    souls: 0,
+    undead: {},
+    commands: {},
+    necroRelics: {},
+    army: [],
+    ghouls: [],
+    corpses: [],
+    shop: false,
   };
 }
 
@@ -846,8 +854,10 @@ function moveEnemies(game, dt) {
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
       continue;
     }
-    const dx = player.x - enemy.x;
-    const dy = player.y - enemy.y;
+    // 거인 해골 근처의 적은 오리 대신 거인에게 달려든다.
+    const lure = enemy.tauntBy && game.time < (enemy.tauntUntil ?? 0) && enemy.tauntBy.hp > 0 ? enemy.tauntBy : player;
+    const dx = lure.x - enemy.x;
+    const dy = lure.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
     let direction = 1;
     const hitSlow = game.time < (enemy.hitSlowUntil ?? 0) ? (enemy.elite ? HIT_SLOW.eliteSpeed : HIT_SLOW.speed) : 1;
@@ -1411,10 +1421,395 @@ function spreadAilments(game, source) {
   }
 }
 
+// 강령술사: 처치한 적의 영혼으로 해골 군단을 모집하고, 보물 상자에서 병사를 바쳐 거인을 키운다.
+// 레벨업에서는 무기와 패시브 대신 오리가 쓰는 강령술과 군단 지휘 능력만 고른다.
+const necromancer = game => Boolean(CHARACTERS[game.character]?.souls);
+export const isNecromancer = necromancer;
+const UNDEAD_MAX = 5;
+const levelOf = (table, levels, id, key) => {
+  const level = levels?.[id] ?? 0;
+  return level ? table[id][key][Math.min(level, table[id][key].length) - 1] : 0;
+};
+const undeadValue = (game, id, key) => {
+  const value = UNDEAD[id][key];
+  return Array.isArray(value) ? value[Math.min(game.undead[id] ?? 1, value.length) - 1] : value;
+};
+const necroRelic = (game, id) => (game.necroRelics?.[id] ? NECRO_RELICS[id] : null);
+const undeadDamage = (game, id) => undeadValue(game, id, 'damage') * mightOf(game);
+const giantUnit = type => type.startsWith('giant');
+const bigUnit = type => giantUnit(type) || type.startsWith('ranger');
+
+export function armyCap(game) {
+  return ARMY_CAP + levelOf(COMMANDS, game.commands, 'legion', 'cap') + (perk(game, 'necro', 10)?.cap ?? 0);
+}
+// 강령술 파트: 점수마다 해골 피해와 체력, 20점이면 크게 더 오른다.
+const necroPower = (game, key) => 1 + buildValue(game, key) + (perk(game, 'necro', 20)?.power ?? 0);
+export function ritualCost(game, id) {
+  const discount = perk(game, 'necro', 20)?.ritualDiscount ?? 0;
+  return Object.fromEntries(Object.entries(RITUALS[id].cost).map(([type, count]) => [type, ARMY[type].cap === 1 ? Math.max(1, count - discount) : count]));
+}
+export function armyUsed(game) {
+  return (game.army ?? []).reduce((sum, unit) => sum + ARMY[unit.type].cap, 0);
+}
+const armyCount = (game, type) => game.army.filter(unit => unit.type === type).length;
+function unitDamage(game, type) {
+  const crown = bigUnit(type) ? necroRelic(game, 'darkcrown')?.giantPower ?? 0 : 0;
+  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower');
+}
+
+function spawnUnit(game, type, at, index = 0) {
+  const angle = index * 2.399;
+  const spread = bigUnit(type) ? 0 : 16 + (index % 5) * 6;
+  const unit = { id: game.nextId++, type, x: at.x + Math.cos(angle) * spread, y: at.y + Math.sin(angle) * spread,
+    attackIn: 0.2 + (index % 4) * 0.1, facing: 1, swingAt: -1, slot: game.random() * Math.PI * 2 };
+  game.army.push(unit);
+  addEffect(game, { type: 'burst', x: unit.x, y: unit.y, color: 'soul', count: bigUnit(type) ? 16 : 4, life: 0.35, big: bigUnit(type) });
+  return unit;
+}
+
+function harvestSoul(game, enemy) {
+  if (!necromancer(game)) return;
+  const base = (enemy.boss ? SOULS.boss : enemy.elite ? SOULS.elite : SOULS.normal) + (perk(game, 'necro', 10)?.souls ?? 0);
+  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
+  const gained = Math.floor(game.soulCarry);
+  game.soulCarry -= gained;
+  game.souls = (game.souls ?? 0) + gained;
+  addEffect(game, { type: 'soul', x: enemy.x, y: enemy.y, life: 0.45, big: Boolean(enemy.boss || enemy.elite) });
+  if (enemy.dummy) return;
+  const bomb = necroRelic(game, 'corpsebomb');
+  if (bomb && game.random() < bomb.chance) {
+    game.corpses.push({ x: enemy.x, y: enemy.y, delay: bomb.fuseSec, total: bomb.fuseSec,
+      radius: bomb.radius * statsOf(game).area, damage: bomb.damage * mightOf(game) });
+  }
+  const soil = necroRelic(game, 'gravesoil');
+  if (soil && game.ghouls.length < soil.max && game.random() < soil.chance) {
+    const big = Boolean(enemy.boss || enemy.elite);
+    const life = soil.lifeSec * (big ? 2 : 1);
+    game.ghouls.push({ id: game.nextId++, kind: enemy.kind, x: enemy.x, y: enemy.y, radius: enemy.radius, life, total: life,
+      attackIn: 0.3, facing: 1, damageScale: enemy.boss ? 4 : enemy.elite ? 2 : 1 });
+  }
+}
+
+export function recruitPrice(game, id) {
+  const discount = levelOf(COMMANDS, game.commands, 'thrift', 'discount') + (necroRelic(game, 'bonepipe')?.discount ?? 0);
+  return Math.max(1, Math.round(RECRUITS[id].price * (1 - Math.min(0.7, discount))));
+}
+
+function recruitChoices(game) {
+  const free = armyCap(game) - armyUsed(game);
+  if (free <= 0) return [];
+  return Object.keys(RECRUITS).filter(id => recruitPrice(game, id) <= game.souls).map(id => {
+    const recruit = RECRUITS[id];
+    const amount = Math.min(recruit.amount + (perk(game, 'necro', 5)?.recruitBonus ?? 0), Math.floor(free / ARMY[recruit.unit].cap));
+    return { kind: 'soul', id, icon: recruit.unit, level: 0, price: recruitPrice(game, id), amount, label: recruit.label,
+      description: recruit.description, details: [`영혼 ${recruitPrice(game, id)}개`, `${ARMY[recruit.unit].label} +${amount}`] };
+  }).filter(choice => choice.amount > 0);
+}
+
+function ritualChoices(game) {
+  return Object.keys(RITUALS).filter(id => ritualReady(game, id) && RITUALS[id].souls <= game.souls).map(id => ({
+    kind: 'ritual', id, icon: id, level: 0, price: RITUALS[id].souls, label: RITUALS[id].label, description: RITUALS[id].description,
+    details: [Object.entries(ritualCost(game, id)).map(([type, count]) => `${ARMY[type].label} ${count}`).join(' + ') + ` → ${ARMY[id].label}`,
+      `영혼 ${RITUALS[id].souls}개`] }));
+}
+
+// R을 누르면 영혼 창을 연다. 자동으로 뜨지 않아 전투 흐름을 끊지 않는다.
+export function openSoulShop(game) {
+  if (!necromancer(game) || game.choices || game.over) return false;
+  game.shop = true;
+  game.choices = [...ritualChoices(game), ...recruitChoices(game), { kind: 'shop-leave', id: 'leave', icon: 'soul', level: 0,
+    label: '닫기', description: '영혼을 아껴 두고 전투로 돌아간다', details: [`가진 영혼 ${game.souls}개`, `병력 ${armyUsed(game)}/${armyCap(game)}`] }];
+  return true;
+}
+
+function closeShop(game) {
+  game.shop = false;
+  game.choices = nextChoices(game);
+  game.rerollLeft = rerollsPerLevel(game);
+}
+
+function recruit(game, choice) {
+  game.souls -= choice.price;
+  const unit = RECRUITS[choice.id].unit;
+  for (let index = 0; index < choice.amount; index += 1) spawnUnit(game, unit, game.player, armyCount(game, unit) + index);
+  addEffect(game, { type: 'banner', text: `${ARMY[unit].label} +${choice.amount}`, life: 1.6 });
+  closeShop(game);
+}
+
+// 레벨업 선택지: 강령술(최대 Lv 5)과 지휘 능력(최대 Lv 5)에서 고른다.
+function undeadChoices(game) {
+  const spells = Object.keys(UNDEAD).filter(id => (game.undead[id] ?? 0) < UNDEAD_MAX)
+    .map(id => ({ kind: 'undead', id, level: (game.undead[id] ?? 0) + 1, label: UNDEAD[id].label, description: UNDEAD[id].description,
+      details: [game.undead[id] ? `Lv ${game.undead[id]} → ${game.undead[id] + 1}` : '새 강령술'] }));
+  const commands = Object.keys(COMMANDS).filter(id => (game.commands[id] ?? 0) < UNDEAD_MAX)
+    .map(id => ({ kind: 'command', id, icon: { legion: 'soldier', thrift: 'soul', harvest: 'soul', drill: 'giant2', reach: 'archer', drum: 'giant3', march: 'wraith' }[id],
+      level: (game.commands[id] ?? 0) + 1, label: COMMANDS[id].label, description: COMMANDS[id].description,
+      details: [`Lv ${game.commands[id] ?? 0} → ${(game.commands[id] ?? 0) + 1}`] }));
+  return shuffle([...spells, ...commands], game.random);
+}
+
+function chooseUndead(game, choice) {
+  if (choice.kind === 'undead') game.undead[choice.id] = choice.level;
+  else game.commands[choice.id] = choice.level;
+}
+
+function ritualReady(game, id) {
+  return Object.entries(ritualCost(game, id)).every(([type, count]) => armyCount(game, type) >= count);
+}
+// 보물 상자: 강령술사는 강령 보물을 먼저 받는다.
+function necroTreasures(game) {
+  const relics = Object.keys(NECRO_RELICS).filter(id => !game.necroRelics[id]).map(id => ({
+    kind: 'relic-necro', id, icon: { gravesoil: 'ghoul', corpsebomb: 'corpse' }[id] ?? id, level: 0, label: NECRO_RELICS[id].label, description: NECRO_RELICS[id].description, details: NECRO_RELICS[id].stats }));
+  return shuffle(relics, game.random).slice(0, 2);
+}
+
+function performRitual(game, id) {
+  game.souls -= RITUALS[id].souls;
+  const consumed = [];
+  for (const [type, count] of Object.entries(ritualCost(game, id))) {
+    const chosen = game.army.filter(unit => unit.type === type).slice(0, count);
+    consumed.push(...chosen);
+  }
+  game.army = game.army.filter(unit => !consumed.includes(unit));
+  const center = consumed.reduce((sum, unit) => ({ x: sum.x + unit.x / consumed.length, y: sum.y + unit.y / consumed.length }), { x: 0, y: 0 });
+  spawnUnit(game, id, consumed.length ? center : game.player);
+  addEffect(game, { type: 'levelup', x: center.x, y: center.y, life: 1.2, gold: true });
+  addEffect(game, { type: 'flash', life: 0.4 });
+  addEffect(game, { type: 'banner', text: `${ARMY[id].label} 탄생!`, life: 2.4 });
+  game.shake = 0.3;
+}
+
+function nearestTo(game, from, reach) {
+  let best = null;
+  let bestGap = reach;
+  for (const enemy of near(game, from.x, from.y, reach)) {
+    if (enemy.dead) continue;
+    const gap = distance(enemy, from);
+    if (gap < bestGap) { bestGap = gap; best = enemy; }
+  }
+  return best;
+}
+
+// 목표를 향해 걸어가 사거리 안이면 true를 돌려준다.
+function stepToward(unit, goal, stop, speed, dt) {
+  const gap = distance(goal, unit);
+  if (gap > stop) {
+    const step = Math.min(gap - stop, speed * dt);
+    unit.x += (goal.x - unit.x) / gap * step;
+    unit.y += (goal.y - unit.y) / gap * step;
+  }
+  if (Math.abs(goal.x - unit.x) > 1) unit.facing = goal.x > unit.x ? 1 : -1;
+  return gap <= stop + 1;
+}
+
+const ARMY_SQUAD = { keepRange: 0.5, strafeAngle: 0.35, regroup: 180 };
+// 해골이 싸우는 범위: 오리 화면보다 조금 크다. 이보다 1.6배 넘게 떨어지면 오리 곁으로 돌아온다.
+const ARMY_FIELD = 1.15, ARMY_RECALL = 1.6;
+function armyField(game, scale = ARMY_FIELD) {
+  return { w: (game.view?.halfW ?? 420) * scale, h: (game.view?.halfH ?? 320) * scale };
+}
+const inField = (point, player, field) => Math.abs(point.x - player.x) <= field.w && Math.abs(point.y - player.y) <= field.h;
+const command = (game, id, key) => levelOf(COMMANDS, game.commands, id, key);
+function updateArmy(game, dt) {
+  const { player } = game;
+  const stats = statsOf(game);
+  const tempo = attackTempoOf(game) * (1 + command(game, 'march', 'speed'));
+  const reachScale = 1 + command(game, 'reach', 'range');
+  const cooldownScale = stats.cooldownScale / (1 + command(game, 'drum', 'attackSpeed'));
+  const field = armyField(game), recall = armyField(game, ARMY_RECALL);
+  game.army.forEach((unit, index) => {
+    const spec = ARMY[unit.type];
+    unit.attackIn -= dt;
+    // 해골은 죽지 않는다. 거인 근처의 적은 거인에게 끌려간다.
+    if (spec.taunt) {
+      for (const enemy of near(game, unit.x, unit.y, spec.taunt)) {
+        if (!enemy.dead && !enemy.boss && distance(enemy, unit) < spec.taunt) { enemy.tauntBy = unit; enemy.tauntUntil = game.time + 0.25; }
+      }
+    }
+    const tether = distance(unit, player);
+    // 소환수처럼 너무 멀어지면 오리 곁으로 돌아오고, 멀어지는 동안에는 오리보다 빠르게 따라붙는다.
+    if (!inField(unit, player, recall)) { unit.x = player.x; unit.y = player.y; unit.regrouping = false; unit.targetId = null; }
+    const ranged = spec.ranged;
+    const range = spec.range * reachScale;
+    const count = game.army.length;
+    const idle = unit.slot + game.time * 0.9;
+    const ring = bigUnit(unit.type) ? 64 : ranged ? 76 : 48 + (index % 6) * 8;
+    const formation = { x: player.x + Math.cos(idle) * ring, y: player.y + Math.sin(idle) * ring * 0.8 };
+    const walk = spec.speed * tempo, rush = Math.max(walk, stats.speed * 1.35);
+    if (ranged) {
+      // 스페이스 마린처럼 사거리 절반을 유지하며 좌우로 돌아 쏘고, 멀어지면 합류부터 한다.
+      if (!inField(unit, player, field)) unit.regrouping = true;
+      if (tether < ARMY_SQUAD.regroup) unit.regrouping = false;
+      let target = null, best = Infinity;
+      for (const enemy of near(game, player.x, player.y, Math.hypot(field.w, field.h))) {
+        if (enemy.dead || !inField(enemy, player, field)) continue;
+        const gap = distance(enemy, unit) + ((enemy.id + index) % count) * 60;
+        if (gap < best) { best = gap; target = enemy; }
+      }
+      let goal = formation;
+      if (target && !unit.regrouping) {
+        const side = index % 2 ? -1 : 1;
+        const angle = Math.atan2(unit.y - target.y, unit.x - target.x) + side * ARMY_SQUAD.strafeAngle;
+        goal = { x: target.x + Math.cos(angle) * range * ARMY_SQUAD.keepRange, y: target.y + Math.sin(angle) * range * ARMY_SQUAD.keepRange };
+        goal = { x: clamp(goal.x, player.x - field.w * 0.9, player.x + field.w * 0.9), y: clamp(goal.y, player.y - field.h * 0.9, player.y + field.h * 0.9) };
+      }
+      stepToward(unit, goal, 2, unit.regrouping ? rush : walk, dt);
+      if (target) unit.facing = target.x > unit.x ? 1 : -1;
+      const inRange = target && !unit.regrouping && distance(target, unit) <= range;
+      if (inRange && unit.attackIn <= 0) {
+        unit.attackIn = spec.cooldown * cooldownScale;
+        unit.swingAt = game.time;
+        const aim = Math.atan2(target.y - unit.y, target.x - unit.x);
+        const bolts = spec.bolts ?? 1, size = spec.size ?? 1;
+        for (let n = 0; n < bolts; n += 1) {
+          const angle = aim + (n - (bolts - 1) / 2) * 0.13;
+          game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(angle) * spec.arrowSpeed, vy: Math.sin(angle) * spec.arrowSpeed,
+            damage: unitDamage(game, unit.type), pierce: spec.pierce ?? 0, life: (range + 60) / spec.arrowSpeed, radius: 6 + size * 2, scale: 1, hit: new Set(),
+            kind: 'arrow', size, weapon: 'archer', elements: null, sound: 'shoot', silent: n > 0 });
+        }
+      }
+      return;
+    }
+    // 양말 인형처럼 오리 화면 안의 적을 쫓되, 잡은 적은 쓰러질 때까지 놓지 않고 둘러싸 벤다.
+    let target = null, best = Infinity;
+    for (const enemy of near(game, player.x, player.y, Math.hypot(field.w, field.h))) {
+      if (enemy.dead || !inField(enemy, player, field)) continue;
+      if (enemy.id === unit.targetId) { target = enemy; break; }
+      const gap = distance(enemy, unit) + ((enemy.id + index) % count) * 25;
+      if (gap < best) { target = enemy; best = gap; }
+    }
+    unit.targetId = target?.id;
+    const regroup = tether > 180;
+    if (!target) {
+      stepToward(unit, formation, 4, regroup ? rush : walk, dt);
+      return;
+    }
+    const flank = unit.slot;
+    const spot = giantUnit(unit.type) ? target : { x: target.x + Math.cos(flank) * (target.radius + 6), y: target.y + Math.sin(flank) * (target.radius + 6) };
+    const reach = giantUnit(unit.type) ? range * 0.5 : range;
+    const close = stepToward(unit, spot, giantUnit(unit.type) ? reach : 2, regroup ? rush : walk, dt) || distance(unit, target) <= range + target.radius;
+    if (close && unit.attackIn <= 0) {
+      unit.attackIn = spec.cooldown * cooldownScale;
+      unit.swingAt = game.time;
+      if (!giantUnit(unit.type)) {
+        damageEnemy(game, target, unitDamage(game, unit.type), true, unit, 0, { showHit: false });
+        addEffect(game, { type: 'burst', x: target.x, y: target.y, color: 'bone', count: 3, life: 0.2 });
+        return;
+      }
+      const radius = range * stats.area;
+      const center = { x: unit.x + unit.facing * radius * 0.35, y: unit.y + 4 };
+      for (const enemy of near(game, center.x, center.y, radius)) {
+        if (!enemy.dead && distance(enemy, center) < radius + enemy.radius) damageWeaponHit(game, enemy, unitDamage(game, unit.type), true, unit);
+      }
+      addEffect(game, { type: 'ring', x: center.x, y: center.y, radius, color: 'soul', life: 0.35, sound: 'impact' });
+      addEffect(game, { type: 'burst', x: center.x, y: center.y, color: 'bone', count: 12, life: 0.45, big: true });
+      game.shake = Math.max(game.shake, spec.quake ?? 0.08);
+    }
+  });
+}
+
+function updateGhouls(game, dt) {
+  const soil = necroRelic(game, 'gravesoil');
+  if (!soil) { game.ghouls = []; return; }
+  const { player } = game;
+  for (const ghoul of game.ghouls) {
+    ghoul.life -= dt;
+    ghoul.attackIn -= dt;
+    const target = nearestTo(game, ghoul, 360);
+    if (!target) { stepToward(ghoul, player, 40, 175, dt); continue; }
+    if (stepToward(ghoul, target, 20 + target.radius, 175 * attackTempoOf(game), dt) && ghoul.attackIn <= 0) {
+      ghoul.attackIn = 0.6;
+      // 구울은 수가 많으므로 피해 숫자를 띄우지 않는다.
+      damageEnemy(game, target, soil.damage * mightOf(game) * ghoul.damageScale, true, ghoul, 0, { showHit: false });
+    }
+  }
+  const expired = game.ghouls.filter(ghoul => ghoul.life <= 0);
+  for (const ghoul of expired) addEffect(game, { type: 'burst', x: ghoul.x, y: ghoul.y, color: 'soul', count: 6, life: 0.35 });
+  game.ghouls = game.ghouls.filter(ghoul => ghoul.life > 0);
+}
+
+export function wraithOrbiters(game) {
+  if (!game.undead?.wraith) return [];
+  const count = undeadValue(game, 'wraith', 'count');
+  const orbit = undeadValue(game, 'wraith', 'orbit') * statsOf(game).area;
+  return Array.from({ length: count }, (_, index) => {
+    const angle = game.time * UNDEAD.wraith.spin * attackTempoOf(game) + (index / count) * Math.PI * 2;
+    return { x: game.player.x + Math.cos(angle) * orbit, y: game.player.y + Math.sin(angle) * orbit * 0.8, angle };
+  });
+}
+
+function updateWraiths(game) {
+  const orbiters = wraithOrbiters(game);
+  if (!orbiters.length) return;
+  const damage = undeadDamage(game, 'wraith');
+  for (const orbiter of orbiters) {
+    for (const enemy of near(game, orbiter.x, orbiter.y, 16 + 30)) {
+      if (enemy.dead || distance(enemy, orbiter) > 16 + enemy.radius) continue;
+      if (game.time - (enemy.wraithHitAt ?? -Infinity) < UNDEAD.wraith.hitEverySec) continue;
+      enemy.wraithHitAt = game.time;
+      damageWeaponHit(game, enemy, damage, false, orbiter);
+      if (!enemy.dead) slowBy(game, enemy, enemy.boss ? 0.9 : UNDEAD.wraith.slow, UNDEAD.wraith.slowSec);
+    }
+  }
+}
+
+function updateBones(game, dt) {
+  if (!game.undead.bone) return;
+  game.boneIn = (game.boneIn ?? 0) - dt;
+  if (game.boneIn > 0) return;
+  game.boneIn = undeadValue(game, 'bone', 'cooldown') * statsOf(game).cooldownScale;
+  const targets = nearestEnemies(game, undeadValue(game, 'bone', 'count'), UNDEAD.bone.range);
+  targets.forEach((target, index) => {
+    const angle = Math.atan2(target.y - game.player.y, target.x - game.player.x) + (index % 2 ? 0.06 : -0.06) * index;
+    const speed = UNDEAD.bone.speed;
+    game.shots.push({ x: game.player.x, y: game.player.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      damage: undeadDamage(game, 'bone'), pierce: undeadValue(game, 'bone', 'pierce'), life: UNDEAD.bone.range / speed,
+      radius: 9, scale: 1, hit: new Set(), kind: 'bone', weapon: 'bone', elements: null, sound: 'shoot' });
+  });
+}
+
+function updateScythe(game, dt) {
+  if (!game.undead.scythe) return;
+  game.scytheIn = (game.scytheIn ?? 0.4) - dt;
+  if (game.scytheIn > 0) return;
+  game.scytheIn = undeadValue(game, 'scythe', 'cooldown') * statsOf(game).cooldownScale;
+  const { player } = game;
+  const radius = undeadValue(game, 'scythe', 'radius') * statsOf(game).area;
+  const souls = Math.min(UNDEAD.scythe.maxSoulBonus, game.souls * UNDEAD.scythe.perSoul);
+  const damage = undeadDamage(game, 'scythe') * (1 + souls);
+  for (const enemy of near(game, player.x, player.y, radius)) {
+    if (!enemy.dead && distance(enemy, player) < radius + enemy.radius) damageWeaponHit(game, enemy, damage, true, player);
+  }
+  addEffect(game, { type: 'reap', x: player.x, y: player.y, radius, angle: game.random() * Math.PI * 2, life: 0.42, sound: 'slash', power: souls });
+}
+
+function updateCorpses(game, dt) {
+  for (const corpse of game.corpses) {
+    corpse.delay -= dt;
+    if (corpse.delay > 0) continue;
+    for (const enemy of near(game, corpse.x, corpse.y, corpse.radius)) {
+      if (!enemy.dead && distance(enemy, corpse) < corpse.radius + enemy.radius) damageWeaponHit(game, enemy, corpse.damage, true, corpse);
+    }
+    addEffect(game, { type: 'ring', x: corpse.x, y: corpse.y, radius: corpse.radius, color: 'soul', life: 0.3, sound: 'impact' });
+    addEffect(game, { type: 'burst', x: corpse.x, y: corpse.y, color: 'bone', count: 10, life: 0.4 });
+  }
+  game.corpses = game.corpses.filter(corpse => corpse.delay > 0);
+}
+
+function updateUndead(game, dt) {
+  updateBones(game, dt);
+  updateArmy(game, dt);
+  updateGhouls(game, dt);
+  updateWraiths(game);
+  updateScythe(game, dt);
+  updateCorpses(game, dt);
+}
+
 function killEnemy(game, enemy) {
   enemy.dead = true;
   spreadAilments(game, enemy);
   game.kills += 1;
+  harvestSoul(game, enemy);
   if (enemy.kind === 'milk' && !enemy.exploded) {
     // 상한 우유는 쓰러져도 터진다. 이미 부풀던 중이면 그 폭발이 그대로 터지고, 아니면 잠시 뒤 그 자리에서 터진다.
     const base = ENEMIES.milk;
@@ -3100,6 +3495,14 @@ export function rollChoices(game) {
       && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && buildUnlocked(game, PASSIVES[id]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
+  if (necromancer(game)) {
+    // 강령술사는 무기 대신 강령술과 지휘 능력을 고르고, 일반 패시브는 그대로 나온다.
+    const passives = pool.filter(choice => choice.kind === 'passive');
+    const choices = shuffle([...undeadChoices(game), ...passives], game.random).slice(0, 3)
+      .map(({ kind, id, level, label, description, icon, details }) => ({ kind, id, level, label, description, ...(icon ? { icon } : {}), ...(details ? { details } : {}) }));
+    while (choices.length < 3) choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 20 회복' });
+    return choices.map(choice => ({ ...choice, details: choice.details ?? describeChoice(game, choice) }));
+  }
   const evolvable = Object.keys(WEAPONS).filter((id) => game.weapons[id] === MAX_LEVEL && !game.evolved[id])
     .map((id) => ({ kind: 'evolve', id, level: MAX_LEVEL + 1, ...EVOLUTIONS[id] }));
   // 두 완성형을 모두 갖추면 합체가 가장 먼저 나온다.
@@ -3162,6 +3565,14 @@ function clearMaterialAttacks(game, fusionId) {
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
+  if (necromancer(game)) {
+    const necro = necroTreasures(game);
+    const normal = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random)
+      .slice(0, relicsFull(game) ? 0 : 1)
+      .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
+    const offers = [...necro, ...normal].slice(0, 3);
+    if (offers.length) return offers;
+  }
   const offers = shuffle(Object.keys(RELICS).filter((id) => (!game.relics[id] || RELICS[id].stackable) && buildUnlocked(game, RELICS[id])), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
     .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
   if (offers.length === 0) return [];
@@ -3204,9 +3615,9 @@ export function startWithRelic(game) {
 // 선택지마다 정해진 횟수만큼 새로 뽑을 수 있다.
 export function reroll(game) {
   // 내려놓을 보물을 고르는 중에는 다시 뽑지 않는다.
-  if (!game.choices || game.rerollLeft <= 0 || game.choices[0]?.kind.endsWith('-swap')) return false;
+  if (!game.choices || game.shop || game.rerollLeft <= 0 || game.choices[0]?.kind.endsWith('-swap')) return false;
   game.rerollLeft -= 1;
-  game.choices = game.choices[0]?.kind === 'relic' ? rollRelics(game) : rollChoices(game);
+  game.choices = game.choices[0]?.kind.startsWith('relic') ? rollRelics(game) : rollChoices(game);
   return true;
 }
 
@@ -3221,6 +3632,7 @@ function finishChoice(game) {
 
 export function declineChoice(game) {
   if (!game.choices) return false;
+  if (game.shop) { closeShop(game); return true; }
   finishChoice(game);
   return true;
 }
@@ -3228,6 +3640,24 @@ export function declineChoice(game) {
 export function choose(game, index) {
   const choice = game.choices?.[index];
   if (!choice) return null;
+  if (choice.kind === 'soul') { recruit(game, choice); return choice; }
+  if (choice.kind === 'shop-leave') { closeShop(game); return choice; }
+  if (choice.kind === 'undead' || choice.kind === 'command') {
+    chooseUndead(game, choice);
+    finishChoice(game);
+    return choice;
+  }
+  if (choice.kind === 'ritual') {
+    performRitual(game, choice.id);
+    closeShop(game);
+    return choice;
+  }
+  if (choice.kind === 'relic-necro') {
+    game.necroRelics[choice.id] = true;
+    addEffect(game, { type: 'banner', text: `보물: ${choice.label}`, life: 2.2 });
+    finishChoice(game);
+    return choice;
+  }
   if (choice.kind === 'passive' && PASSIVES[choice.id]?.hidden) return null;
   if (choice.kind === 'relic' && relicsFull(game)) {
     // 보물이 가득 찼으면 무엇을 내려놓을지 한 번 더 고른다.
@@ -3340,6 +3770,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   moveEnemies(game, dt);
   if (game.practice) keepDummy(game);
   fireWeapons(game, dt);
+  if (necromancer(game)) updateUndead(game, dt);
   updateProjectiles(game, dt);
   contactDamage(game);
   collect(game, dt);
