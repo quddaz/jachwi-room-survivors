@@ -911,7 +911,7 @@ function drawCleave(ctx, cx, cy, effect, progress) {
   for (let n = 0; n < segments; n += 1) {
     const from = turn - swept * (n + 1) / segments, to = turn - swept * n / segments + 0.01;
     const strength = 1 - n / segments;
-    ctx.globalAlpha = fade * (0.1 + 0.8 * strength * strength);
+    ctx.globalAlpha = fade * (0.06 + 0.44 * strength * strength);
     for (const [outer, inner, color] of bands) {
       const depth = 1 - (1 - inner) * (0.35 + 0.65 * strength);
       const top = 1 - (1 - outer) * (0.35 + 0.65 * strength);
@@ -923,7 +923,7 @@ function drawCleave(ctx, cx, cy, effect, progress) {
       ctx.stroke();
     }
   }
-  ctx.globalAlpha = fade;
+  ctx.globalAlpha = fade * 0.85;
   const at = (angle, distance) => [cx + Math.cos(angle) * distance, cy + Math.sin(angle) * distance * 0.85];
   const bar = (from, to, width, color) => {
     const [x0, y0] = at(turn, from), [x1, y1] = at(turn, to);
@@ -970,54 +970,87 @@ function drawCleave(ctx, cx, cy, effect, progress) {
   }
   ctx.restore();
   const [tx, ty] = at(turn, radius);
-  glow(ctx, Math.round(tx), Math.round(ty), 8, [227, 200, 255], 0.8 * fade);
+  glow(ctx, Math.round(tx), Math.round(ty), 8, [227, 200, 255], 0.5 * fade);
   if (progress < 0.45) sparkle(ctx, Math.round(tx), Math.round(ty), '#ffffff', true);
 }
 
-// 골렘과 거인의 내려찍기: 땅이 갈라지고 보라빛 충격파가 둥글게 퍼진다.
+// 골렘과 거인의 내려찍기: 픽셀 단위로 땅이 갈라지고, 보라빛 충격파 고리와 돌 조각이 튄다.
 function drawShockwave(ctx, cx, cy, effect, progress) {
   const radius = effect.radius / WORLD_PER_PIXEL;
-  const spread = 1 - (1 - Math.min(1, progress / 0.55)) ** 3;
+  const spread = 1 - (1 - Math.min(1, progress / 0.5)) ** 3;
   const fade = 1 - progress;
-  ctx.save();
-  // 갈라진 땅: 중심에서 바깥으로 지그재그 금이 뻗는다.
-  const cracks = effect.big ? 10 : 7;
   let seed = effect.seed ?? 1;
   const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
-  ctx.globalAlpha = Math.min(1, fade * 1.6);
-  for (let n = 0; n < cracks; n += 1) {
-    let angle = (n / cracks) * Math.PI * 2 + rand() * 0.5;
-    let [x, y] = [cx, cy];
-    const length = radius * (0.45 + rand() * 0.35) * Math.min(1, progress / 0.25);
-    const steps = 5;
-    for (let step = 0; step < steps; step += 1) {
-      angle += (rand() - 0.5) * 0.7;
-      const nx = x + Math.cos(angle) * length / steps, ny = y + Math.sin(angle) * length / steps * 0.85;
-      ctx.strokeStyle = '#1b1020'; ctx.lineWidth = 3 - step * 0.4; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
-      ctx.strokeStyle = '#b36bff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(nx, ny); ctx.stroke();
-      [x, y] = [nx, ny];
+  const px = (x, y, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); };
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  // 바닥이 눌린 자리: 안쪽을 보라 점으로 듬성듬성 물들인다(디더링).
+  const inner = radius * spread * 0.9;
+  if (fade > 0.25) {
+    for (let y = -inner * 0.85; y <= inner * 0.85; y += 2) {
+      for (let x = -inner; x <= inner; x += 2) {
+        if ((x / inner) ** 2 + (y / (inner * 0.85)) ** 2 > 1) continue;
+        if (((Math.round(x) + Math.round(y)) / 2 + Math.floor(progress * 8)) % 3 !== 0) continue;
+        px(cx + x, cy + y, fade > 0.6 ? '#7a2a9c' : '#4a2a72');
+      }
     }
   }
-  // 충격파 고리: 바깥은 하얗게, 안쪽은 보랏빛으로 겹친다.
-  const rings = [[1, 3, '#ffffff', 1], [0.94, 5, '#e3c8ff', 0.9], [0.84, 7, '#b36bff', 0.7], [0.7, 6, '#7a2a9c', 0.45]];
-  for (const [scale, width, color, alpha] of rings) {
-    const r = radius * spread * scale;
-    if (r < 2) continue;
-    ctx.globalAlpha = fade * alpha;
-    ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, width * (1 - progress * 0.7));
-    ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.85, 0, 0, Math.PI * 2); ctx.stroke();
+  // 갈라진 땅: 짙은 테두리 안에 보라 빛줄기가 흐르는 지그재그 금
+  const cracks = effect.big ? 9 : 6;
+  const grow = Math.min(1, progress / 0.2);
+  for (let n = 0; n < cracks; n += 1) {
+    let angle = (n / cracks) * Math.PI * 2 + rand() * 0.5;
+    let x = cx, y = cy;
+    const length = radius * (0.5 + rand() * 0.35) * grow;
+    for (let step = 0; step < 5; step += 1) {
+      angle += (rand() - 0.5) * 0.8;
+      const nx = Math.round(x + Math.cos(angle) * length / 5), ny = Math.round(y + Math.sin(angle) * length / 5 * 0.85);
+      if (step < 3) { line(ctx, x + 1, y, nx + 1, ny, '#1b1020'); line(ctx, x, y + 1, nx, ny + 1, '#1b1020'); }
+      line(ctx, x, y, nx, ny, fade > 0.5 ? '#b36bff' : '#7a2a9c');
+      if (step === 4 && fade > 0.4) px(nx, ny, '#e3c8ff');
+      x = nx; y = ny;
+    }
   }
-  // 튀어 오르는 흙과 뼛조각
-  ctx.globalAlpha = fade;
-  for (let n = 0; n < (effect.big ? 22 : 14); n += 1) {
-    const angle = rand() * Math.PI * 2, distance = radius * spread * (0.6 + rand() * 0.45);
-    const lift = Math.sin(Math.min(1, progress * 1.6) * Math.PI) * (4 + rand() * 8);
-    ctx.fillStyle = n % 3 ? '#5a3a2a' : '#efe6d2';
-    ctx.fillRect(Math.round(cx + Math.cos(angle) * distance), Math.round(cy + Math.sin(angle) * distance * 0.85 - lift), 2, 2);
+  // 충격파 고리: 바깥부터 흰색, 연보라, 보라, 짙은 보라 픽셀 띠. 옅어질수록 점을 건너뛴다.
+  const bands = [[0, '#ffffff'], [1, '#e3c8ff'], [2, '#e3c8ff'], [3, '#b36bff'], [4, '#b36bff'], [5, '#7a2a9c']];
+  const ring = radius * spread;
+  if (ring > 3) {
+    const steps = Math.ceil(Math.PI * 2 * ring * 1.2);
+    for (const [depth, color] of bands) {
+      if (fade < 0.35 && depth < 2) continue;
+      const r = ring - depth;
+      for (let i = 0; i < steps; i += 1) {
+        if (fade < 0.55 && (i + depth) % 2) continue;
+        const angle = (i / steps) * Math.PI * 2;
+        px(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r * 0.85, color);
+      }
+    }
+  }
+  // 흙먼지: 고리를 따라 피어오르는 작은 먼지 덩이
+  for (let n = 0; n < (effect.big ? 14 : 9); n += 1) {
+    const angle = rand() * Math.PI * 2;
+    const r = ring * (0.92 + rand() * 0.12);
+    const size = 2 + Math.round(rand() * 2 * fade);
+    const x = Math.round(cx + Math.cos(angle) * r), y = Math.round(cy + Math.sin(angle) * r * 0.85 - progress * 6);
+    ctx.fillStyle = `rgba(168,140,110,${0.75 * fade})`; ctx.fillRect(x - 1, y - 1, size + 1, size);
+    ctx.fillStyle = `rgba(214,196,168,${0.8 * fade})`; ctx.fillRect(x - 1, y - 1, size, size - 1);
+  }
+  // 튀어 오르는 돌과 뼛조각: 짙은 테두리를 두른 2~3픽셀 조각이 포물선을 그린다.
+  for (let n = 0; n < (effect.big ? 16 : 10); n += 1) {
+    const angle = rand() * Math.PI * 2, reach = radius * (0.25 + rand() * 0.6) * spread;
+    const lift = Math.sin(Math.min(1, progress * 1.4) * Math.PI) * (6 + rand() * 12);
+    const x = Math.round(cx + Math.cos(angle) * reach), y = Math.round(cy + Math.sin(angle) * reach * 0.85 - lift);
+    const bone = n % 3 === 0, size = bone ? 2 : 2 + (n % 2);
+    ctx.fillStyle = '#1b1020'; ctx.fillRect(x - 1, y - 1, size + 2, size + 2);
+    ctx.fillStyle = bone ? '#efe6d2' : '#7d6a5a'; ctx.fillRect(x, y, size, size);
+    px(x, y, bone ? '#ffffff' : '#a89482');
   }
   ctx.restore();
-  glow(ctx, cx, cy, radius * (0.35 + spread * 0.3), [179, 107, 255], 0.45 * fade);
-  if (progress < 0.18) glow(ctx, cx, cy, radius * 0.3, [255, 255, 255], 0.9 * (1 - progress / 0.18));
+  glow(ctx, cx, cy, radius * (0.3 + spread * 0.25), [179, 107, 255], 0.2 * fade);
+  if (progress < 0.15) {
+    glow(ctx, cx, cy, radius * 0.28, [255, 255, 255], 0.55 * (1 - progress / 0.15));
+    sparkle(ctx, Math.round(cx), Math.round(cy), '#ffffff', true);
+  }
 }
 
 function drawBone(ctx, x, y, spin, size = 1) {

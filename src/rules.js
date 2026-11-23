@@ -20,7 +20,7 @@ export const CHARACTERS = {
 
 // 강령술사 전용. 영혼은 처치할 때 바로 모이고, R을 눌러 영혼 창에서 쓴다.
 // 영혼 흡수: 지금까지 모은 영혼이 많을수록 해골과 강령술 피해가 오른다. 후반 적 체력을 따라가도록 거듭제곱으로 키운다.
-export const SOUL_GROWTH = { per: 1000, power: 0.75, scale: 0.25 };
+export const SOUL_GROWTH = { per: 1000, power: 0.75, scale: 0.15 };
 export const SOULS = { normal: 1, elite: 5, boss: 30 };
 
 // 강령술사의 레벨업 선택지. 오리가 직접 쓰는 강령술과 군단을 키우는 지휘 능력뿐이다.
@@ -60,7 +60,7 @@ export const ARMY = {
   ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
   ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
   ranger3: { label: '해골 명궁', damage: 400, cooldown: 1.1, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 800, bolts: 5, pierce: 99, size: 4 },
-  giant3: { label: '해골 군주', damage: 550, cooldown: 1.4, speed: 180, range: 320, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
+  giant3: { label: '해골 군주', damage: 380, cooldown: 1.6, speed: 180, range: 260, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
 };
 export const ARMY_CAP = 30;
 // 영혼 모집 창. 한 번에 여러 마리를 뽑으며, 남은 병력 칸만큼만 들어온다.
@@ -75,7 +75,7 @@ export const RITUALS = {
   ranger1: { label: '석궁 의식', description: '해골 궁수 8명을 바쳐 꿰뚫는 석궁을 쏘는 해골 석궁수를 세운다', cost: { archer: 8 }, souls: 1000 },
   ranger2: { label: '쇠뇌 의식', description: '석궁수와 해골 궁수 10명을 합쳐 볼트 3발을 쏘는 해골 쇠뇌병으로 키운다', cost: { ranger1: 1, archer: 10 }, souls: 4000 },
   ranger3: { label: '명궁 의식', description: '쇠뇌병과 해골 궁수 12명을 합쳐 모든 적을 꿰뚫는 화살 5발을 쏘는 해골 명궁으로 키운다', cost: { ranger2: 1, archer: 12 }, souls: 12000 },
-  giant3: { label: '군주 의식', description: '거인과 해골 병사 15명을 합쳐 해골 군주로 키운다. 내리칠 때 땅이 흔들린다', cost: { giant2: 1, soldier: 15 }, souls: 15000 },
+  giant3: { label: '군주 의식', description: '거인과 해골 병사 15명을 합쳐 해골 군주로 키운다. 대검을 한 바퀴 휘두른다', cost: { giant2: 1, soldier: 15 }, souls: 15000 },
 };
 // 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
 export const NECRO_RELICS = {

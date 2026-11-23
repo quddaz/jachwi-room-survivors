@@ -1421,7 +1421,7 @@ function giantArt(frame) {
   for (const [x, y] of [[10, 10], [27, 10], [15, 25], [21, 25]]) g.set(x, y, 'V');
   return g.rows();
 }
-// 3차 군주: 금관과 보라 망토, 양날 도끼. 눈에서 푸른 불꽃이 탄다.
+// 3차 군주: 금관과 보라 망토, 룬을 새긴 대검. 눈에서 푸른 불꽃이 탄다.
 function lordArt(frame) {
   const g = canvasGrid(48, 48);
   const step = frame === 1 ? 1 : 0, swing = frame === 2;
@@ -1439,9 +1439,10 @@ function lordArt(frame) {
   g.rect(19, 33, 4, 8 - step, 'w').rect(27, 33, 4, 7 + step, 'w').rect(18, 41 - step, 6, 3, 'D').rect(26, 40 + step, 6, 3, 'D');
   g.rect(7, 16, 3, 12, 'w').rect(6, 28, 5, 3, 'p');
   if (swing) {
-    g.rect(37, 22, 3, 4, 'w').rect(38, 25, 10, 2, 'N').ellipse(45, 22, 3, 5, 'z').ellipse(45, 22, 2, 4, 'd').ellipse(45, 30, 3, 4, 'z').rect(44, 20, 1, 12, 'W');
+    g.rect(37, 22, 3, 4, 'w').rect(38, 19, 2, 10, 'O').rect(40, 22, 8, 4, 'z').rect(40, 22, 8, 1, 'W').rect(40, 25, 8, 1, 'd').set(43, 23, 'V').set(46, 24, 'V');
   } else {
-    g.rect(37, 16, 3, 10, 'w').rect(41, 4, 2, 30, 'N').ellipse(41, 7, 6, 4, 'z').ellipse(41, 7, 5, 3, 'd').rect(41, 3, 1, 8, 'W').set(41, 34, 'O');
+    g.rect(37, 16, 3, 10, 'w').rect(40, 1, 4, 26, 'z').rect(41, 1, 1, 25, 'W').rect(43, 2, 1, 24, 'd').set(41, 0, 'z').set(42, 0, 'z');
+    g.set(42, 8, 'V').set(42, 14, 'V').set(42, 20, 'V').rect(37, 27, 10, 2, 'O').rect(41, 29, 2, 5, 'N').rect(40, 34, 4, 2, 'O');
   }
   return g.rows();
 }

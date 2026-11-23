@@ -1731,7 +1731,7 @@ function updateArmy(game, dt) {
         addEffect(game, { type: 'slash', x: unit.x + Math.cos(aim) * reach * 0.5, y: unit.y + Math.sin(aim) * reach * 0.5, angle: aim, life: 0.18 });
         return;
       }
-      addEffect(game, { type: 'cleave', x: unit.x, y: unit.y, angle: aim, radius: reach, arc: spec.arc, weapon: 'axe', life: 0.7, sound: 'slash' });
+      addEffect(game, { type: 'cleave', x: unit.x, y: unit.y, angle: aim, radius: reach, arc: spec.arc, weapon: 'sword', life: 0.7, sound: 'slash' });
       game.shake = Math.max(game.shake, spec.quake ?? 0.06);
     }
   });

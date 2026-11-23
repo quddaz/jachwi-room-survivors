@@ -297,10 +297,10 @@ describe('영혼 흡수', () => {
     kill(game, add(game, 60));
     assert.equal(game.soulsTotal, SOULS.normal);
     game.soulsTotal = 16000;
-    assert.ok(Math.abs(soulGrowth(game) - 3) < 1e-9);
+    assert.ok(Math.abs(soulGrowth(game) - 2.2) < 1e-9);
     game.souls = 0;
     game.soulsTotal = 80000;
-    assert.ok(soulGrowth(game) > 7);
+    assert.ok(soulGrowth(game) > 4);
   });
 });
 
