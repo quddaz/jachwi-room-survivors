@@ -1053,6 +1053,38 @@ function drawShockwave(ctx, cx, cy, effect, progress) {
   }
 }
 
+// 영혼 화살이 닿은 자리의 폭발: 픽셀 고리가 번지고 영혼 조각이 사방으로 튄다.
+function drawSoulBlast(ctx, cx, cy, effect, progress) {
+  const radius = effect.radius / WORLD_PER_PIXEL;
+  const spread = 1 - (1 - Math.min(1, progress / 0.45)) ** 3;
+  const fade = 1 - progress;
+  const ring = radius * spread;
+  ctx.save();
+  ctx.globalAlpha = 0.7 * fade;
+  for (const [depth, color] of [[0, '#ffffff'], [1, '#e3c8ff'], [2, '#b36bff'], [3, '#b36bff'], [4, '#7a2a9c']]) {
+    const r = ring - depth;
+    if (r < 1) continue;
+    const steps = Math.ceil(Math.PI * 2 * r * 1.2);
+    ctx.fillStyle = color;
+    for (let i = 0; i < steps; i += 1) {
+      if (fade < 0.5 && (i + depth) % 2) continue;
+      const angle = (i / steps) * Math.PI * 2;
+      ctx.fillRect(Math.round(cx + Math.cos(angle) * r), Math.round(cy + Math.sin(angle) * r * 0.85), 1, 1);
+    }
+  }
+  let seed = Math.round(cx * 7 + cy * 13);
+  const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (let n = 0; n < 10; n += 1) {
+    const angle = rand() * Math.PI * 2, reach = ring * (0.4 + rand() * 0.6);
+    const x = Math.round(cx + Math.cos(angle) * reach), y = Math.round(cy + Math.sin(angle) * reach * 0.85 - progress * 4);
+    ctx.fillStyle = '#4a2a72'; ctx.fillRect(x - 1, y - 1, 3, 3);
+    ctx.fillStyle = n % 2 ? '#e3c8ff' : '#b36bff'; ctx.fillRect(x, y, 1, 1);
+  }
+  ctx.restore();
+  glow(ctx, cx, cy, ring * 0.7 + 2, [179, 107, 255], 0.35 * fade);
+  if (progress < 0.15) glow(ctx, cx, cy, radius * 0.3, [255, 255, 255], 0.6 * (1 - progress / 0.15));
+}
+
 function drawBone(ctx, x, y, spin, size = 1) {
   const dx = Math.round(Math.cos(spin) * 3 * size);
   const dy = Math.round(Math.sin(spin) * 3 * size);
@@ -1091,6 +1123,10 @@ function drawEffects(ctx, game, toBuffer, time = performance.now() / 1000) {
     }
     if (effect.type === 'shockwave') {
       drawShockwave(ctx, x, y, effect, progress);
+      continue;
+    }
+    if (effect.type === 'soulblast') {
+      drawSoulBlast(ctx, x, y, effect, progress);
       continue;
     }
     if (effect.type === 'relic-pulse' || effect.type === 'relic-awaken') {
@@ -2111,6 +2147,40 @@ export function render(ctx, game, width, height, time) {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(x, y, 1, 1);
       if (shot.mega) ctx.fillRect(Math.round(x - (shot.vx / pace) * 2), Math.round(y - (shot.vy / pace) * 2), 1, 1);
+      continue;
+    }
+    if (shot.kind === 'soularrow') {
+      // 명궁의 영혼 화살: 보라 꼬리를 길게 끌고, 뼈 화살대 끝에 빛나는 큰 촉이 달린다.
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const ux = shot.vx / pace, uy = shot.vy / pace, nx = -uy, ny = ux;
+      const dot = (along, across, color) => { ctx.fillStyle = color; ctx.fillRect(Math.round(x - ux * along + nx * across), Math.round(y - uy * along + ny * across), 1, 1); };
+      const span = (along, half, color) => { for (let k = -half; k <= half; k += 0.5) dot(along, k, color); };
+      glow(ctx, x, y, 20, [179, 107, 255], 0.5);
+      // 꼬리: 화살대 뒤로 물결치며 가늘어지는 보라 영혼 자락
+      for (let d = 22; d < 100; d += 0.5) {
+        const fade = 1 - (d - 22) / 78;
+        const wave = Math.sin(d * 0.25 + time * 30) * 2 * fade;
+        const half = 9 * fade;
+        ctx.globalAlpha = 0.6 * fade;
+        for (let k = -half; k <= half; k += 1) {
+          const edge = Math.abs(k) / Math.max(1, half);
+          dot(d, k + wave, edge < 0.25 ? '#ffffff' : edge < 0.55 ? '#e3c8ff' : edge < 0.8 ? '#b36bff' : '#7a2a9c');
+        }
+      }
+      ctx.globalAlpha = 1;
+      // 뼈 화살대와 깃
+      for (let d = 4; d < 34; d += 0.5) { span(d, 2, '#1b1020'); span(d, 1, Math.floor(d) % 8 < 2 ? '#b36bff' : '#efe6d2'); dot(d, -1, '#ffffff'); }
+      for (const side of [-1, 1]) for (let d = 26; d < 36; d += 0.5) {
+        const out = (d - 24) * 0.8;
+        dot(d, side * out, '#1b1020'); dot(d, side * (out - 1), '#7a2a9c'); dot(d, side * (out - 2), '#b36bff');
+      }
+      // 촉: 짙은 테두리 안에 보라, 연보라, 흰 날이 겹친 큰 삼각 촉
+      for (let d = -16; d <= 4; d += 0.5) span(d, Math.max(0, (d + 16) * 0.5) + 1.5, '#1b1020');
+      for (let d = -15; d <= 3; d += 0.5) {
+        const half = Math.max(0, (d + 15) * 0.5);
+        span(d, half, '#b36bff'); span(d, Math.max(0, half - 1.5), '#e3c8ff'); span(d, Math.max(0, half - 3.5), '#ffffff');
+      }
+      sparkle(ctx, Math.round(x + ux * 15), Math.round(y + uy * 15), '#ffffff', true);
       continue;
     }
     if (shot.kind === 'arrow') {

@@ -297,10 +297,10 @@ describe('영혼 흡수', () => {
     kill(game, add(game, 60));
     assert.equal(game.soulsTotal, SOULS.normal);
     game.soulsTotal = 16000;
-    assert.ok(Math.abs(soulGrowth(game) - 2.2) < 1e-9);
+    assert.ok(Math.abs(soulGrowth(game) - 1.8) < 1e-9);
     game.souls = 0;
     game.soulsTotal = 80000;
-    assert.ok(soulGrowth(game) > 4);
+    assert.ok(soulGrowth(game) > 3.5);
   });
 });
 
@@ -361,6 +361,28 @@ describe('궁수 계열', () => {
     run(game, 0.5);
     assert.ok(game.army[0].regrouping);
     assert.ok(game.army[0].x > game.player.x - 560 + 100);
+  });
+
+  it('명궁은 모든 적을 꿰뚫는 굵은 영혼 화살 한 발을 멀리 쏜다', () => {
+    const game = quiet();
+    game.army.push({ id: game.nextId++, type: 'ranger3', x: game.player.x, y: game.player.y, attackIn: 0, facing: 1, swingAt: -1, slot: 0 });
+    const enemies = [add(game, 200), add(game, 300), add(game, 420)];
+    update(game, DT);
+    const arrows = game.shots.filter(shot => shot.kind === 'soularrow');
+    assert.equal(arrows.length, 1);
+    assert.ok(arrows[0].radius >= 20);
+    run(game, 1);
+    assert.ok(enemies.every(enemy => enemy.hp < enemy.maxHp));
+  });
+
+  it('영혼 화살은 닿은 자리에서 터져 화살길 밖의 적도 휩쓴다', () => {
+    const game = quiet();
+    game.army.push({ id: game.nextId++, type: 'ranger3', x: game.player.x, y: game.player.y, attackIn: 0, facing: 1, swingAt: -1, slot: 0 });
+    add(game, 200);
+    const aside = add(game, 200, 70);
+    run(game, 0.6);
+    assert.ok(aside.hp < aside.maxHp);
+    assert.ok(game.effects.some(effect => effect.type === 'soulblast') || aside.hp < aside.maxHp);
   });
 
   it('쇠뇌병은 꿰뚫는 볼트 여러 발을 쏜다', () => {

@@ -1675,6 +1675,15 @@ function updateArmy(game, dt) {
         unit.swingAt = game.time;
         const aim = Math.atan2(target.y - unit.y, target.x - unit.x);
         const bolts = spec.bolts ?? 1, size = spec.size ?? 1;
+        if (spec.soulArrow) {
+          // 명궁: 굵은 영혼 화살 한 발이 화면 끝까지 날아가며 닿는 적을 모두 꿰뚫는다.
+          const speed = spec.arrowSpeed;
+          game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed,
+            damage: unitDamage(game, unit.type), pierce: spec.pierce, life: range * spec.soulArrow.reach / speed, radius: spec.soulArrow.width, scale: 1, hit: new Set(),
+            kind: 'soularrow', blast: spec.soulArrow.blast * stats.area, blastDamage: spec.soulArrow.blastDamage, weapon: 'archer', elements: null, sound: 'shoot' });
+          addEffect(game, { type: 'burst', x: unit.x + Math.cos(aim) * 14, y: unit.y - 4 + Math.sin(aim) * 14, color: 'soul', count: 8, life: 0.3 });
+          return;
+        }
         for (let n = 0; n < bolts; n += 1) {
           const angle = aim + (n - (bolts - 1) / 2) * 0.13;
           game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(angle) * spec.arrowSpeed, vy: Math.sin(angle) * spec.arrowSpeed,
@@ -3293,6 +3302,16 @@ function updateProjectiles(game, dt) {
         if (enemy.volleyHits.size > 128) enemy.volleyHits.delete(enemy.volleyHits.keys().next().value);
       }
       shot.hit.add(enemy.id);
+      if (shot.kind === 'soularrow') {
+        // 닿은 자리마다 영혼이 터져 주변을 휩쓴다. 같은 화살의 폭발은 적 하나당 한 번만 맞는다.
+        shot.blasted ??= new Set();
+        for (const other of near(game, impact.x, impact.y, shot.blast + 40)) {
+          if (other.dead || shot.blasted.has(other.id) || distance(other, impact) > shot.blast + other.radius) continue;
+          shot.blasted.add(other.id);
+          damageWeaponHit(game, other, shot.damage * shot.blastDamage, true, shot);
+        }
+        addEffect(game, { type: 'soulblast', x: impact.x, y: impact.y, radius: shot.blast, life: 0.4, sound: shot.hit.size === 1 ? 'impact' : undefined });
+      }
       if (shot.pop) {
         for (const other of near(game, impact.x, impact.y, shot.pop)) {
           if (other.dead || distance(other, impact) >= shot.pop + other.radius) continue;
