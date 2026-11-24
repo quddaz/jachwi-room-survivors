@@ -131,6 +131,12 @@ function duck(role, frame, blink = false, idle = false) {
     rect(19, 7, 1, 12, 'N');rect(18, 4, 3, 3, 'W');rect(18, 5, 1, 1, 'K');rect(20, 5, 1, 1, 'K');rect(19, 3, 1, 1, 'V');
     rect(4, 12, 3, 5, 'v');rect(5, 13, 2, 3, 'V');
   }
+  if (role === 'diy') {
+    // 노란 안전모와 멍키 스패너, 허리 공구 벨트만 덧그린다.
+    rect(6, 2 + bob, 10, 3, 'Y');rect(7, 1 + bob, 8, 1, 'Y');rect(5, 5 + bob, 12, 1, 'O');rect(10, 1 + bob, 2, 4, 'O');
+    rect(7, 15, 8, 1, 'N');rect(8, 15, 1, 2, 'z');rect(12, 15, 2, 2, 'R');
+    rect(19, 9, 1, 9, 'z');rect(18, 7, 3, 2, 'z');rect(18, 7, 1, 1, 'D');rect(20, 7, 1, 1, 'D');rect(19, 18, 1, 1, 'D');
+  }
   return rows.flatMap(row => {
     const scaled = row.map(pixel => pixel.repeat(ART_DENSITY)).join('');
     return Array(ART_DENSITY).fill(scaled);
@@ -251,7 +257,7 @@ function creature(kind, frame) {
 }
 
 export const PIXEL_ACTORS = {};
-for (const role of ['normal', 'summoner', 'hunter', 'gunner', 'alchemist', 'necromancer']) {
+for (const role of ['normal', 'summoner', 'hunter', 'gunner', 'alchemist', 'necromancer', 'diy']) {
   for (let frame = 0; frame < WALK_FRAMES; frame++) PIXEL_ACTORS[`character_${role}_duckWalk${frame}`] = duck(role, frame);
   for (let frame = 0; frame < 4; frame++) PIXEL_ACTORS[`character_${role}_duckIdle${frame}`] = duck(role, frame, frame === 3, true);
   PIXEL_ACTORS[`character_${role}_duckA`] = duck(role, 0);

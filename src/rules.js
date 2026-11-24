@@ -10,12 +10,59 @@ export const CHARACTERS = {
   hunter: { label: '트레저헌터 오리', description: '보물을 더 많이 챙기는 탐험가',
     stats: ['보물 슬롯 +1', '보물 20점이면 최대 7칸'], maxRelics: 1 },
   gunner: { label: '총잡이 오리', description: '빠른 연사와 고정 피해를 사용하는 사수',
-    stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8', '전체 고정 피해 +25%'], attackSpeed: 0.15, hitDamage: 8, fixedPower: 0.25 },
+    stats: ['공격 속도 +30%', '무기 타격당 고정 피해 +8, 레벨마다 +1', '전체 고정 피해 +25%, 레벨마다 +12%'], attackSpeed: 0.3, hitDamage: 8, fixedPower: 0.25,
+    levelGrowth: { hitDamage: 1, fixedPower: 0.12 } },
   alchemist: { label: '연금술사 오리', description: '열기와 독, 속성 반응으로 적을 녹이는 연구자',
-    stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer' },
+    stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '레벨마다 모든 피해 +10%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer',
+    levelGrowth: { might: 0.1 } },
   necromancer: { label: '괴담 오리', description: '원룸 괴담 속 해골 세입자들을 영혼으로 불러 모으고, 병사를 바쳐 건물주까지 키우는 오리',
     stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 관리인, 집주인, 건물주로 키운다', '레벨업에서 무기 대신 괴담과 지휘 능력을 고르고, 레벨마다 병력 +1'],
     souls: true, undeadStarter: 'bone' },
+  diy: { label: '집돌이 오리', description: '공구로 포탑과 덫을 깔아 자취방을 요새로 만드는 오리',
+    stats: ['무기 대신 설치물을 고르고, 설치물은 소환으로 친다', '설치물은 오리 주변에 저절로 깔리고 24초 뒤 해체된다', '못총 포탑으로 시작한다'], builder: true, structureStarter: 'nailgun' },
+};
+// 집돌이 오리의 설치물. 배열은 1~5레벨 값이다. count는 동시에 깔 수 있는 수다.
+export const STRUCTURE_LIFE = 24;
+export const STRUCTURE_DEPLOY_SEC = 2.5;
+export const STRUCTURES = {
+  nailgun: { label: '못총 포탑', description: '가까운 적에게 못을 쉴 새 없이 박는다',
+    count: [1, 1, 2, 2, 3], damage: [14, 19, 25, 32, 40], cooldown: [0.55, 0.5, 0.45, 0.4, 0.34], pierce: [0, 0, 1, 1, 2], range: 330, speed: 640 },
+  trap: { label: '끈끈이 덫', description: '밟은 적을 붙잡아 느리게 하고 계속 피해를 준다',
+    count: [1, 2, 2, 3, 3], damage: [9, 12, 16, 21, 27], radius: [52, 58, 64, 72, 82], tickSec: 0.5, slow: 0.35 },
+  barricade: { label: '택배 상자 벽', description: '주변 적을 끌어당기고, 붙은 적을 가시 테이프로 찌른다',
+    count: [1, 1, 1, 2, 2], damage: [22, 30, 40, 52, 66], taunt: [150, 170, 190, 210, 235], tickSec: 0.5 },
+  mortar: { label: '압력밥솥 박격포', description: '적이 몰린 곳에 뜨거운 밥솥 폭탄을 쏘아 넓게 터뜨린다',
+    count: [1, 1, 1, 2, 2], damage: [45, 60, 78, 100, 125], cooldown: [2.6, 2.4, 2.2, 2, 1.8], radius: [72, 80, 88, 98, 110], range: 440, flightSec: 0.7 },
+  tesla: { label: '멀티탭 전기 탑', description: '전기를 튀겨 여러 적을 줄줄이 지진다',
+    count: [1, 1, 1, 2, 2], damage: [17, 22, 28, 36, 45], cooldown: [1.1, 1, 0.9, 0.8, 0.7], chains: [3, 3, 4, 5, 6], range: 270, jump: 130 },
+};
+// 설치물 완성형: Lv 5가 되면 레벨업 첫 칸에 나온다. 배율은 기본값에 곱하고, count, pierce, chains는 더한다.
+export const STRUCTURE_EVOLUTIONS = {
+  nailgun: { label: '네일건 개틀링', description: '포탑이 하나 더 깔리고, 못을 두 배로 빠르게 박으며 더 많이 꿰뚫는다',
+    stats: ['동시에 +1개', '피해 1.7배, 공격 주기 절반', '관통 +2'], count: 1, damage: 1.7, cooldown: 0.5, pierce: 2 },
+  trap: { label: '초강력 끈끈이 바닥', description: '더 넓게 깔려 밟은 적을 거의 멈춰 세운다',
+    stats: ['범위 1.5배, 피해 2배', '느려짐 85%'], radius: 1.5, damage: 2, slow: 0.15 },
+  barricade: { label: '냉장고 요새', description: '냉장고로 쌓은 벽이 더 멀리서 끌어당기고, 붙은 적을 세게 찌른다',
+    stats: ['끌어당기는 범위 1.3배', '피해 2.3배, 찌르는 거리 40'], taunt: 1.3, damage: 2.3, reach: 40 },
+  mortar: { label: '전기밥솥 폭격', description: '한 번에 밥솥 폭탄 셋을 쏘아 넓게 쓸어 버린다',
+    stats: ['폭탄 3발', '범위 1.3배, 피해 1.7배'], shells: 3, radius: 1.3, damage: 1.7 },
+  tesla: { label: '멀티탭 폭주', description: '과부하 걸린 멀티탭이 더 멀리, 더 많이, 더 자주 전기를 튀긴다',
+    stats: ['연쇄 +4명, 튀는 거리 1.5배', '피해 1.8배, 공격 주기 0.7배'], chains: 4, jump: 1.5, damage: 1.8, cooldown: 0.7 },
+};
+// 설치물 합체: 두 완성형을 갖추면 레벨업 첫 칸에 나온다. 두 설치물은 그대로 남고 능력이 더해진다.
+export const STRUCTURE_FUSIONS = {
+  zapgun: { label: '전기 못총', parts: ['nailgun', 'tesla'], description: '박힌 못에서 전기가 튀어 주변 적 둘을 더 지진다',
+    stats: ['못이 맞힐 때마다 주변 2명에게 연쇄', '연쇄 피해는 못 피해의 60%'], chains: 2, damage: 0.6, jump: 120 },
+  stickybomb: { label: '끈끈이 폭탄', parts: ['trap', 'mortar'], description: '밥솥 폭탄이 떨어진 자리에 끈끈이가 5초 동안 눌어붙는다',
+    stats: ['폭탄 자리마다 끈끈이 덫', '5초 동안 남고 덫 개수에 들지 않음'], puddleSec: 5 },
+};
+// 집돌이 오리만 보물 상자에서 받는 공구 보물. 보물 칸을 쓰지 않는다.
+export const DIY_RELICS = {
+  toolbox: { label: '공구함', description: '공구가 넉넉해 설치물을 더 깔 수 있다', stats: ['모든 설치물 동시에 +1개'], extra: 1 },
+  ducttape: { label: '강력 테이프', description: '설치물이 쉽게 무너지지 않는다', stats: ['설치물 수명 +50%'], life: 0.5 },
+  powerdrill: { label: '충전 드릴', description: '설치가 빨라진다', stats: ['설치 주기 -40%'], deploy: 0.4 },
+  blueprint: { label: '설계도', description: '제대로 만든 설치물은 더 아프다', stats: ['설치물 피해 +40%'], damage: 0.4 },
+  extension: { label: '연장선', description: '설치물 손이 더 멀리 닿는다', stats: ['설치물 사거리와 범위 +30%'], reach: 0.3 },
 };
 
 // 강령술사 전용. 영혼은 처치할 때 바로 모이고, R을 눌러 영혼 창에서 쓴다.
@@ -870,7 +917,7 @@ export const FUSIONS = {
     from: ["hourglass", "fan"],
   },
 
-  thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', primary: 'ball', power: 1, from: ['ball', 'zapper'],
+  thunderball: { label: '번개볼', description: '공이 주변 적에게 번개를 쏘고, 벽에 부딪히면 크게 방전한다', primary: 'ball', power: 3.5, from: ['ball', 'zapper'],
     damage: 1.5, zapEverySec: 0.4, targets: 3, range: 170, zap: 1, blast: 150, blastDamage: 2 },
   spinlaser: { label: '메가 레이저', description: '0.7초 충전 후 한 방향에 초대형 빔을 터뜨려 3초간 지진다. 공속은 발사 후 대기 시간을 줄인다', primary: 'laser', power: 1, from: ['laser', 'fan'],
     chargeSec: 0.7, durationSec: 3, restSec: 1.8, length: 1100, width: 240, maxWidth: 400, impact: 28, dps: 34 },
@@ -882,7 +929,7 @@ export const FUSIONS = {
   firering: { label: '화염 고리', description: '큰 불씨 고리가 돌고, 주기적으로 화염이 사방을 휩쓴다', primary: 'coil', power: 1.3, from: ['coil', 'dryer'],
     damage: 1.6, outer: 2.6, novaEverySec: 2, novaRadius: 230, nova: 3.2 },
   // 톱날이 적에서 적으로 튕겨 다니다 돌아온다. 베인 적은 한동안 계속 피해를 입는다.
-  sawblade: { label: '도탄 톱날', description: '톱날 셋이 적 사이를 튕겨 다닌다. 같은 적에게는 0.16초마다 적중하고 출혈은 중첩되지 않는다', primary: null, power: 3.4, from: ['slipper', 'roller'],
+  sawblade: { label: '도탄 톱날', description: '톱날 셋이 적 사이를 튕겨 다닌다. 같은 적에게는 0.16초마다 적중하고 출혈은 중첩되지 않는다', primary: null, power: 10, from: ['slipper', 'roller'],
     count: 3, speed: 560, bounces: 6, hop: 260, seek: 420, radius: 24, maxRadius: 56, hitEverySec: 0.16, damage: 1.5, bleed: 0.6, bleedSec: 2.5, idleOrbit: 60 },
   mopstorm: { label: '물걸레 회오리', description: '물걸레가 주위를 한 바퀴 크게 휘감아 적을 때리고 느리게 한다', primary: null, power: 1, from: ['towel', 'broom'],
     everySec: 1.6, damage: 6.8, slow: 0.6 },
@@ -960,12 +1007,12 @@ export const RELICS = {
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 여덟 발이 날아가 차례로 폭발한다',
-    stats: ['12초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 50(레벨·보물 피해 비례)'],
-    everySec: 12, radius: 135, damage: 50, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
+    stats: ['12초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 125(레벨·보물 피해 비례)'],
+    everySec: 9, radius: 135, damage: 125, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
-    description: '폭죽 로켓이 늘고 세지며 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발, 로켓 피해 +30(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
-    rockets: 4, damage: 30 },
+    description: '폭죽 로켓이 늘고 세지며 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발, 로켓 피해 +70(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
+    rockets: 4, damage: 70 },
   // 보물 20점 전용이고 멀티탭이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   splitplug: { label: '3구 분배기', treasureOnly: true, requiresRelic: 'outlet',
     description: '멀티탭의 일반 연쇄 번개가 세 줄로 갈라져 나간다',

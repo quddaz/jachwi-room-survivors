@@ -2149,6 +2149,16 @@ export function render(ctx, game, width, height, time) {
       if (shot.mega) ctx.fillRect(Math.round(x - (shot.vx / pace) * 2), Math.round(y - (shot.vy / pace) * 2), 1, 1);
       continue;
     }
+    if (shot.kind === 'nail') {
+      const pace = Math.hypot(shot.vx, shot.vy) || 1;
+      const ux = shot.vx / pace, uy = shot.vy / pace;
+      if (shot.mega) glow(ctx, x, y, 5, [255, 178, 31], 0.5);
+      if (shot.zap) glow(ctx, x, y, 4, [127, 233, 255], 0.5);
+      line(ctx, Math.round(x - ux * 5), Math.round(y - uy * 5), x, y, '#8a8f98');
+      line(ctx, Math.round(x - ux * 5 - uy), Math.round(y - uy * 5 + ux), Math.round(x - ux * 5 + uy), Math.round(y - uy * 5 - ux), '#3d3d42');
+      ctx.fillStyle = '#ffffff';ctx.fillRect(x, y, 1, 1);
+      continue;
+    }
     if (shot.kind === 'soularrow') {
       // 명궁의 영혼 화살: 보라 꼬리를 길게 끌고, 뼈 화살대 끝에 빛나는 큰 촉이 달린다.
       const pace = Math.hypot(shot.vx, shot.vy) || 1;
@@ -2405,6 +2415,40 @@ export function render(ctx, game, width, height, time) {
         ctx.fillRect(Math.round(x + Math.cos(angle) * radius * .7), Math.round(y + Math.sin(angle) * radius * .55 - phase * 8), 2, 2);
       }
     }
+  }
+  // 집돌이 오리 설치물: 덫은 바닥에 먼저 깔고, 나머지는 아래쪽부터 그린다. 해체 직전에는 깜빡인다.
+  const pieces = [...(game.structures ?? [])].sort((a, b) => (a.type === 'trap' ? -1e6 : a.y) - (b.type === 'trap' ? -1e6 : b.y));
+  for (const piece of pieces) {
+    const [x, y] = toBuffer(piece);
+    if (!visible([x, y], 30)) continue;
+    if (piece.life < 3 && Math.floor(time * 10) % 2) continue;
+    const active = game.time - piece.shotAt < 0.12;
+    const image = sprite(`build_${piece.type}_${active ? 1 : 0}`, { flip: piece.facing < 0 });
+    const foot = Math.round(image.height / 2);
+    if (piece.type === 'trap') {
+      if (game.buildEvolved?.trap || piece.temp) glow(ctx, x, y, image.width * 0.5, [255, 178, 31], 0.25);
+      drawCentered(ctx, image, x, y);
+      continue;
+    }
+    disc(ctx, x, y + foot - 2, Math.round(image.width * 0.35), 'rgba(40,28,20,0.28)');
+    if (game.buildEvolved?.[piece.type]) glow(ctx, x, y, image.width * 0.55, [255, 178, 31], 0.3);
+    if (piece.type === 'tesla' && active) glow(ctx, x, y - foot + 3, 8, [127, 233, 255], 0.6);
+    drawCentered(ctx, image, x, y);
+    const left = piece.life / piece.total;
+    const width = 10, top = Math.round(y + foot + 1);
+    ctx.fillStyle = 'rgba(20,14,10,0.55)';ctx.fillRect(Math.round(x - width / 2) - 1, top, width + 2, 2);
+    ctx.fillStyle = left > 0.25 ? '#ffb21f' : '#e0645b';ctx.fillRect(Math.round(x - width / 2), top, Math.max(1, Math.round(width * left)), 1);
+  }
+  // 박격포 밥솥 폭탄: 포물선을 그리며 날아가고, 떨어질 자리에 붉은 표시가 좁혀 든다.
+  for (const shell of game.shells ?? []) {
+    if (shell.t < 0) continue;
+    const progress = Math.min(1, shell.t / shell.total);
+    const [tx, ty] = toBuffer(shell);
+    const [sx, sy] = toBuffer({ x: shell.x0, y: shell.y0 });
+    ring(ctx, tx, ty, Math.max(3, Math.round(shell.radius / 2 * (1 - progress * 0.6))), 'rgba(224,100,91,0.7)', 3, Math.floor(time * 14));
+    const bx = sx + (tx - sx) * progress, by = sy + (ty - sy) * progress - Math.sin(progress * Math.PI) * 40;
+    disc(ctx, tx + (sx - tx) * (1 - progress) * 0.2, ty + 2, 3 + progress * 2, 'rgba(40,28,20,0.3)');
+    ctx.drawImage(icon('mortar', 0), Math.round(bx - 6), Math.round(by - 6), 12, 12);
   }
   for (const corpse of game.corpses ?? []) {
     const [x, y] = toBuffer(corpse);

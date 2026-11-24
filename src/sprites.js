@@ -1509,6 +1509,109 @@ function marksmanArt(frame) {
 const ARMY_ART = { soldier: soldierArt, archer: archerArt, giant1: golemArt, giant2: giantArt, giant3: lordArt, ranger1: crossbowArt, ranger2: ballistaArt, ranger3: marksmanArt };
 for (const [type, draw] of Object.entries(ARMY_ART)) for (let frame = 0; frame < 3; frame += 1) ART[`army_${type}_${frame}`] = draw(frame);
 
+// 집돌이 오리 설치물. 자취방 물건을 공구로 개조한 모양이다.
+function nailgunArt(frame) {
+  const g = canvasGrid(22, 20);
+  const kick = frame === 1 ? 1 : 0;
+  g.line(6, 13, 3, 19, 'N').line(11, 13, 11, 19, 'N').line(15, 13, 18, 19, 'N').rect(9, 12, 5, 2, 'D');
+  g.rect(5, 5, 12, 7, 'D').rect(6, 5, 10, 2, 'd').rect(6, 9, 10, 2, 'S').set(7, 7, 'O').set(8, 7, 'O');
+  g.rect(9, 1, 5, 4, 'O').rect(10, 1, 3, 1, 'Y').set(11, 3, 'o');
+  g.rect(17 - kick, 7, 5, 2, 'z').rect(17 - kick, 7, 5, 1, 'W').set(21 - kick, 8, 'D');
+  if (frame === 1) g.set(21, 6, 'Y').set(21, 9, 'Y');
+  return g.rows();
+}
+function trapArt(frame) {
+  const g = canvasGrid(26, 14);
+  g.ellipse(13, 7, 12, 6, 'o').ellipse(13, 7, 11, 5, 'O').ellipse(12, 6, 8, 3, 'Y');
+  for (const [x, y] of [[6, 8], [17, 5], [20, 9], [10, 10], [14, 3]]) g.set(x, y, 'n').set(x + 1, y, 'n');
+  g.rect(9, 4, 3, 1, 'W').set(19, 7, 'W');
+  if (frame === 1) g.set(5, 6, 'W').set(21, 5, 'W');
+  return g.rows();
+}
+function barricadeArt(frame) {
+  const g = canvasGrid(24, 22);
+  g.rect(2, 9, 20, 12, 'C').rect(2, 9, 20, 2, 'n').rect(2, 19, 20, 2, 'c').rect(11, 9, 2, 12, 'Y');
+  g.rect(5, 2, 14, 8, 'C').rect(5, 2, 14, 2, 'n').rect(5, 8, 14, 1, 'c').rect(11, 2, 2, 7, 'Y');
+  g.rect(4, 13, 5, 3, 'w').set(5, 14, 'D').set(7, 14, 'D').rect(15, 4, 3, 2, 'w');
+  for (const x of [1, 6, 16, 22]) g.set(x, 8 + (x % 3), 'z').set(x, 7 + (x % 3), 'W');
+  for (const x of [4, 9, 14, 19]) g.set(x, 1, 'z').set(x, 0, 'W');
+  if (frame === 1) g.set(0, 12, 'W').set(23, 15, 'W');
+  return g.rows();
+}
+function mortarArt(frame) {
+  const g = canvasGrid(22, 20);
+  const puff = frame === 1;
+  g.ellipse(11, 13, 9, 6, 'p').ellipse(11, 12, 8, 5, 'P').rect(3, 13, 17, 1, 'p');
+  g.ellipse(11, 7, 8, 3, 'd').ellipse(11, 6, 7, 2, 'L').rect(9, 3, 4, 2, 'D').set(10, 3, 'd');
+  g.rect(7, 14, 8, 3, 'D').set(8, 15, 'R').set(10, 15, 'g').rect(12, 15, 2, 1, 'O');
+  g.rect(3, 18, 3, 2, 'N').rect(16, 18, 3, 2, 'N');
+  if (puff) g.ellipse(13, 1, 2, 1, 'W').set(10, 0, 'w'); else g.set(11, 1, 'w');
+  return g.rows();
+}
+function teslaArt(frame) {
+  const g = canvasGrid(16, 28);
+  g.rect(5, 6, 6, 18, 'P').rect(5, 6, 1, 18, 'p').rect(10, 6, 1, 18, 'p');
+  for (const y of [9, 14, 19]) g.rect(6, y, 4, 3, 'D').set(7, y + 1, 'K').set(8, y + 1, 'K');
+  g.set(8, 23, 'R').rect(3, 24, 10, 3, 'D').rect(4, 24, 8, 1, 'd');
+  g.ellipse(8, 3, 4, 3, 'o').ellipse(8, 3, 3, 2, 'O').rect(7, 0, 2, 2, 'z');
+  if (frame === 1) g.set(2, 1, 'E').set(1, 3, 'E').set(14, 2, 'E').set(13, 0, 'E').set(8, 0, 'W');
+  return g.rows();
+}
+const STRUCTURE_ART = { nailgun: nailgunArt, trap: trapArt, barricade: barricadeArt, mortar: mortarArt, tesla: teslaArt };
+for (const [type, draw] of Object.entries(STRUCTURE_ART)) for (let frame = 0; frame < 2; frame += 1) ART[`build_${type}_${frame}`] = draw(frame);
+ITEMS.zapgun = item([], (body, fx, f) => {
+  body.rect(1, 6, 8, 5, 'D').rect(2, 6, 6, 1, 'd').rect(3, 3, 4, 3, 'O').rect(9, 7, 4, 2, 'z').rect(9, 7, 4, 1, 'W').line(3, 11, 1, 15, 'N').line(7, 11, 8, 15, 'N');
+  fx.line(12, 4, 14, 7, 'E').line(14, 7, 12, 9, 'E').line(12, 9, 15, 12, 'E');
+  if (f % 2) fx.set(15, 3, 'W').set(11, 13, 'E');
+});
+ITEMS.stickybomb = item([], (body, fx, f) => {
+  body.ellipse(8, 12, 7, 3, 'o').ellipse(8, 12, 6, 2, 'O').ellipse(8, 7, 5, 4, 'p').ellipse(8, 6, 4, 3, 'P').ellipse(8, 3, 4, 1, 'd').rect(6, 8, 4, 1, 'D').set(7, 8, 'R');
+  body.set(3, 13, 'n').set(12, 11, 'n');
+  fx.set(10, 1 - (f % 2), 'w');
+});
+ITEMS.toolbox = item([], (body, fx, f) => {
+  body.rect(1, 6, 14, 8, 'R').rect(1, 6, 14, 2, 'r').rect(5, 3, 6, 1, 'D').rect(5, 3, 1, 3, 'D').rect(10, 3, 1, 3, 'D').rect(7, 9, 2, 2, 'Y').rect(1, 13, 14, 1, 'r');
+  if (f % 2) fx.set(13, 7, 'W');
+});
+ITEMS.ducttape = item([], (body, fx, f) => {
+  body.ellipse(7, 8, 6, 6, 'd').ellipse(7, 8, 5, 5, 'L').ellipse(7, 8, 2, 2, 'D').rect(12, 11, 4, 3, 'L').rect(12, 11, 4, 1, 'd');
+  if (f % 2) fx.set(4, 4, 'W');
+});
+ITEMS.powerdrill = item([], (body, fx, f) => {
+  body.rect(2, 3, 9, 5, 'O').rect(2, 3, 9, 1, 'Y').rect(4, 8, 4, 6, 'D').rect(3, 13, 6, 2, 'O').rect(11, 5, 4, 1, 'z').set(15, 5, 'W');
+  if (f % 2) fx.set(15, 3, 'W').set(15, 7, 'W');
+});
+ITEMS.blueprint = item([], (body, fx, f) => {
+  body.rect(1, 2, 14, 12, 'q').rect(2, 3, 12, 10, 'B').line(3, 5, 12, 5, 'b').line(3, 8, 9, 8, 'b').rect(9, 7, 4, 4, 'b').rect(10, 8, 2, 2, 'B').line(3, 11, 7, 11, 'b');
+  if (f % 2) fx.set(13, 3, 'W');
+});
+ITEMS.extension = item([], (body, fx, f) => {
+  body.rect(1, 9, 9, 4, 'P').rect(1, 9, 9, 1, 'p').rect(2, 10, 2, 2, 'D').rect(6, 10, 2, 2, 'D').line(10, 11, 13, 8, 'D').line(13, 8, 13, 3, 'D').rect(12, 1, 3, 3, 'P').set(13, 0, 'z');
+  if (f % 2) fx.set(15, 1, 'E');
+});
+ITEMS.nailgun = item([], (body, fx, f) => {
+  body.rect(2, 5, 9, 5, 'D').rect(3, 5, 7, 1, 'd').rect(5, 2, 4, 3, 'O').rect(11, 6, 4, 2, 'z').rect(11, 6, 4, 1, 'W');
+  body.line(4, 10, 2, 15, 'N').line(7, 10, 7, 15, 'N').line(10, 10, 12, 15, 'N');
+  if (f % 2) fx.set(15, 5, 'Y').set(15, 8, 'Y');
+});
+ITEMS.trap = item([], (body, fx, f) => {
+  body.ellipse(8, 9, 7, 5, 'o').ellipse(8, 9, 6, 4, 'O').ellipse(7, 8, 4, 2, 'Y').set(4, 10, 'n').set(11, 7, 'n').set(9, 12, 'n').rect(5, 7, 2, 1, 'W');
+  if (f % 2) fx.set(12, 6, 'W');
+});
+ITEMS.barricade = item([], (body, fx, f) => {
+  body.rect(1, 6, 14, 9, 'C').rect(1, 6, 14, 2, 'n').rect(7, 6, 2, 9, 'Y').rect(3, 1, 10, 5, 'C').rect(3, 1, 10, 1, 'n').rect(7, 1, 2, 5, 'Y');
+  for (const x of [0, 15]) body.set(x, 9, 'z');
+  if (f % 2) fx.set(0, 8, 'W');
+});
+ITEMS.mortar = item([], (body, fx, f) => {
+  body.ellipse(8, 10, 7, 5, 'p').ellipse(8, 9, 6, 4, 'P').ellipse(8, 5, 6, 2, 'd').ellipse(8, 4, 5, 1, 'L').rect(5, 11, 6, 2, 'D').set(6, 12, 'R');
+  fx.set(10, 1 - (f % 2), 'w').set(9, 0, 'w');
+});
+ITEMS.tesla = item([], (body, fx, f) => {
+  body.rect(5, 4, 6, 11, 'P').rect(6, 6, 4, 2, 'D').rect(6, 10, 4, 2, 'D').ellipse(8, 2, 3, 2, 'O').rect(4, 14, 8, 2, 'D');
+  if (f % 2) fx.set(2, 1, 'E').set(13, 2, 'E').set(1, 3, 'E');
+});
+
 // 상점과 보물 아이콘. 해골 군단은 도트를 줄여 쓰지 않고 아이콘 크기에 맞춰 따로 그린다.
 ITEMS.soldier = item([], (body, fx, f) => {
   skullHead(body, 7, 0);
@@ -3077,7 +3180,7 @@ for (const [name, rows] of Object.entries(PIXEL_ACTORS)) {
 function buildArt(name, scale = 1) {
   return build(ART[name], { scale });
 }
-const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist','necromancer'].includes(role) ? role : 'normal'}_${frame}`;
+const characterFrame = (role, frame) => `character_${['normal','summoner','hunter','gunner','alchemist','necromancer','diy'].includes(role) ? role : 'normal'}_${frame}`;
 export const duckSprite = (role, frame = 'duckA', options = {}) => sprite(characterFrame(role, frame), options);
 export const duckIconUrl = role => iconUrl(characterFrame(role, 'duckA'));
 

@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, UNDEAD, COMMANDS, ARMY, ARMY_CAP, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -64,6 +64,13 @@ export function createGame(random = Math.random) {
     commands: {},
     necroRelics: {},
     undeadEvolved: {},
+    builds: {},
+    buildEvolved: {},
+    buildFusions: {},
+    diyRelics: {},
+    structures: [],
+    shells: [],
+    deployIn: {},
     army: [],
     ghouls: [],
     corpses: [],
@@ -76,7 +83,11 @@ export function applyCharacter(game, id) {
   game.character = Object.hasOwn(CHARACTERS, id) ? id : 'normal';
   return game.character;
 }
-const characterBonus = (game, key) => CHARACTERS[game.character]?.[key] ?? 0;
+// 직업 보너스. levelGrowth에 적힌 값은 레벨이 오를 때마다 더 붙는다.
+const characterBonus = (game, key) => {
+  const role = CHARACTERS[game.character];
+  return (role?.[key] ?? 0) + (role?.levelGrowth?.[key] ?? 0) * Math.max(0, (game.level ?? 1) - 1);
+};
 
 function passiveValue(game, id, key) {
   const level = game.passives[id] ?? 0;
@@ -265,7 +276,7 @@ function cornered(game) {
 function mightOf(game) {
   return (1 + passiveValue(game, 'protein', 'might')
     + (game.player.moving ? relic(game, 'energy')?.might ?? 0 : 0)
-    + (cornered(game) ? RELICS.lastcup.might : 0)) * (1 - passiveValue(game, 'counterweight', 'attackPenalty'));
+    + (cornered(game) ? RELICS.lastcup.might : 0)) * (1 - passiveValue(game, 'counterweight', 'attackPenalty')) * (1 + characterBonus(game, 'might'));
 }
 
 function weaponDamageScaleOf(game) {
@@ -857,7 +868,7 @@ function moveEnemies(game, dt) {
       continue;
     }
     // 거인 해골 근처의 적은 오리 대신 거인에게 달려든다.
-    const lure = enemy.tauntBy && game.time < (enemy.tauntUntil ?? 0) && enemy.tauntBy.hp > 0 ? enemy.tauntBy : player;
+    const lure = enemy.tauntBy && game.time < (enemy.tauntUntil ?? 0) && (enemy.tauntBy.hp ?? 1) > 0 ? enemy.tauntBy : player;
     const dx = lure.x - enemy.x;
     const dy = lure.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
@@ -1754,6 +1765,216 @@ function soulArrowBlast(game, shot, at) {
   }
   addEffect(game, { type: 'soulblast', x: at.x, y: at.y, radius: shot.blast, life: 0.55, sound: 'impact' });
   game.shake = Math.max(game.shake, 0.14);
+}
+
+// 집돌이 오리: 레벨업에서 무기 대신 설치물을 고르고, 설치물은 오리 발밑에 저절로 깔린다.
+const builder = game => Boolean(CHARACTERS[game.character]?.builder);
+export const isBuilder = builder;
+const STRUCTURE_MAX = 5;
+const structureValue = (game, id, key) => {
+  const value = STRUCTURES[id][key];
+  return Array.isArray(value) ? value[Math.min(game.builds[id] ?? 1, value.length) - 1] : value;
+};
+const structureEvolution = (game, id) => (game.buildEvolved?.[id] ? STRUCTURE_EVOLUTIONS[id] : null);
+const buildFusion = (game, id) => (game.buildFusions?.[id] ? STRUCTURE_FUSIONS[id] : null);
+const diyRelic = (game, id) => (game.diyRelics?.[id] ? DIY_RELICS[id] : null);
+// 설치물은 소환으로 친다. 소환 피해, 소환 공격 속도, 소환 사거리, 추가 소환수를 함께 받는다.
+function structureStat(game, id, key) {
+  const base = structureValue(game, id, key);
+  const evolved = structureEvolution(game, id);
+  const stats = statsOf(game);
+  const reach = 1 + (diyRelic(game, 'extension')?.reach ?? 0);
+  switch (key) {
+    case 'count': return base + (evolved?.count ?? 0) + (diyRelic(game, 'toolbox')?.extra ?? 0) + stats.summonCount;
+    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0)) * mightOf(game) * stats.summonPower;
+    case 'cooldown': case 'tickSec': return base * (evolved?.cooldown ?? 1) * stats.cooldownScale / stats.summonHaste;
+    case 'pierce': case 'chains': return base + (evolved?.[key] ?? 0);
+    case 'radius': case 'taunt': return base * (evolved?.[key] ?? 1) * reach * stats.area;
+    case 'range': return base * reach * stats.summonRange;
+    case 'jump': return base * (evolved?.jump ?? 1) * reach;
+    default: return base;
+  }
+}
+
+function structureChoices(game) {
+  return Object.keys(STRUCTURES).filter(id => (game.builds[id] ?? 0) < STRUCTURE_MAX)
+    .map(id => ({ kind: 'structure', id, level: (game.builds[id] ?? 0) + 1, label: STRUCTURES[id].label, description: STRUCTURES[id].description,
+      details: [game.builds[id] ? `Lv ${game.builds[id]} → ${game.builds[id] + 1}` : '새 설치물', `동시에 ${STRUCTURES[id].count[Math.min(game.builds[id] ?? 0, 4)]}개`] }));
+}
+// 완성형과 합체는 준비되면 레벨업 첫 칸부터 나온다.
+function structureUpgradeChoices(game) {
+  const fusions = Object.keys(STRUCTURE_FUSIONS).filter(id => !game.buildFusions[id] && STRUCTURE_FUSIONS[id].parts.every(part => game.buildEvolved[part]))
+    .map(id => ({ kind: 'build-fusion', id, level: 0, label: STRUCTURE_FUSIONS[id].label, description: STRUCTURE_FUSIONS[id].description,
+      details: [STRUCTURE_FUSIONS[id].parts.map(part => STRUCTURE_EVOLUTIONS[part].label).join(' + '), ...STRUCTURE_FUSIONS[id].stats] }));
+  const evolutions = Object.keys(STRUCTURE_EVOLUTIONS).filter(id => game.builds[id] >= STRUCTURE_MAX && !game.buildEvolved[id])
+    .map(id => ({ kind: 'build-evolve', id, level: STRUCTURE_MAX + 1, label: STRUCTURE_EVOLUTIONS[id].label, description: STRUCTURE_EVOLUTIONS[id].description, details: STRUCTURE_EVOLUTIONS[id].stats }));
+  return [...fusions, ...evolutions];
+}
+// 보물 상자: 집돌이 오리는 공구 보물 둘과 일반 보물 하나 중에서 고른다.
+function diyTreasures(game) {
+  return shuffle(Object.keys(DIY_RELICS).filter(id => !game.diyRelics[id]), game.random).slice(0, 2)
+    .map(id => ({ kind: 'relic-diy', id, level: 0, label: DIY_RELICS[id].label, description: DIY_RELICS[id].description, details: DIY_RELICS[id].stats }));
+}
+
+function placeStructure(game, id, spot, life, extra = {}) {
+  const piece = { id: game.nextId++, type: id, x: spot.x, y: spot.y, life, total: life, fireIn: 0.3, hp: 1, facing: 1, shotAt: -1, ...extra };
+  game.structures.push(piece);
+  return piece;
+}
+
+function deployStructures(game, dt) {
+  const { player } = game;
+  const field = armyField(game, 1.6);
+  for (const piece of game.structures) {
+    piece.life -= dt;
+    // 오리가 화면 밖으로 멀리 떠나면 두고 간 설치물은 해체된다.
+    if (!inField(piece, player, field)) piece.life = Math.min(piece.life, 0);
+  }
+  for (const piece of game.structures.filter(item => item.life <= 0 && !item.temp)) {
+    addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'bone', count: 6, life: 0.35 });
+  }
+  game.structures = game.structures.filter(item => item.life > 0);
+  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0));
+  const every = STRUCTURE_DEPLOY_SEC * (1 - (diyRelic(game, 'powerdrill')?.deploy ?? 0)) * statsOf(game).cooldownScale / statsOf(game).summonHaste;
+  for (const id of Object.keys(game.builds)) {
+    game.deployIn[id] = (game.deployIn[id] ?? 0) - dt;
+    const placed = game.structures.filter(item => item.type === id && !item.temp).length;
+    if (placed >= structureStat(game, id, 'count') || game.deployIn[id] > 0) continue;
+    game.deployIn[id] = every;
+    // 오리를 둘러싸듯 비어 있는 자리를 골라 깐다. 벽은 조금 더 멀리 세워 적을 오리에게서 떼어 놓는다.
+    const spread = { trap: 40, barricade: 90 }[id] ?? 58;
+    const start = game.random() * Math.PI * 2;
+    let spot = null;
+    for (let n = 0; n < 12 && !spot; n += 1) {
+      const angle = start + n * Math.PI * 2 / 12;
+      const at = { x: player.x + Math.cos(angle) * spread, y: player.y + Math.sin(angle) * spread * 0.85 };
+      if (!game.structures.some(item => distance(item, at) < 30)) spot = at;
+    }
+    spot ??= { x: player.x + Math.cos(start) * spread, y: player.y + Math.sin(start) * spread * 0.85 };
+    const piece = placeStructure(game, id, spot, life);
+    addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'gold', count: 8, life: 0.35, sound: 'select' });
+  }
+}
+
+function nearestFrom(game, from, reach) {
+  let best = null, bestGap = reach;
+  for (const enemy of near(game, from.x, from.y, reach)) {
+    if (enemy.dead) continue;
+    const gap = distance(enemy, from);
+    if (gap < bestGap) { bestGap = gap; best = enemy; }
+  }
+  return best;
+}
+
+function chainZap(game, from, damage, chains, jump, source, hit = new Set()) {
+  const points = [{ x: from.x, y: from.y }];
+  let target = from;
+  for (let n = 0; n < chains; n += 1) {
+    let next = null, best = jump;
+    for (const other of near(game, target.x, target.y, jump)) {
+      if (other.dead || hit.has(other.id) || other === from) continue;
+      const gap = distance(other, target);
+      if (gap < best) { best = gap; next = other; }
+    }
+    if (!next) break;
+    hit.add(next.id);
+    points.push({ x: next.x, y: next.y });
+    damageWeaponHit(game, next, damage, false, source);
+    target = next;
+  }
+  return points;
+}
+
+// 전기 못총: 박힌 못에서 전기가 튄다. 못이 맞힐 때 updateProjectiles가 부른다.
+function nailZap(game, shot, enemy) {
+  const zap = buildFusion(game, 'zapgun');
+  if (!zap) return;
+  const points = chainZap(game, enemy, shot.damage * zap.damage, zap.chains, zap.jump, shot, new Set([enemy.id]));
+  if (points.length > 1) addEffect(game, { type: 'bolt', points, life: 0.15 });
+}
+
+function updateStructures(game, dt) {
+  deployStructures(game, dt);
+  for (const piece of game.structures) {
+    const id = piece.type;
+    const evolved = structureEvolution(game, id);
+    piece.fireIn -= dt;
+    if (id === 'trap' || id === 'barricade') {
+      if (id === 'barricade') {
+        const taunt = structureStat(game, id, 'taunt');
+        for (const enemy of near(game, piece.x, piece.y, taunt)) {
+          if (!enemy.dead && !enemy.boss && distance(enemy, piece) < taunt) { enemy.tauntBy = piece; enemy.tauntUntil = game.time + 0.25; }
+        }
+      }
+      if (piece.fireIn > 0) continue;
+      piece.fireIn = structureStat(game, id, 'tickSec');
+      const reach = id === 'trap' ? structureStat(game, id, 'radius') : evolved?.reach ?? 26;
+      const slow = evolved?.slow ?? STRUCTURES.trap.slow;
+      let touched = false;
+      for (const enemy of near(game, piece.x, piece.y, reach + 40)) {
+        if (enemy.dead || distance(enemy, piece) > reach + enemy.radius + (id === 'barricade' ? 6 : 0)) continue;
+        touched = true;
+        damageWeaponHit(game, enemy, structureStat(game, id, 'damage'), false, piece);
+        if (id === 'trap' && !enemy.dead) slowBy(game, enemy, enemy.boss ? 0.8 : slow, 0.6);
+      }
+      if (touched) piece.shotAt = game.time;
+      continue;
+    }
+    if (piece.fireIn > 0) continue;
+    const cooldown = structureStat(game, id, 'cooldown');
+    if (id === 'nailgun') {
+      const range = structureStat(game, id, 'range');
+      const target = nearestFrom(game, piece, range);
+      if (!target) continue;
+      piece.fireIn = cooldown;
+      piece.shotAt = game.time;
+      const angle = Math.atan2(target.y - piece.y, target.x - piece.x);
+      piece.facing = Math.cos(angle) < 0 ? -1 : 1;
+      const speed = STRUCTURES.nailgun.speed;
+      game.shots.push({ x: piece.x, y: piece.y - 6, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: structureStat(game, id, 'damage'),
+        pierce: structureStat(game, id, 'pierce'), life: range * 1.2 / speed, radius: evolved ? 8 : 6, scale: 1, hit: new Set(),
+        kind: 'nail', mega: Boolean(evolved), zap: Boolean(buildFusion(game, 'zapgun')), weapon: 'nailgun', elements: null, sound: 'shoot' });
+    } else if (id === 'tesla') {
+      const target = nearestFrom(game, piece, structureStat(game, id, 'range'));
+      if (!target) continue;
+      piece.fireIn = cooldown;
+      piece.shotAt = game.time;
+      const damage = structureStat(game, id, 'damage');
+      damageWeaponHit(game, target, damage, false, piece);
+      const points = [{ x: piece.x, y: piece.y - 14 }, ...chainZap(game, target, damage, structureStat(game, id, 'chains') - 1, structureStat(game, id, 'jump'), piece, new Set([target.id]))];
+      addEffect(game, { type: 'bolt', points, life: 0.2, mega: Boolean(evolved), sound: 'zap' });
+    } else if (id === 'mortar') {
+      // 가까운 적 몇을 살펴 주변에 적이 가장 많이 몰린 곳을 노린다. 완성형은 다음으로 몰린 곳에도 쏜다.
+      const radius = structureStat(game, id, 'radius');
+      const range = structureStat(game, id, 'range');
+      const candidates = near(game, piece.x, piece.y, range).filter(enemy => !enemy.dead && distance(enemy, piece) < range).slice(0, 14);
+      if (!candidates.length) continue;
+      const ranked = candidates.map(enemy => ({ enemy, crowd: near(game, enemy.x, enemy.y, radius).filter(other => !other.dead && distance(other, enemy) < radius).length }))
+        .sort((a, b) => b.crowd - a.crowd);
+      piece.fireIn = cooldown;
+      piece.shotAt = game.time;
+      const damage = structureStat(game, id, 'damage');
+      for (let n = 0; n < (evolved?.shells ?? 1); n += 1) {
+        const target = ranked[Math.min(n * 3, ranked.length - 1)].enemy;
+        game.shells.push({ x0: piece.x, y0: piece.y - 10, x: target.x, y: target.y, t: -n * 0.12, total: STRUCTURES.mortar.flightSec, radius, damage, evolved: Boolean(evolved) });
+      }
+      addEffect(game, { type: 'burst', x: piece.x, y: piece.y - 12, color: 'bone', count: 5, life: 0.3, sound: 'shoot' });
+    }
+  }
+  const sticky = buildFusion(game, 'stickybomb');
+  for (const shell of game.shells) {
+    shell.t += dt;
+    if (shell.t < shell.total) continue;
+    for (const enemy of near(game, shell.x, shell.y, shell.radius + 40)) {
+      if (!enemy.dead && distance(enemy, shell) <= shell.radius + enemy.radius) damageWeaponHit(game, enemy, shell.damage, true, shell);
+    }
+    addEffect(game, { type: 'ring', x: shell.x, y: shell.y, radius: shell.radius, color: 'gold', life: 0.35, sound: 'impact' });
+    addEffect(game, { type: 'burst', x: shell.x, y: shell.y, color: 'gold', count: 14, life: 0.45, big: true });
+    // 끈끈이 폭탄: 떨어진 자리에 끈끈이가 눌어붙는다. 덫 개수에는 들지 않는다.
+    if (sticky) placeStructure(game, 'trap', shell, sticky.puddleSec, { temp: true });
+    game.shake = Math.max(game.shake, 0.08);
+  }
+  game.shells = game.shells.filter(shell => shell.t < shell.total);
 }
 
 function updateGhouls(game, dt) {
@@ -3312,6 +3533,7 @@ function updateProjectiles(game, dt) {
         if (enemy.volleyHits.size > 128) enemy.volleyHits.delete(enemy.volleyHits.keys().next().value);
       }
       shot.hit.add(enemy.id);
+      if (shot.kind === 'nail' && shot.zap) nailZap(game, shot, enemy);
       if (shot.kind === 'soularrow') {
         // 영혼 화살은 처음 닿은 적에서 터지고, 폭발이 곧 주 피해다.
         soulArrowBlast(game, shot, impact);
@@ -3566,6 +3788,16 @@ export function rollChoices(game) {
       && (!PASSIVES[id].requires || game.passives[PASSIVES[id].requires]) && buildUnlocked(game, PASSIVES[id]))
       .map((id) => ({ kind: 'passive', id, level: (game.passives[id] ?? 0) + 1, ...PASSIVES[id] })),
   ];
+  if (builder(game)) {
+    // 집돌이 오리는 무기 대신 설치물을 고르고, 일반 패시브는 그대로 나온다.
+    const passives = pool.filter(choice => choice.kind === 'passive');
+    // 설치물이 패시브 더미에 묻히지 않도록 남아 있으면 둘까지 먼저 넣는다.
+    const builds = shuffle(structureChoices(game), game.random).slice(0, 2);
+    const choices = [...structureUpgradeChoices(game), ...shuffle([...builds, ...shuffle(passives, game.random)].slice(0, 3), game.random)].slice(0, 3)
+      .map(({ kind, id, level, label, description, details }) => ({ kind, id, level, label, description, ...(details ? { details } : {}) }));
+    while (choices.length < 3) choices.push({ kind: 'heal', id: `ramen-${choices.length}`, level: 0, label: '라면 한 그릇', description: '체력 20 회복' });
+    return choices.map(choice => ({ ...choice, details: choice.details ?? describeChoice(game, choice) }));
+  }
   if (necromancer(game)) {
     // 강령술사는 무기 대신 강령술과 지휘 능력을 고르고, 일반 패시브는 그대로 나온다.
     const passives = pool.filter(choice => choice.kind === 'passive');
@@ -3637,6 +3869,13 @@ function clearMaterialAttacks(game, fusionId) {
 
 // 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
 export function rollRelics(game) {
+  if (builder(game)) {
+    const normal = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random)
+      .slice(0, relicsFull(game) ? 0 : 1)
+      .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
+    const offers = [...diyTreasures(game), ...normal].slice(0, 3);
+    if (offers.length) return offers;
+  }
   if (necromancer(game)) {
     const necro = necroTreasures(game);
     const normal = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random)
@@ -3714,6 +3953,15 @@ export function choose(game, index) {
   if (!choice) return null;
   if (choice.kind === 'soul') { recruit(game, choice); return choice; }
   if (choice.kind === 'shop-leave') { closeShop(game); return choice; }
+  if (choice.kind === 'structure' || choice.kind === 'build-evolve' || choice.kind === 'build-fusion' || choice.kind === 'relic-diy') {
+    if (choice.kind === 'structure') game.builds[choice.id] = choice.level;
+    if (choice.kind === 'build-evolve') game.buildEvolved[choice.id] = true;
+    if (choice.kind === 'build-fusion') game.buildFusions[choice.id] = true;
+    if (choice.kind === 'relic-diy') game.diyRelics[choice.id] = true;
+    if (choice.kind !== 'structure') addEffect(game, { type: 'banner', text: `${choice.kind === 'relic-diy' ? '보물' : choice.kind === 'build-fusion' ? '합체' : '완성형'}: ${choice.label}`, life: 2.2 });
+    finishChoice(game);
+    return choice;
+  }
   if (choice.kind === 'undead' || choice.kind === 'command' || choice.kind === 'undead-evolve') {
     chooseUndead(game, choice);
     finishChoice(game);
@@ -3843,6 +4091,7 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   if (game.practice) keepDummy(game);
   fireWeapons(game, dt);
   if (necromancer(game)) updateUndead(game, dt);
+  if (builder(game)) updateStructures(game, dt);
   updateProjectiles(game, dt);
   contactDamage(game);
   collect(game, dt);

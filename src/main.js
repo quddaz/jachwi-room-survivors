@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
+  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -274,6 +274,9 @@ function drawLoadout() {
     ...Object.keys(game.necroRelics ?? {}).map((id) => `<span class="is-relic is-necro">${itemIcon(NECRO_RELICS[id].icon ?? id)}</span>`),
     ...Object.entries(game.undead ?? {}).map(([id, level]) => `<span class="is-necro${game.undeadEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.undeadEvolved?.[id] ? '★' : level}</span>`),
     ...Object.entries(game.commands ?? {}).map(([id, level]) => `<span class="is-necro">${itemIcon(COMMANDS[id].icon)}${level}</span>`),
+    ...Object.keys(game.diyRelics ?? {}).map((id) => `<span class="is-relic is-build">${itemIcon(id)}</span>`),
+    ...Object.keys(game.buildFusions ?? {}).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`),
+    ...Object.entries(game.builds ?? {}).map(([id, level]) => `<span class="is-build${game.buildEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.buildEvolved?.[id] ? '★' : level}</span>`),
   ].join('');
   document.querySelector('.loadout').innerHTML = owned + necro + fused + items
     .map(([id, level]) => (game.evolved[id]
@@ -311,7 +314,11 @@ function drawChoices() {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
-    const tag = choice.kind === 'undead-evolve' ? '<small class="choice-evolve">괴담 완성형</small>'
+    const tag = choice.kind === 'build-evolve' ? '<small class="choice-evolve">설치 완성형</small>'
+      : choice.kind === 'build-fusion' ? '<small class="choice-fusion">설치 합체</small>'
+      : choice.kind === 'relic-diy' ? '<small class="choice-build">공구 보물</small>'
+      : choice.kind === 'structure' ? `<small class="choice-build">${choice.level === 1 ? 'NEW 설치' : `설치 Lv ${choice.level}`}</small>`
+      : choice.kind === 'undead-evolve' ? '<small class="choice-evolve">괴담 완성형</small>'
       : choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 괴담' : `Lv ${choice.level}`}</small>`
       : choice.kind === 'command' ? `<small class="choice-undead">지휘 Lv ${choice.level}</small>`
       : choice.kind === 'ritual' ? `<small class="choice-fusion">의식 영혼 ${choice.price}</small>`
@@ -322,7 +329,7 @@ function drawChoices() {
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' ? ' is-evolve is-fusion' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' || choice.kind === 'build-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'build-fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic-diy' ? ' is-evolve is-relic' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
         ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
@@ -396,9 +403,10 @@ function start(practice = false) {
   game = createGame();
   game.map = selectedMap;
   applyCharacter(game, selectedCharacter);
-  const undeadStarter = CHARACTERS[selectedCharacter].undeadStarter;
-  game.weapons = undeadStarter ? {} : { [CHARACTERS[selectedCharacter].starter ?? 'spray']: 1 };
+  const { undeadStarter, structureStarter } = CHARACTERS[selectedCharacter];
+  game.weapons = undeadStarter || structureStarter ? {} : { [CHARACTERS[selectedCharacter].starter ?? 'spray']: 1 };
   if (undeadStarter) game.undead = { [undeadStarter]: 1 };
+  if (structureStarter) game.builds = { [structureStarter]: 1 };
   applyBuild(game, selectedBuild);
   paused = false;
   carry = 0;
@@ -605,6 +613,14 @@ const CODEX_TABS = [
   ['map', '맵', () => `<p class="ranking-note">바닥 타일만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
+  ['diy', '설치물', () => {
+    const row = (id, item) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.description)}. 동시에 ${item.count.join('/')}개, 피해 ${item.damage.join('/')}</em></span></li>`;
+    return `<p class="ranking-note">집돌이 오리만 써요. 레벨업에서 무기 대신 설치물을 고르고, 설치물은 오리 주변에 저절로 깔려요. 설치물은 소환으로 쳐서 소환 능력치와 소환 패시브를 받아요. ${STRUCTURE_LIFE}초가 지나거나 오리가 멀리 떠나면 해체되고, 다시 깔려요.</p>
+      <ul class="evolve-list">${Object.entries(STRUCTURES).map(([id, item]) => row(id, item)).join('')}</ul>
+      <h3 class="recipe-heading">완성형 (Lv 5)</h3><ul class="evolve-list">${Object.entries(STRUCTURE_EVOLUTIONS).map(([id, item]) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)} ★</b><em>${escapeHtml(STRUCTURES[id].label)} Lv 5. ${escapeHtml(item.stats.join(', '))}</em></span></li>`).join('')}</ul>
+      <h3 class="recipe-heading">합체</h3><ul class="evolve-list">${Object.entries(STRUCTURE_FUSIONS).map(([id, item]) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.parts.map(part => STRUCTURE_EVOLUTIONS[part].label).join(' + '))}. ${escapeHtml(item.stats.join(', '))}</em></span></li>`).join('')}</ul>
+      <h3 class="recipe-heading">공구 보물</h3><ul class="evolve-list">${Object.entries(DIY_RELICS).map(([id, item]) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.stats.join(', '))}</em></span></li>`).join('')}</ul>`;
+  }],
   ['necro', '괴담', () => {
     const row = (icon, label, text, extra = '') => `<li>${itemIcon(icon)}<span><b>${escapeHtml(label)}${extra}</b><em>${escapeHtml(text)}</em></span></li>`;
     return `<p class="ranking-note">괴담 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 건물주까지 키워요. 능력치의 <b>괴담</b> 파트가 해골 군단을 강하게 만들어요.</p>
@@ -667,7 +683,7 @@ function buildEffect(tree, points) {
   return Object.entries(BUILD[tree].per).map(([key, per]) => `${BUILD_TEXT[key][0]} ${BUILD_TEXT[key][1](per * points * efficiency)}`).join(', ');
 }
 
-const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10},alchemist:{dot:20,haste:10},necromancer:{necro:20,haste:10} })[role] ?? {});
+const recommendedBuild = role => normalizeBuild(({ normal:{crit:20,haste:10},summoner:{summon:20,haste:10},hunter:{treasure:20,crit:10},gunner:{haste:20,crit:10},alchemist:{dot:20,haste:10},necromancer:{necro:20,haste:10},diy:{summon:20,haste:10} })[role] ?? {});
 const balancedBuild = () => normalizeBuild({crit:6,haste:6,summon:6,treasure:6,dot:6});
 const sameBuild = (a,b) => Object.keys(BUILD).every(key=>a[key]===b[key]);
 function drawStartSummary() {

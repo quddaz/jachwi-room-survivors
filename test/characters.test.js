@@ -30,7 +30,7 @@ describe('특화 오리 캐릭터', () => {
     near(statsOf(game).critChance, 0.2);near(statsOf(game).critDamage, 1.85);
     applyCharacter(game, 'gunner');near(statsOf(game).critChance, 0);near(statsOf(game).critDamage, 1.5);
     near(statsOf(game).flatDamage, 10);
-    assert.equal(Object.keys(CHARACTERS).length, 6);
+    assert.equal(Object.keys(CHARACTERS).length, 7);
   });
   it('일반 오리의 치명타 확률과 피해가 능력치·패시브와 합산되고 캐릭터 치확은 고무망치 전환에서 제외한다', () => {
     const game = quiet('normal');applyBuild(game, { crit: 20 });
@@ -73,14 +73,24 @@ describe('특화 오리 캐릭터', () => {
     assert.equal(Object.keys(game.relics).length, 4);
   });
   it('총잡이 공속은 다른 공속과 곱해지고 고정 피해는 직접 타격에 한 번만 추가한다', () => {
-    const game = quiet('gunner');near(statsOf(game).cooldownScale, 1 / 1.15);
+    const game = quiet('gunner');near(statsOf(game).cooldownScale, 1 / 1.3);
     applyBuild(game, { haste:20 });const baseline = quiet('hunter');applyBuild(baseline, { haste:20 });
-    near(statsOf(game).cooldownScale, statsOf(baseline).cooldownScale / 1.15);
+    near(statsOf(game).cooldownScale, statsOf(baseline).cooldownScale / 1.3);
     const enemy = target(game);
     game.passives = { protein:10, clover:10 };game.random = () => 0;
     game.shots.push({ x:enemy.x,y:enemy.y,vx:0,vy:0,damage:10,radius:4,life:1,pierce:0,hit:new Set() });
     update(game, DT);
     near(enemy.maxHp - enemy.hp, 10 * statsOf(game).critDamage + 10);
+  });
+  it('총잡이 고정 피해와 연금술사 피해는 레벨이 오를수록 커진다', () => {
+    const gunner = quiet('gunner');
+    const low = statsOf(gunner).flatDamage;
+    gunner.level = 21;
+    assert.ok(statsOf(gunner).flatDamage > low * 3);
+    const alchemist = quiet('alchemist');
+    const might = statsOf(alchemist).might;
+    alchemist.level = 11;
+    near(statsOf(alchemist).might, might * 2);
   });
   it('총잡이 고정 피해는 지속 피해에 붙지 않고 정밀 저울의 강화만 받는다', () => {
     const game = quiet('gunner', { dehumidifier:1 }), enemy = target(game, 40);

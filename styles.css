@@ -727,3 +727,8 @@ body:has(.screen-ranking.is-active), body:has(.screen-recipes.is-active), body:h
 .screen-recipes .recipe-desc { border-top-color: var(--line); color: var(--soft); }
 .screen-recipes .weapon-category, .screen-recipes .codex-filter button { border-color: var(--line); background: var(--panel); color: var(--soft); }
 .screen-recipes .item { filter: drop-shadow(0 2px 0 rgb(0 0 0 / 40%)); }
+
+/* 집돌이 오리 설치물: 공사장 노랑과 검정 */
+.choice-build { padding: 1px 7px; border-radius: 999px; background: #2b2620; color: #ffd866 !important; }
+.loadout .is-build { padding: 2px 4px; background: #2b2620; color: #ffd866; }
+.loadout .is-build .item { filter: drop-shadow(0 0 3px #ffb21f); }
