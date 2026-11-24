@@ -269,7 +269,7 @@ function drawLoadout() {
   ];
   const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}${relicCount(game, id) > 1 ? `×${relicCount(game, id)}` : ''}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
-  // 강령술사: 강령 보물, 강령술, 지휘 능력도 보라색으로 함께 보여 준다.
+  // 강령술사: 괴담 보물, 강령술, 지휘 능력도 보라색으로 함께 보여 준다.
   const necro = [
     ...Object.keys(game.necroRelics ?? {}).map((id) => `<span class="is-relic is-necro">${itemIcon(NECRO_RELICS[id].icon ?? id)}</span>`),
     ...Object.entries(game.undead ?? {}).map(([id, level]) => `<span class="is-necro${game.undeadEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.undeadEvolved?.[id] ? '★' : level}</span>`),
@@ -311,11 +311,11 @@ function drawChoices() {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
-    const tag = choice.kind === 'undead-evolve' ? '<small class="choice-evolve">강령술 완성형</small>'
-      : choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 강령술' : `Lv ${choice.level}`}</small>`
+    const tag = choice.kind === 'undead-evolve' ? '<small class="choice-evolve">괴담 완성형</small>'
+      : choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 괴담' : `Lv ${choice.level}`}</small>`
       : choice.kind === 'command' ? `<small class="choice-undead">지휘 Lv ${choice.level}</small>`
       : choice.kind === 'ritual' ? `<small class="choice-fusion">의식 영혼 ${choice.price}</small>`
-      : choice.kind === 'relic-necro' ? '<small class="choice-relic">강령 보물</small>'
+      : choice.kind === 'relic-necro' ? '<small class="choice-relic">괴담 보물</small>'
       : choice.kind === 'soul' ? `<small class="choice-undead">영혼 ${choice.price}</small>`
       : choice.kind === 'shop-leave' ? '' : choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
       : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
@@ -605,17 +605,17 @@ const CODEX_TABS = [
   ['map', '맵', () => `<p class="ranking-note">바닥 타일만 다르고 규칙은 같아서 순위는 함께 매겨요.</p>
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
-  ['necro', '강령술', () => {
+  ['necro', '괴담', () => {
     const row = (icon, label, text, extra = '') => `<li>${itemIcon(icon)}<span><b>${escapeHtml(label)}${extra}</b><em>${escapeHtml(text)}</em></span></li>`;
-    return `<p class="ranking-note">강령술사 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 거인으로 키워요. 능력치의 <b>강령술</b> 파트가 해골 군단을 강하게 만들어요.</p>
+    return `<p class="ranking-note">괴담 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 건물주까지 키워요. 능력치의 <b>괴담</b> 파트가 해골 군단을 강하게 만들어요.</p>
       <h3 class="recipe-heading">군단</h3><ul class="evolve-list">${Object.entries(ARMY).map(([id, unit]) => row(id, unit.label,
         `피해 ${unit.damage}, 병력 ${unit.cap}칸${unit.taunt ? ', 주변 적을 끌어당겨 내리친다' : ''}`)).join('')}</ul>
       <h3 class="recipe-heading">모집과 의식</h3><ul class="evolve-list">${Object.entries(RECRUITS).map(([id, recruit]) => row(recruit.unit, recruit.label, `영혼 ${recruit.price}개로 ${recruit.amount}명`)).join('')}
         ${Object.entries(RITUALS).map(([id, ritual]) => row(id, ritual.label, `${Object.entries(ritual.cost).map(([type, count]) => `${ARMY[type].label} ${count}`).join(' + ')}, 영혼 ${ritual.souls}개 → ${ARMY[id].label}`)).join('')}</ul>
-      <h3 class="recipe-heading">강령술과 지휘</h3><ul class="evolve-list">${Object.entries(UNDEAD).map(([id, spell]) => row(id, spell.label, spell.description)).join('')}
+      <h3 class="recipe-heading">괴담과 지휘</h3><ul class="evolve-list">${Object.entries(UNDEAD).map(([id, spell]) => row(id, spell.label, spell.description)).join('')}
         ${Object.entries(COMMANDS).map(([id, command]) => row(command.icon, command.label, command.description)).join('')}</ul>
-      <h3 class="recipe-heading">강령술 완성형</h3><ul class="evolve-list">${Object.entries(UNDEAD_EVOLUTIONS).map(([id, evolution]) => row(id, evolution.label, `${UNDEAD[id].label} Lv 5 + ${COMMANDS[evolution.needs].label}. ${evolution.stats.join(', ')}`, ' ★')).join('')}</ul>
-      <h3 class="recipe-heading">강령 보물</h3><ul class="evolve-list">${Object.entries(NECRO_RELICS).map(([id, relic]) => row(relic.icon ?? id, relic.label, relic.stats.join(', '))).join('')}</ul>`;
+      <h3 class="recipe-heading">괴담 완성형</h3><ul class="evolve-list">${Object.entries(UNDEAD_EVOLUTIONS).map(([id, evolution]) => row(id, evolution.label, `${UNDEAD[id].label} Lv 5 + ${COMMANDS[evolution.needs].label}. ${evolution.stats.join(', ')}`, ' ★')).join('')}</ul>
+      <h3 class="recipe-heading">괴담 보물</h3><ul class="evolve-list">${Object.entries(NECRO_RELICS).map(([id, relic]) => row(relic.icon ?? id, relic.label, relic.stats.join(', '))).join('')}</ul>`;
   }],
   ['boss', '보스', () => `<p class="ranking-note">${BOSS_EVERY_SEC}초마다 아래 순서로 돌아가며 나오고, 한 바퀴 돌 때마다 더 세져요. 화면 밖에 있으면 가장자리에 빨간 화살표가 떠요. 잡으면 보물 상자가 나와요.</p>
     <ul class="evolve-list">${BOSSES.map((boss, index) => `

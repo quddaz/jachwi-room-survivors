@@ -13,8 +13,8 @@ export const CHARACTERS = {
     stats: ['공격 속도 +15%', '무기 타격당 고정 피해 +8', '전체 고정 피해 +25%'], attackSpeed: 0.15, hitDamage: 8, fixedPower: 0.25 },
   alchemist: { label: '연금술사 오리', description: '열기와 독, 속성 반응으로 적을 녹이는 연구자',
     stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer' },
-  necromancer: { label: '강령술사 오리', description: '영혼으로 해골 군단을 모집하고, 병사를 바쳐 거인을 키우는 지휘관',
-    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 거인을 1차에서 3차까지 키운다', '레벨업에서 무기 대신 강령술과 지휘 능력을 고르고, 레벨마다 병력 +1'],
+  necromancer: { label: '괴담 오리', description: '원룸 괴담 속 해골 세입자들을 영혼으로 불러 모으고, 병사를 바쳐 건물주까지 키우는 오리',
+    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 관리인, 집주인, 건물주로 키운다', '레벨업에서 무기 대신 괴담과 지휘 능력을 고르고, 레벨마다 병력 +1'],
     souls: true, undeadStarter: 'bone' },
 };
 
@@ -29,7 +29,7 @@ export const UNDEAD = {
     count: [1, 2, 2, 3, 3], damage: [18, 24, 31, 40, 52], cooldown: [1.1, 1, 0.92, 0.84, 0.75], pierce: [2, 2, 3, 3, 4], speed: 420, range: 480 },
   wraith: { label: '망령', description: '오리 둘레를 도는 망령이 닿은 적을 베고 얼려 느리게 한다',
     count: [2, 2, 3, 3, 4], damage: [11, 15, 19, 24, 30], orbit: [70, 75, 80, 88, 96], spin: 2.2, hitEverySec: 0.5, slow: 0.6, slowSec: 0.8 },
-  scythe: { label: '리치의 낫', description: '주위를 크게 베며, 가진 영혼이 많을수록 세게 벤다',
+  scythe: { label: '저승사자 낫', description: '주위를 크게 베며, 가진 영혼이 많을수록 세게 벤다',
     damage: [34, 45, 58, 74, 92], cooldown: [1.6, 1.5, 1.4, 1.3, 1.2], radius: [80, 86, 92, 100, 110], perSoul: 0.01, maxSoulBonus: 1 },
 };
 // 강령술 완성형: Lv 5에 짝이 되는 지휘 능력을 가지고 있으면 레벨업에서 나온다.
@@ -38,7 +38,7 @@ export const UNDEAD_EVOLUTIONS = {
     stats: ['뼈 6개, 크기 1.7배', '피해 1.5배, 모든 적을 꿰뚫음', '쿨타임 0.6초'], count: 6, damage: 1.5, cooldown: 0.6, pierce: 99, size: 1.7 },
   wraith: { label: '망령 군무', needs: 'march', description: '망령 7마리가 더 넓게 돌며 닿은 적을 거의 멈춰 세운다',
     stats: ['망령 7마리, 도는 거리 1.3배', '피해 1.7배, 0.3초마다 벤다', '느려짐 65%'], count: 7, damage: 1.7, orbit: 1.3, hitEverySec: 0.3, slow: 0.35 },
-  scythe: { label: '사신의 대낫', needs: 'harvest', description: '거대한 낫으로 앞뒤 두 번 베고, 영혼으로 얻는 피해 상한이 두 배가 된다',
+  scythe: { label: '저승사자 대낫', needs: 'harvest', description: '거대한 낫으로 앞뒤 두 번 베고, 영혼으로 얻는 피해 상한이 두 배가 된다',
     stats: ['범위 2.1배, 피해 1.5배', '0.22초 뒤 반대로 한 번 더 벤다', '영혼 피해 상한 +200%'], damage: 1.5, radius: 2.1, maxSoulBonus: 2, echo: 0.22 },
 };
 export const COMMANDS = {
@@ -55,37 +55,37 @@ export const COMMANDS = {
 export const ARMY = {
   soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 46, arc: 2.4, radius: 8, cap: 1 },
   archer: { label: '해골 궁수', damage: 22, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
-  giant1: { label: '해골 골렘', damage: 110, cooldown: 1.2, speed: 190, range: 170, slam: 0.7, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
-  giant2: { label: '해골 거인', damage: 260, cooldown: 1.3, speed: 185, range: 240, slam: 0.75, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
+  giant1: { label: '해골 관리인', damage: 110, cooldown: 1.2, speed: 190, range: 170, slam: 0.7, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
+  giant2: { label: '해골 집주인', damage: 260, cooldown: 1.3, speed: 185, range: 240, slam: 0.75, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
   ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
   ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
-  ranger3: { label: '해골 명궁', damage: 650, cooldown: 1.3, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 900, pierce: 999, size: 4, soulArrow: { width: 24, reach: 1.8, blast: 90, blastDamage: 0.6 } },
-  giant3: { label: '해골 군주', damage: 380, cooldown: 1.6, speed: 180, range: 260, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
+  ranger3: { label: '해골 명궁', damage: 520, cooldown: 1.4, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 900, pierce: 0, size: 4, soulArrow: { width: 18, reach: 1.4, blast: 210 } },
+  giant3: { label: '해골 건물주', damage: 380, cooldown: 1.6, speed: 180, range: 260, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
 };
 export const ARMY_CAP = 30;
 // 영혼 모집 창. 한 번에 여러 마리를 뽑으며, 남은 병력 칸만큼만 들어온다.
 export const RECRUITS = {
-  soldier: { label: '해골 병사 모집', description: '해골 병사 2명이 무덤에서 일어난다. 많이 깔려 꾸준히 싸운다', unit: 'soldier', amount: 2, price: 30 },
+  soldier: { label: '해골 병사 모집', description: '해골 병사 2명이 옷장에서 걸어 나온다. 많이 깔려 꾸준히 싸운다', unit: 'soldier', amount: 2, price: 30 },
   archer: { label: '해골 궁수 모집', description: '해골 궁수 2명이 뒤에서 활을 쏜다. 약해서 지켜 줘야 한다', unit: 'archer', amount: 2, price: 60 },
 };
 // R로 여는 영혼 창에서 고르는 의식. 해골과 영혼을 함께 바치며, 바친 병사만큼 병력 칸을 그대로 차지한다.
 export const RITUALS = {
-  giant1: { label: '골렘 의식', description: '해골 병사 10명을 바쳐 해골 골렘을 세운다. 적을 끌어모아 내리친다', cost: { soldier: 10 }, souls: 1200 },
-  giant2: { label: '거인 의식', description: '골렘과 해골 병사 12명을 합쳐 해골 거인으로 키운다', cost: { giant1: 1, soldier: 12 }, souls: 5000 },
+  giant1: { label: '관리인 의식', description: '해골 병사 10명을 바쳐 해골 관리인을 세운다. 적을 끌어모아 내리친다', cost: { soldier: 10 }, souls: 1200 },
+  giant2: { label: '집주인 의식', description: '관리인과 해골 병사 12명을 합쳐 해골 집주인으로 키운다', cost: { giant1: 1, soldier: 12 }, souls: 5000 },
   ranger1: { label: '석궁 의식', description: '해골 궁수 8명을 바쳐 꿰뚫는 석궁을 쏘는 해골 석궁수를 세운다', cost: { archer: 8 }, souls: 1000 },
   ranger2: { label: '쇠뇌 의식', description: '석궁수와 해골 궁수 10명을 합쳐 볼트 3발을 쏘는 해골 쇠뇌병으로 키운다', cost: { ranger1: 1, archer: 10 }, souls: 4000 },
-  ranger3: { label: '명궁 의식', description: '쇠뇌병과 해골 궁수 12명을 합쳐 화면을 가로지르는 거대한 영혼 화살을 쏘는 해골 명궁으로 키운다', cost: { ranger2: 1, archer: 12 }, souls: 12000 },
-  giant3: { label: '군주 의식', description: '거인과 해골 병사 15명을 합쳐 해골 군주로 키운다. 대검을 한 바퀴 휘두른다', cost: { giant2: 1, soldier: 15 }, souls: 15000 },
+  ranger3: { label: '명궁 의식', description: '쇠뇌병과 해골 궁수 12명을 합쳐 닿는 순간 크게 터지는 영혼 화살을 쏘는 해골 명궁으로 키운다', cost: { ranger2: 1, archer: 12 }, souls: 12000 },
+  giant3: { label: '건물주 의식', description: '집주인과 해골 병사 15명을 합쳐 해골 건물주로 키운다. 대검을 한 바퀴 휘두른다', cost: { giant2: 1, soldier: 15 }, souls: 15000 },
 };
 // 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
 export const NECRO_RELICS = {
-  gravesoil: { icon: 'ghoul', label: '묘지 흙', description: '처치한 적이 보라빛 구울로 일어나 잠시 함께 싸운다',
-    stats: ['처치한 적의 25%가 구울로 일어난다', '구울은 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 15 },
+  gravesoil: { icon: 'ghoul', label: '화분 흙', description: '처치한 적이 보라빛 좀비로 일어나 잠시 함께 싸운다',
+    stats: ['처치한 적의 25%가 좀비로 일어난다', '좀비는 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 15 },
   corpsebomb: { icon: 'corpse', label: '시체 폭탄', description: '쓰러진 적의 시체가 잠시 뒤 터진다',
     stats: ['처치한 적의 35%가 시체를 남긴다', '0.7초 뒤 반경 70 안에 피해 45'], chance: 0.35, damage: 45, radius: 70, fuseSec: 0.7 },
-  bonepipe: { label: '뼈 피리', description: '무덤을 깨우는 피리. 모집이 싸진다', stats: ['해골 모집 비용 -30%'], discount: 0.3 },
-  darkcrown: { label: '검은 왕관', description: '의식으로 키운 해골이 더 강해진다', stats: ['거인 계열과 석궁수 계열의 피해 +50%'], giantPower: 0.5 },
-  soulurn: { label: '영혼 항아리', description: '영혼을 더 많이 담는다', stats: ['처치할 때 얻는 영혼 +50%'], soulGain: 0.5 },
+  bonepipe: { label: '뼈 피리', description: '옷장 문을 두드리는 피리. 모집이 싸진다', stats: ['해골 모집 비용 -30%'], discount: 0.3 },
+  darkcrown: { label: '등기부등본', description: '의식으로 키운 해골이 더 강해진다', stats: ['관리인 계열과 석궁수 계열의 피해 +50%'], giantPower: 0.5 },
+  soulurn: { label: '영혼 저금통', description: '영혼을 더 많이 담는다', stats: ['처치할 때 얻는 영혼 +50%'], soulGain: 0.5 },
 };
 
 // 능력치 투자. 게임을 시작할 때 모두 같은 30점을 다섯 파트에 나눈다(파트당 최대 20).
@@ -128,11 +128,11 @@ export const BUILD = {
       20: { name: '연금술 완성', text: '보스·정예에게 지속 피해 +25%, 지속·속성 전용 패시브와 보물 해금', dotElitePower: 0.25 },
     } },
   // 강령술사의 해골 군단을 키운다. 다른 오리에게는 효과가 없다.
-  necro: { label: '강령술', icon: 'soldier', per: { armyPower: 0.03 },
+  necro: { label: '괴담', icon: 'soldier', per: { armyPower: 0.03 },
     perks: {
-      5: { name: '무덤 파기', text: '모집할 때 해골이 1명 더 일어난다', recruitBonus: 1 },
-      10: { name: '사령 군단', text: '병력 한도 +20, 처치할 때 영혼 +1', cap: 20, souls: 1 },
-      20: { name: '죽음의 군주', text: '해골 피해 +25%, 의식에 바치는 병사와 궁수 -4명', power: 0.25, ritualDiscount: 4 },
+      5: { name: '룸메이트 모집', text: '모집할 때 해골이 1명 더 일어난다', recruitBonus: 1 },
+      10: { name: '세입자 군단', text: '병력 한도 +20, 처치할 때 영혼 +1', cap: 20, souls: 1 },
+      20: { name: '건물주의 위엄', text: '해골 피해 +25%, 의식에 바치는 병사와 궁수 -4명', power: 0.25, ritualDiscount: 4 },
     } },
 };
 

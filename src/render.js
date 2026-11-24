@@ -1074,7 +1074,7 @@ function drawSoulBlast(ctx, cx, cy, effect, progress) {
   }
   let seed = Math.round(cx * 7 + cy * 13);
   const rand = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
-  for (let n = 0; n < 10; n += 1) {
+  for (let n = 0; n < Math.max(10, radius / 3); n += 1) {
     const angle = rand() * Math.PI * 2, reach = ring * (0.4 + rand() * 0.6);
     const x = Math.round(cx + Math.cos(angle) * reach), y = Math.round(cy + Math.sin(angle) * reach * 0.85 - progress * 4);
     ctx.fillStyle = '#4a2a72'; ctx.fillRect(x - 1, y - 1, 3, 3);

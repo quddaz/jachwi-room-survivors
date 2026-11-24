@@ -1546,7 +1546,7 @@ function recruit(game, choice) {
 function undeadChoices(game) {
   const spells = Object.keys(UNDEAD).filter(id => (game.undead[id] ?? 0) < UNDEAD_MAX)
     .map(id => ({ kind: 'undead', id, level: (game.undead[id] ?? 0) + 1, label: UNDEAD[id].label, description: UNDEAD[id].description,
-      details: [game.undead[id] ? `Lv ${game.undead[id]} → ${game.undead[id] + 1}` : '새 강령술'] }));
+      details: [game.undead[id] ? `Lv ${game.undead[id]} → ${game.undead[id] + 1}` : '새 괴담'] }));
   const commands = Object.keys(COMMANDS).filter(id => (game.commands[id] ?? 0) < UNDEAD_MAX)
     .map(id => ({ kind: 'command', id, icon: COMMANDS[id].icon,
       level: (game.commands[id] ?? 0) + 1, label: COMMANDS[id].label, description: COMMANDS[id].description,
@@ -1680,7 +1680,7 @@ function updateArmy(game, dt) {
           const speed = spec.arrowSpeed;
           game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed,
             damage: unitDamage(game, unit.type), pierce: spec.pierce, life: range * spec.soulArrow.reach / speed, radius: spec.soulArrow.width, scale: 1, hit: new Set(),
-            kind: 'soularrow', blast: spec.soulArrow.blast * stats.area, blastDamage: spec.soulArrow.blastDamage, weapon: 'archer', elements: null, sound: 'shoot' });
+            kind: 'soularrow', blast: spec.soulArrow.blast * stats.area, weapon: 'archer', elements: null, sound: 'shoot' });
           addEffect(game, { type: 'burst', x: unit.x + Math.cos(aim) * 14, y: unit.y - 4 + Math.sin(aim) * 14, color: 'soul', count: 8, life: 0.3 });
           return;
         }
@@ -1744,6 +1744,16 @@ function updateArmy(game, dt) {
       game.shake = Math.max(game.shake, spec.quake ?? 0.06);
     }
   });
+}
+
+function soulArrowBlast(game, shot, at) {
+  shot.blasted = true;
+  shot.life = 0;
+  for (const enemy of near(game, at.x, at.y, shot.blast + 40)) {
+    if (!enemy.dead && distance(enemy, at) <= shot.blast + enemy.radius) damageWeaponHit(game, enemy, shot.damage, true, shot);
+  }
+  addEffect(game, { type: 'soulblast', x: at.x, y: at.y, radius: shot.blast, life: 0.55, sound: 'impact' });
+  game.shake = Math.max(game.shake, 0.14);
 }
 
 function updateGhouls(game, dt) {
@@ -3303,14 +3313,9 @@ function updateProjectiles(game, dt) {
       }
       shot.hit.add(enemy.id);
       if (shot.kind === 'soularrow') {
-        // 닿은 자리마다 영혼이 터져 주변을 휩쓴다. 같은 화살의 폭발은 적 하나당 한 번만 맞는다.
-        shot.blasted ??= new Set();
-        for (const other of near(game, impact.x, impact.y, shot.blast + 40)) {
-          if (other.dead || shot.blasted.has(other.id) || distance(other, impact) > shot.blast + other.radius) continue;
-          shot.blasted.add(other.id);
-          damageWeaponHit(game, other, shot.damage * shot.blastDamage, true, shot);
-        }
-        addEffect(game, { type: 'soulblast', x: impact.x, y: impact.y, radius: shot.blast, life: 0.4, sound: shot.hit.size === 1 ? 'impact' : undefined });
+        // 영혼 화살은 처음 닿은 적에서 터지고, 폭발이 곧 주 피해다.
+        soulArrowBlast(game, shot, impact);
+        break;
       }
       if (shot.pop) {
         for (const other of near(game, impact.x, impact.y, shot.pop)) {
@@ -3357,6 +3362,8 @@ function updateProjectiles(game, dt) {
     }
   }
   game.hitElement = null;
+  // 아무것도 맞히지 못한 영혼 화살은 날아간 끝에서 터진다.
+  for (const shot of game.shots) if (shot.kind === 'soularrow' && shot.life <= 0 && !shot.blasted) soulArrowBlast(game, shot, shot);
   game.shots = game.shots.filter((shot) => shot.life > 0);
 
   for (const slipper of game.slippers) {

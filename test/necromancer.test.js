@@ -363,26 +363,30 @@ describe('궁수 계열', () => {
     assert.ok(game.army[0].x > game.player.x - 560 + 100);
   });
 
-  it('명궁은 모든 적을 꿰뚫는 굵은 영혼 화살 한 발을 멀리 쏜다', () => {
+  it('명궁의 영혼 화살은 처음 닿은 적에서 크게 터져 주변을 모두 휩쓴다', () => {
     const game = quiet();
     game.army.push({ id: game.nextId++, type: 'ranger3', x: game.player.x, y: game.player.y, attackIn: 0, facing: 1, swingAt: -1, slot: 0 });
-    const enemies = [add(game, 200), add(game, 300), add(game, 420)];
+    const first = add(game, 150);
+    const around = [add(game, 250, 120), add(game, 150, -170), add(game, 330)];
+    const far = add(game, 200, 400);
     update(game, DT);
-    const arrows = game.shots.filter(shot => shot.kind === 'soularrow');
-    assert.equal(arrows.length, 1);
-    assert.ok(arrows[0].radius >= 20);
-    run(game, 1);
-    assert.ok(enemies.every(enemy => enemy.hp < enemy.maxHp));
+    assert.equal(game.shots.filter(shot => shot.kind === 'soularrow').length, 1);
+    run(game, 0.5);
+    assert.ok(first.hp < first.maxHp);
+    assert.ok(around.every(enemy => enemy.hp < enemy.maxHp));
+    assert.equal(far.hp, far.maxHp);
+    assert.ok(game.effects.some(effect => effect.type === 'soulblast'));
   });
 
-  it('영혼 화살은 닿은 자리에서 터져 화살길 밖의 적도 휩쓴다', () => {
+  it('아무것도 맞히지 못한 영혼 화살은 날아간 끝에서 터진다', () => {
     const game = quiet();
     game.army.push({ id: game.nextId++, type: 'ranger3', x: game.player.x, y: game.player.y, attackIn: 0, facing: 1, swingAt: -1, slot: 0 });
-    add(game, 200);
-    const aside = add(game, 200, 70);
-    run(game, 0.6);
-    assert.ok(aside.hp < aside.maxHp);
-    assert.ok(game.effects.some(effect => effect.type === 'soulblast') || aside.hp < aside.maxHp);
+    const target = add(game, 300, 0, { radius: 1 });
+    update(game, DT);
+    target.dead = true;
+    game.enemies = game.enemies.filter(enemy => enemy !== target);
+    run(game, 1.2);
+    assert.ok(game.effects.some(effect => effect.type === 'soulblast') || game.shots.every(shot => shot.kind !== 'soularrow'));
   });
 
   it('쇠뇌병은 꿰뚫는 볼트 여러 발을 쏜다', () => {
