@@ -79,17 +79,17 @@ export const DIY_RELICS = {
 
 // 강령술사 전용. 영혼은 처치할 때 바로 모이고, R을 눌러 영혼 창에서 쓴다.
 // 영혼 흡수: 지금까지 모은 영혼이 많을수록 해골과 강령술 피해가 오른다. 후반 적 체력을 따라가도록 거듭제곱으로 키운다.
-export const SOUL_GROWTH = { per: 1000, power: 0.75, scale: 0.1 };
+export const SOUL_GROWTH = { per: 1000, power: 0.75, scale: 0.05 };
 export const SOULS = { normal: 1, elite: 5, boss: 30 };
 
 // 강령술사의 레벨업 선택지. 오리가 직접 쓰는 강령술과 군단을 키우는 지휘 능력뿐이다.
 export const UNDEAD = {
   bone: { label: '뼈 투척', description: '빙글빙글 도는 뼈를 던져 줄지어 선 적을 꿰뚫는다',
-    count: [1, 2, 2, 3, 3], damage: [18, 24, 31, 40, 52], cooldown: [1.1, 1, 0.92, 0.84, 0.75], pierce: [2, 2, 3, 3, 4], speed: 420, range: 480 },
+    count: [1, 2, 2, 3, 3], damage: [11, 14, 19, 24, 31], cooldown: [1.1, 1, 0.92, 0.84, 0.75], pierce: [2, 2, 3, 3, 4], speed: 420, range: 480 },
   wraith: { label: '망령', description: '오리 둘레를 도는 망령이 닿은 적을 베고 얼려 느리게 한다',
-    count: [2, 2, 3, 3, 4], damage: [11, 15, 19, 24, 30], orbit: [70, 75, 80, 88, 96], spin: 2.2, hitEverySec: 0.5, slow: 0.6, slowSec: 0.8 },
+    count: [2, 2, 3, 3, 4], damage: [7, 9, 11, 14, 18], orbit: [70, 75, 80, 88, 96], spin: 2.2, hitEverySec: 0.5, slow: 0.6, slowSec: 0.8 },
   scythe: { label: '저승사자 낫', description: '주위를 크게 베며, 가진 영혼이 많을수록 세게 벤다',
-    damage: [34, 45, 58, 74, 92], cooldown: [1.6, 1.5, 1.4, 1.3, 1.2], radius: [80, 86, 92, 100, 110], perSoul: 0.01, maxSoulBonus: 1 },
+    damage: [20, 27, 35, 44, 55], cooldown: [1.6, 1.5, 1.4, 1.3, 1.2], radius: [80, 86, 92, 100, 110], perSoul: 0.01, maxSoulBonus: 1 },
 };
 // 강령술 완성형: Lv 5에 짝이 되는 지휘 능력을 가지고 있으면 레벨업에서 나온다.
 export const UNDEAD_EVOLUTIONS = {
@@ -112,14 +112,14 @@ export const COMMANDS = {
 
 // 군단 유닛. cap은 병력 한도에서 차지하는 칸이다. 거인은 모집하지 않고 보물 상자의 의식으로만 만든다.
 export const ARMY = {
-  soldier: { label: '해골 병사', damage: 24, cooldown: 0.75, speed: 240, range: 46, arc: 2.4, radius: 8, cap: 1 },
-  archer: { label: '해골 궁수', damage: 22, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
-  giant1: { label: '해골 관리인', damage: 110, cooldown: 1.2, speed: 190, range: 170, slam: 0.7, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
-  giant2: { label: '해골 집주인', damage: 260, cooldown: 1.3, speed: 185, range: 240, slam: 0.75, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
-  ranger1: { label: '해골 석궁수', damage: 90, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
-  ranger2: { label: '해골 쇠뇌병', damage: 210, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
-  ranger3: { label: '해골 명궁', damage: 520, cooldown: 1.4, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 900, pierce: 0, size: 4, soulArrow: { width: 18, reach: 1.4, blast: 210 } },
-  giant3: { label: '해골 건물주', damage: 380, cooldown: 1.6, speed: 180, range: 260, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
+  soldier: { label: '해골 병사', damage: 14, cooldown: 0.75, speed: 240, range: 46, arc: 2.4, radius: 8, cap: 1 },
+  archer: { label: '해골 궁수', damage: 13, cooldown: 1, speed: 220, range: 250, radius: 8, cap: 1, ranged: true, arrowSpeed: 440 },
+  giant1: { label: '해골 관리인', damage: 66, cooldown: 1.2, speed: 190, range: 170, slam: 0.7, scar: true, radius: 18, cap: 10, taunt: 160, scale: 1 },
+  giant2: { label: '해골 집주인', damage: 156, cooldown: 1.3, speed: 185, range: 240, slam: 0.75, scar: true, radius: 26, cap: 22, taunt: 210, scale: 1 },
+  ranger1: { label: '해골 석궁수', damage: 54, cooldown: 0.9, speed: 220, range: 320, radius: 12, cap: 8, ranged: true, arrowSpeed: 620, bolts: 1, pierce: 3, size: 2 },
+  ranger2: { label: '해골 쇠뇌병', damage: 126, cooldown: 1, speed: 205, range: 380, radius: 16, cap: 18, ranged: true, arrowSpeed: 700, bolts: 3, pierce: 6, size: 3 },
+  ranger3: { label: '해골 명궁', damage: 312, cooldown: 1.4, speed: 195, range: 440, radius: 20, cap: 30, ranged: true, arrowSpeed: 900, pierce: 0, size: 4, soulArrow: { width: 18, reach: 1.4, blast: 210 } },
+  giant3: { label: '해골 건물주', damage: 228, cooldown: 1.6, speed: 180, range: 260, arc: 6.3, scar: true, radius: 34, cap: 37, taunt: 270, scale: 1, quake: 0.18 },
 };
 export const ARMY_CAP = 30;
 // 영혼 모집 창. 한 번에 여러 마리를 뽑으며, 남은 병력 칸만큼만 들어온다.
@@ -139,9 +139,9 @@ export const RITUALS = {
 // 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
 export const NECRO_RELICS = {
   gravesoil: { icon: 'ghoul', label: '화분 흙', description: '처치한 적이 보라빛 좀비로 일어나 잠시 함께 싸운다',
-    stats: ['처치한 적의 25%가 좀비로 일어난다', '좀비는 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 15 },
+    stats: ['처치한 적의 25%가 좀비로 일어난다', '좀비는 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, damage: 9 },
   corpsebomb: { icon: 'corpse', label: '시체 폭탄', description: '쓰러진 적의 시체가 잠시 뒤 터진다',
-    stats: ['처치한 적의 35%가 시체를 남긴다', '0.7초 뒤 반경 70 안에 피해 45'], chance: 0.35, damage: 45, radius: 70, fuseSec: 0.7 },
+    stats: ['처치한 적의 35%가 시체를 남긴다', '0.7초 뒤 반경 70 안에 피해 27'], chance: 0.35, damage: 27, radius: 70, fuseSec: 0.7 },
   bonepipe: { label: '뼈 피리', description: '옷장 문을 두드리는 피리. 모집이 싸진다', stats: ['해골 모집 비용 -30%'], discount: 0.3 },
   darkcrown: { label: '등기부등본', description: '의식으로 키운 해골이 더 강해진다', stats: ['관리인 계열과 석궁수 계열의 피해 +50%'], giantPower: 0.5 },
   soulurn: { label: '영혼 저금통', description: '영혼을 더 많이 담는다', stats: ['처치할 때 얻는 영혼 +50%'], soulGain: 0.5 },
