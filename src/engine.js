@@ -1842,7 +1842,7 @@ function deployStructures(game, dt) {
     if (placed >= structureStat(game, id, 'count') || game.deployIn[id] > 0) continue;
     game.deployIn[id] = every;
     // 오리를 둘러싸듯 비어 있는 자리를 골라 깐다. 벽은 조금 더 멀리 세워 적을 오리에게서 떼어 놓는다.
-    const spread = { trap: 40, barricade: 90 }[id] ?? 58;
+    const spread = { trap: 80, barricade: 180 }[id] ?? 116;
     const start = game.random() * Math.PI * 2;
     let spot = null;
     for (let n = 0; n < 12 && !spot; n += 1) {
