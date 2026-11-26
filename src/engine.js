@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -921,10 +921,14 @@ function moveEnemies(game, dt) {
     }
     if (enemy.kind === 'sock') {
       const base = ENEMIES.sock;
-      enemy.stinking = gap < base.auraRadius;
+      const playerNear = distance(enemy, player) < base.auraRadius;
+      const allies = necromancer(game) ? livingUndead(game).filter(unit => distance(enemy, unit) < base.auraRadius) : [];
+      enemy.stinking = playerNear || allies.length > 0;
       if (enemy.stinking && enemy.timer >= base.auraEverySec) {
         enemy.timer = 0;
-        damagePlayer(game, base.auraDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1));
+        const damage = base.auraDamage * difficulty.damage * (enemy.elite ? ELITE.damage : 1);
+        if (playerNear) damagePlayer(game, damage);
+        for (const unit of allies) damageUndead(game, unit, damage);
       }
     }
     if (enemy.kind === 'dustbunny') {
@@ -1458,16 +1462,94 @@ export function armyCap(game) {
   // 레벨이 오를 때마다 병력 한도가 1칸씩 는다.
   return ARMY_CAP + Math.max(0, (game.level ?? 1) - 1) + levelOf(COMMANDS, game.commands, 'legion', 'cap') + (perk(game, 'necro', 10)?.cap ?? 0);
 }
-// 강령술 파트: 점수마다 해골 피해와 체력, 20점이면 크게 더 오른다.
+// 강령술 파트: 점수마다 해골 피해가 오르고, 20점이면 추가 피해 보너스를 받는다.
 const necroPower = (game, key) => 1 + buildValue(game, key) + (perk(game, 'necro', 20)?.power ?? 0);
 export function ritualCost(game, id) {
   const discount = perk(game, 'necro', 20)?.ritualDiscount ?? 0;
   return Object.fromEntries(Object.entries(RITUALS[id].cost).map(([type, count]) => [type, ARMY[type].cap === 1 ? Math.max(1, count - discount) : count]));
 }
 export function armyUsed(game) {
-  return (game.army ?? []).reduce((sum, unit) => sum + (unit.cap ?? ARMY[unit.type].cap), 0);
+  return (game.army ?? []).reduce((sum, unit) => sum + ((unit.hp ?? 1) > 0 ? unit.cap ?? ARMY[unit.type].cap : 0), 0);
 }
-const armyCount = (game, type) => game.army.filter(unit => unit.type === type).length;
+const armyCount = (game, type) => game.army.filter(unit => unit.type === type && (unit.hp ?? 1) > 0).length;
+const undeadHealthScale = game => (1 + Math.max(0, (game.level ?? 1) - 1) * NECRO_HEALTH.levelGrowth)
+  * (1 + levelOf(COMMANDS, game.commands, 'vigor', 'health'));
+export const armyMaxHp = (game, type) => Math.round(ARMY[type].hp * undeadHealthScale(game));
+function syncUndeadHealth(unit, maxHp) {
+  if (unit.hp <= 0) return;
+  const ratio = unit.maxHp > 0 ? Math.min(1, (unit.hp ?? unit.maxHp) / unit.maxHp) : 1;
+  unit.maxHp = maxHp;
+  unit.hp = maxHp * ratio;
+}
+function refreshUndeadHealth(game) {
+  for (const unit of game.army) syncUndeadHealth(unit, armyMaxHp(game, unit.type));
+  for (const unit of game.ghouls) syncUndeadHealth(unit, Math.round(NECRO_RELICS.gravesoil.hp * (unit.damageScale ?? 1) * undeadHealthScale(game)));
+}
+const livingUndead = game => [...game.army, ...game.ghouls].filter(unit => unit.hp > 0 && (unit.life ?? 1) > 0);
+const undeadRadius = unit => ARMY[unit.type]?.radius ?? unit.radius ?? 8;
+function damageUndead(game, unit, amount) {
+  if (amount <= 0 || unit.hp <= 0 || game.time < (unit.invulnerableUntil ?? 0)) return false;
+  unit.hp = Math.max(0, unit.hp - amount);
+  unit.invulnerableUntil = game.time + NECRO_HEALTH.invulnerabilitySec;
+  return true;
+}
+function removeDeadUndead(game) {
+  for (const unit of [...game.army, ...game.ghouls]) {
+    if (unit.hp <= 0) addEffect(game, { type: 'burst', x: unit.x, y: unit.y, color: 'bone', count: 4, life: 0.3 });
+  }
+  game.army = game.army.filter(unit => (unit.hp ?? 1) > 0);
+  game.ghouls = game.ghouls.filter(unit => (unit.hp ?? 1) > 0);
+}
+function segmentEntry(from, to, target, radius) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const rx = from.x - target.x, ry = from.y - target.y;
+  const c = rx * rx + ry * ry - radius * radius;
+  if (c <= 0) return 0;
+  const a = dx * dx + dy * dy;
+  if (!a) return Infinity;
+  const b = 2 * (rx * dx + ry * dy);
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return Infinity;
+  const entry = (-b - Math.sqrt(discriminant)) / (2 * a);
+  return entry >= 0 && entry <= 1 ? entry : Infinity;
+}
+function interceptUndeadShot(game, shot, from) {
+  let target = null, first = Infinity;
+  for (const actor of [game.player, ...livingUndead(game)]) {
+    const radius = actor === game.player ? PLAYER.radius : undeadRadius(actor);
+    const entry = segmentEntry(from, shot, actor, radius + shot.radius);
+    if (entry < first) { first = entry; target = actor; }
+  }
+  if (!target) return;
+  if (target === game.player) {
+    if (damagePlayer(game, shot.damage, true)) shot.life = 0;
+  } else {
+    damageUndead(game, target, shot.damage);
+    shot.life = 0;
+  }
+}
+function hitUndeadHazard(game, hazard) {
+  for (const unit of livingUndead(game)) {
+    const radius = undeadRadius(unit);
+    if (hazard.line) {
+      const rx = unit.x - hazard.x, ry = unit.y - hazard.y;
+      const along = rx * Math.cos(hazard.angle) + ry * Math.sin(hazard.angle);
+      const side = Math.abs(-rx * Math.sin(hazard.angle) + ry * Math.cos(hazard.angle));
+      if (along > -radius && along < hazard.length && side < hazard.radius + radius * 0.5) damageUndead(game, unit, hazard.damage);
+    } else if (distance(hazard, unit) < hazard.radius + radius * 0.5) damageUndead(game, unit, hazard.damage);
+  }
+}
+function contactUndead(game) {
+  for (const unit of livingUndead(game)) {
+    const radius = undeadRadius(unit);
+    let strongest = 0;
+    for (const enemy of near(game, unit.x, unit.y, radius)) {
+      if (!enemy.dead && !enemy.frozen && game.time >= (enemy.blinkGraceUntil ?? 0) && !enemy.blinkTarget
+        && distance(enemy, unit) < enemy.radius + radius) strongest = Math.max(strongest, enemy.damage);
+    }
+    damageUndead(game, unit, strongest);
+  }
+}
 function unitDamage(game, type) {
   const crown = bigUnit(type) ? necroRelic(game, 'darkcrown')?.giantPower ?? 0 : 0;
   return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game);
@@ -1476,7 +1558,8 @@ function unitDamage(game, type) {
 function spawnUnit(game, type, at, index = 0) {
   const angle = index * 2.399;
   const spread = bigUnit(type) ? 0 : 16 + (index % 5) * 6;
-  const unit = { id: game.nextId++, type, x: at.x + Math.cos(angle) * spread, y: at.y + Math.sin(angle) * spread,
+  const hp = armyMaxHp(game, type);
+  const unit = { id: game.nextId++, type, x: at.x + Math.cos(angle) * spread, y: at.y + Math.sin(angle) * spread, hp, maxHp: hp,
     attackIn: 0.2 + (index % 4) * 0.1, facing: 1, swingAt: -1, slot: game.random() * Math.PI * 2 };
   game.army.push(unit);
   addEffect(game, { type: 'burst', x: unit.x, y: unit.y, color: 'soul', count: bigUnit(type) ? 16 : 4, life: 0.35, big: bigUnit(type) });
@@ -1502,8 +1585,10 @@ function harvestSoul(game, enemy) {
   if (soil && game.ghouls.length < soil.max && game.random() < soil.chance) {
     const big = Boolean(enemy.boss || enemy.elite);
     const life = soil.lifeSec * (big ? 2 : 1);
+    const damageScale = enemy.boss ? 4 : enemy.elite ? 2 : 1;
+    const hp = Math.round(soil.hp * damageScale * undeadHealthScale(game));
     game.ghouls.push({ id: game.nextId++, kind: enemy.kind, x: enemy.x, y: enemy.y, radius: enemy.radius, life, total: life,
-      attackIn: 0.3, facing: 1, damageScale: enemy.boss ? 4 : enemy.elite ? 2 : 1 });
+      attackIn: 0.3, facing: 1, damageScale, hp, maxHp: hp });
   }
 }
 
@@ -1573,6 +1658,7 @@ function chooseUndead(game, choice) {
   if (choice.kind === 'undead-evolve') game.undeadEvolved[choice.id] = true;
   else if (choice.kind === 'undead') game.undead[choice.id] = choice.level;
   else game.commands[choice.id] = choice.level;
+  refreshUndeadHealth(game);
 }
 
 function ritualReady(game, id) {
@@ -1589,7 +1675,7 @@ function performRitual(game, id) {
   game.souls -= RITUALS[id].souls;
   const consumed = [];
   for (const [type, count] of Object.entries(ritualCost(game, id))) {
-    const chosen = game.army.filter(unit => unit.type === type).slice(0, count);
+    const chosen = game.army.filter(unit => unit.type === type && (unit.hp ?? 1) > 0).slice(0, count);
     consumed.push(...chosen);
   }
   game.army = game.army.filter(unit => !consumed.includes(unit));
@@ -1645,7 +1731,7 @@ function updateArmy(game, dt) {
   game.army.forEach((unit, index) => {
     const spec = ARMY[unit.type];
     unit.attackIn -= dt;
-    // 해골은 죽지 않는다. 거인 근처의 적은 거인에게 끌려간다.
+    // 거인 근처의 적은 거인에게 끌려간다.
     if (spec.taunt) {
       for (const enemy of near(game, unit.x, unit.y, spec.taunt)) {
         if (!enemy.dead && !enemy.boss && distance(enemy, unit) < spec.taunt) { enemy.tauntBy = unit; enemy.tauntUntil = game.time + 0.25; }
@@ -3706,11 +3792,14 @@ function updateProjectiles(game, dt) {
   game.slimes = game.slimes.filter((slime) => slime.life > 0);
 
   for (const shot of game.enemyShots) {
+    const from = { x: shot.x, y: shot.y };
     shot.x += shot.vx * dt;
     shot.y += shot.vy * dt;
     shot.life -= dt;
     shot.age = (shot.age ?? 0) + dt;
-    if (shot.life > 0 && distance(shot, game.player) < shot.radius + PLAYER.radius && damagePlayer(game, shot.damage, true)) {
+    if (shot.life > 0 && necromancer(game) && (game.army.length || game.ghouls.length)) {
+      interceptUndeadShot(game, shot, from);
+    } else if (shot.life > 0 && distance(shot, game.player) < shot.radius + PLAYER.radius && damagePlayer(game, shot.damage, true)) {
       shot.life = 0;
     }
   }
@@ -3724,6 +3813,7 @@ function updateProjectiles(game, dt) {
       continue;
     }
     if (hazard.delay > 0) continue;
+    if (necromancer(game)) hitUndeadHazard(game, hazard);
     if (hazard.line) {
       // 증기 줄기: 오리가 띠 안에 있으면 맞는다.
       const rx = game.player.x - hazard.x;
@@ -4141,15 +4231,17 @@ export function update(game, dt, input = { x: 0, y: 0 }) {
   const previousTime = game.time;
   game.stepDt = dt;
   game.time += dt;
+  if (necromancer(game)) { refreshUndeadHealth(game); removeDeadUndead(game); }
   updateHpSurge(game, previousTime);
   movePlayer(game, dt, input);
   spawn(game, dt);
   moveEnemies(game, dt);
   if (game.practice) keepDummy(game);
   fireWeapons(game, dt);
-  if (necromancer(game)) updateUndead(game, dt);
+  if (necromancer(game)) { removeDeadUndead(game); updateUndead(game, dt); }
   if (builder(game)) updateStructures(game, dt);
   updateProjectiles(game, dt);
+  if (necromancer(game)) { contactUndead(game); removeDeadUndead(game); }
   contactDamage(game);
   collect(game, dt);
   game.enemies = game.enemies.filter((enemy) => !enemy.dead);

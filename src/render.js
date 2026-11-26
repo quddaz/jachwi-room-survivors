@@ -2469,6 +2469,10 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x, y + Math.round(image.height * 0.35), Math.round(image.width * 0.3), 'rgba(80,40,120,0.25)');
     drawCentered(ctx, image, x, y);
     ctx.fillStyle = '#7fe9ff';ctx.fillRect(x - 2, Math.round(y - image.height / 2) + 2, 1, 1);ctx.fillRect(x + 1, Math.round(y - image.height / 2) + 2, 1, 1);
+    if (ghoul.hp < ghoul.maxHp) {
+      ctx.fillStyle = '#291c30';ctx.fillRect(x - 6, Math.round(y + image.height / 2) + 1, 12, 2);
+      ctx.fillStyle = '#83c769';ctx.fillRect(x - 6, Math.round(y + image.height / 2) + 1, Math.max(0, Math.round(12 * ghoul.hp / ghoul.maxHp)), 1);
+    }
   }
   // 해골 군단: 작은 해골부터 그려 거인이 위에 보이게 한다.
   const army = [...(game.army ?? [])].sort((a, b) => a.y - b.y);
@@ -2483,6 +2487,11 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x, y + foot - 2, Math.round(image.width * 0.3), 'rgba(40,20,60,0.28)');
     if (giant) glow(ctx, x, y - foot / 2, image.width * 0.5, [179, 107, 255], 0.25);
     drawCentered(ctx, image, x, y);
+    if (unit.hp < unit.maxHp) {
+      const width = giant ? 22 : 12;
+      ctx.fillStyle = '#291c30';ctx.fillRect(Math.round(x - width / 2), y + foot + 1, width, 2);
+      ctx.fillStyle = '#83c769';ctx.fillRect(Math.round(x - width / 2), y + foot + 1, Math.max(0, Math.round(width * unit.hp / unit.maxHp)), 1);
+    }
   }
   for (const orbiter of wraithOrbiters(game)) {
     const [x, y] = toBuffer(orbiter);

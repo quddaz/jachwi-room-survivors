@@ -117,7 +117,7 @@ describe('영혼 창', () => {
 });
 
 describe('해골 군단', () => {
-  it('병사는 적을 둘러싸 베고, 적에게 맞아도 쓰러지지 않는다', () => {
+  it('병사는 적을 둘러싸 베어 피해를 준다', () => {
     const game = quiet();
     recruitSoldiers(game, 3);
     const enemy = add(game, 120, 0, { damage: 30 });

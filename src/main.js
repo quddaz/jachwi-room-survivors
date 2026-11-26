@@ -626,9 +626,9 @@ const CODEX_TABS = [
   }],
   ['necro', '괴담', () => {
     const row = (icon, label, text, extra = '') => `<li>${itemIcon(icon)}<span><b>${escapeHtml(label)}${extra}</b><em>${escapeHtml(text)}</em></span></li>`;
-    return `<p class="ranking-note">괴담 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 건물주까지 키워요. 능력치의 <b>괴담</b> 파트가 해골 군단을 강하게 만들어요.</p>
+    return `<p class="ranking-note">괴담 오리만 써요. 적을 처치하면 영혼이 모이고, <b>R</b>을 눌러 영혼 창에서 해골을 모집하거나 병사를 바쳐 건물주까지 키워요. 해골과 좀비는 체력이 다하면 사라져요. <b>단단한 뼈</b>로 최대 체력을 늘릴 수 있어요. 능력치의 <b>괴담</b> 파트가 해골 군단을 강하게 만들어요.</p>
       <h3 class="recipe-heading">군단</h3><ul class="evolve-list">${Object.entries(ARMY).map(([id, unit]) => row(id, unit.label,
-        `피해 ${unit.damage}, 병력 ${unit.cap}칸${unit.taunt ? ', 주변 적을 끌어당겨 내리친다' : ''}`)).join('')}</ul>
+        `체력 ${unit.hp}, 피해 ${unit.damage}, 병력 ${unit.cap}칸${unit.taunt ? ', 주변 적을 끌어당겨 내리친다' : ''}`)).join('')}</ul>
       <h3 class="recipe-heading">모집과 의식</h3><ul class="evolve-list">${Object.entries(RECRUITS).map(([id, recruit]) => row(recruit.unit, recruit.label, `영혼 ${recruit.price}개로 ${recruit.amount}명`)).join('')}
         ${Object.entries(RITUALS).map(([id, ritual]) => row(id, ritual.label, `${Object.entries(ritual.cost).map(([type, count]) => `${ARMY[type].label} ${count}`).join(' + ')}, 영혼 ${ritual.souls}개 → ${ARMY[id].label}`)).join('')}</ul>
       <h3 class="recipe-heading">괴담과 지휘</h3><ul class="evolve-list">${Object.entries(UNDEAD).map(([id, spell]) => row(id, spell.label, spell.description)).join('')}
