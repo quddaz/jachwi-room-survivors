@@ -2423,7 +2423,8 @@ export function render(ctx, game, width, height, time) {
     if (!visible([x, y], 30)) continue;
     if (piece.life < 3 && Math.floor(time * 10) % 2) continue;
     const active = game.time - piece.shotAt < 0.12;
-    const image = sprite(`build_${piece.type}_${active ? 1 : 0}`, { flip: piece.facing < 0 });
+    const frame = piece.type === 'blower' ? Math.floor(time * 10) % 2 : active ? 1 : 0;
+    const image = sprite(`build_${piece.mini ? 'minigun' : piece.type}_${frame}`, { flip: piece.facing < 0 });
     const foot = Math.round(image.height / 2);
     if (piece.type === 'trap') {
       if (game.buildEvolved?.trap || piece.temp) glow(ctx, x, y, image.width * 0.5, [255, 178, 31], 0.25);

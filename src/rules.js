@@ -35,6 +35,10 @@ export const STRUCTURES = {
     count: [1, 1, 1, 2, 2], damage: [45, 60, 78, 100, 125], cooldown: [2.6, 2.4, 2.2, 2, 1.8], radius: [72, 80, 88, 98, 110], range: 440, flightSec: 0.7 },
   tesla: { label: '멀티탭 전기 탑', description: '전기를 튀겨 여러 적을 줄줄이 지진다',
     count: [1, 1, 1, 2, 2], damage: [17, 22, 28, 36, 45], cooldown: [1.1, 1, 0.9, 0.8, 0.7], chains: [3, 3, 4, 5, 6], range: 270, jump: 130 },
+  blower: { label: '회전 선풍기', description: '적을 향해 부채꼴 바람을 보내 밀어내고 진입을 막는다',
+    count: [1, 1, 2, 2, 3], damage: [8, 11, 15, 20, 26], cooldown: [0.75, 0.7, 0.65, 0.6, 0.55], range: 210, cone: 0.85, push: [140, 170, 200, 230, 260] },
+  workbench: { label: '공구 작업대', description: '주변 설치물의 공격 속도를 높인다. 여러 작업대는 가장 강한 효과 하나만 적용한다',
+    count: [1, 1, 1, 2, 2], radius: [170, 185, 200, 220, 240], haste: [0.15, 0.2, 0.25, 0.3, 0.35] },
 };
 // 설치물 완성형: Lv 5가 되면 레벨업 첫 칸에 나온다. 배율은 기본값에 곱하고, count, pierce, chains는 더한다.
 export const STRUCTURE_EVOLUTIONS = {
@@ -48,6 +52,10 @@ export const STRUCTURE_EVOLUTIONS = {
     stats: ['폭탄 3발', '범위 1.3배, 피해 1.7배'], shells: 3, radius: 1.3, damage: 1.7 },
   tesla: { label: '멀티탭 폭주', description: '과부하 걸린 멀티탭이 더 멀리, 더 많이, 더 자주 전기를 튀긴다',
     stats: ['연쇄 +4명, 튀는 거리 1.5배', '피해 1.8배, 공격 주기 0.7배'], chains: 4, jump: 1.5, damage: 1.8, cooldown: 0.7 },
+  blower: { label: '공업용 송풍기', description: '더 넓고 강한 바람으로 몰려오는 적을 밀어낸다',
+    stats: ['사거리 1.3배, 피해 1.6배', '밀어내기 1.4배, 공격 주기 0.8배', '바람이 퍼지는 각도 확대'], range: 1.3, damage: 1.6, push: 1.4, cooldown: 0.8, cone: 1.15 },
+  workbench: { label: '자동 공구 작업대', description: '더 넓은 곳의 설치물을 더 빠르게 작동시킨다',
+    stats: ['지원 범위 1.25배', '공격 속도 지원 효과 1.5배', '여러 작업대의 효과는 중첩되지 않음'], radius: 1.25, haste: 1.5 },
 };
 // 설치물 합체: 두 완성형을 갖추면 레벨업 첫 칸에 나온다. 두 설치물은 그대로 남고 능력이 더해진다.
 export const STRUCTURE_FUSIONS = {
@@ -55,6 +63,10 @@ export const STRUCTURE_FUSIONS = {
     stats: ['못이 맞힐 때마다 주변 2명에게 연쇄', '연쇄 피해는 못 피해의 60%'], chains: 2, damage: 0.6, jump: 120 },
   stickybomb: { label: '끈끈이 폭탄', parts: ['trap', 'mortar'], description: '밥솥 폭탄이 떨어진 자리에 끈끈이가 5초 동안 눌어붙는다',
     stats: ['폭탄 자리마다 끈끈이 덫', '5초 동안 남고 덫 개수에 들지 않음'], puddleSec: 5 },
+  stickyspray: { label: '끈끈이 살포기', parts: ['blower', 'trap'], description: '바람에 끈끈이를 실어 적을 둔화시키고 전방에 끈끈이를 깐다',
+    stats: ['바람에 맞은 일반 적을 85% 둔화', '3초마다 전방에 3초 유지되는 끈끈이', '선풍기마다 끈끈이 하나 유지, 설치 수에 들지 않음'], slow: 0.15, slowSec: 0.9, puddleSec: 3, everySec: 3, distance: 125 },
+  autoturret: { label: '자동 조립 포탑', parts: ['workbench', 'nailgun'], description: '작업대가 수명이 짧은 소형 못총 포탑을 자동으로 조립한다',
+    stats: ['작업대마다 8초마다 소형 포탑 조립', '수명 6초, 못총 기본 피해의 55%', '작업대마다 하나 유지, 설치 수에 들지 않음'], everySec: 8, life: 6, damage: 0.55 },
 };
 // 집돌이 오리만 보물 상자에서 받는 공구 보물. 보물 칸을 쓰지 않는다.
 export const DIY_RELICS = {

@@ -1557,8 +1557,58 @@ function teslaArt(frame) {
   if (frame === 1) g.set(2, 1, 'E').set(1, 3, 'E').set(14, 2, 'E').set(13, 0, 'E').set(8, 0, 'W');
   return g.rows();
 }
-const STRUCTURE_ART = { nailgun: nailgunArt, trap: trapArt, barricade: barricadeArt, mortar: mortarArt, tesla: teslaArt };
+function blowerArt(frame) {
+  const g = canvasGrid(24, 28);
+  g.rect(10, 17, 4, 8, 'D').rect(7, 24, 10, 3, 'q').rect(8, 24, 8, 1, 'b');
+  g.ellipse(12, 10, 10, 10, 'q').ellipse(12, 10, 9, 9, 'b').ellipse(12, 10, 7, 7, 'D');
+  for (let blade = 0; blade < 3; blade++) {
+    const angle = blade * Math.PI * 2 / 3 + frame * 0.9;
+    g.line(12, 10, Math.round(12 + Math.cos(angle) * 6), Math.round(10 + Math.sin(angle) * 6), 'B');
+    g.line(12, 11, Math.round(12 + Math.cos(angle + 0.25) * 6), Math.round(10 + Math.sin(angle + 0.25) * 6), 'b');
+  }
+  g.ellipse(12, 10, 2, 2, 'W').set(11, 9, 'L').set(8, 25, 'R').set(15, 25, 'g');
+  return g.rows();
+}
+function workbenchArt(frame) {
+  const g = canvasGrid(28, 24);
+  g.rect(3, 14, 4, 9, 'n').rect(21, 14, 4, 9, 'n').rect(5, 19, 18, 2, 'C');
+  g.rect(1, 10, 26, 5, 'C').rect(1, 10, 26, 1, 'O').rect(1, 14, 26, 1, 'c');
+  g.rect(5, 2, 17, 8, 'n').rect(6, 3, 15, 6, 'C');
+  g.line(8, 4, 8, 8, 'z').rect(7, 3, 3, 2, 'd');
+  g.line(13, 4, 15, 7, 'D').rect(12, 3, 4, 2, 'z');
+  g.rect(18, 4, 2, 4, 'O').set(18, 3, 'z');
+  g.rect(5, 11, 6, 1, 'd').rect(16, 11, 5, 2, 'q').set(22, 12, frame ? 'g' : 'R');
+  return g.rows();
+}
+function miniNailgunArt(frame) {
+  const g = canvasGrid(16, 15);
+  g.line(5, 9, 2, 14, 'N').line(10, 9, 13, 14, 'N');
+  g.rect(3, 4, 9, 6, 'D').rect(4, 4, 7, 1, 'd').rect(5, 1, 4, 3, 'O').rect(12, 6, 4, 2, 'z').rect(12, 6, 4, 1, 'W');
+  if (frame) g.set(15, 5, 'Y').set(15, 8, 'Y');
+  return g.rows();
+}
+const STRUCTURE_ART = { nailgun: nailgunArt, trap: trapArt, barricade: barricadeArt, mortar: mortarArt, tesla: teslaArt, blower: blowerArt, workbench: workbenchArt, minigun: miniNailgunArt };
 for (const [type, draw] of Object.entries(STRUCTURE_ART)) for (let frame = 0; frame < 2; frame += 1) ART[`build_${type}_${frame}`] = draw(frame);
+ITEMS.blower = item([], (body, fx, f) => {
+  body.rect(7, 9, 2, 5, 'D').rect(4, 14, 8, 2, 'q').ellipse(8, 6, 6, 6, 'q').ellipse(8, 6, 5, 5, 'D');
+  for (let blade = 0; blade < 3; blade++) {
+    const angle = blade * Math.PI * 2 / 3 + f * 0.9;
+    body.line(8, 6, Math.round(8 + Math.cos(angle) * 4), Math.round(6 + Math.sin(angle) * 4), 'b');
+  }
+  body.set(8, 6, 'W');
+});
+ITEMS.workbench = item([], (body, fx, f) => {
+  body.rect(2, 9, 2, 7, 'n').rect(12, 9, 2, 7, 'n').rect(1, 7, 14, 3, 'C').rect(1, 7, 14, 1, 'O').rect(4, 12, 8, 1, 'C');
+  body.rect(4, 1, 8, 6, 'n').rect(5, 2, 6, 4, 'C').line(6, 2, 6, 5, 'z').rect(9, 2, 2, 2, 'D').set(12, 8, f % 2 ? 'g' : 'R');
+});
+ITEMS.stickyspray = item([], (body, fx, f) => {
+  body.rect(3, 4, 6, 8, 'q').rect(4, 2, 4, 2, 'b').rect(8, 6, 5, 2, 'z').ellipse(8, 13, 7, 2, 'O');
+  fx.set(14, 5 + f % 2, 'Y').set(15, 8, 'O').set(13, 10, 'Y');
+});
+ITEMS.autoturret = item([], (body, fx, f) => {
+  body.rect(1, 11, 14, 3, 'C').rect(2, 14, 2, 2, 'n').rect(12, 14, 2, 2, 'n').rect(3, 5, 8, 5, 'D').rect(5, 2, 4, 3, 'O').rect(11, 6, 4, 2, 'z');
+  fx.set(15, 5 + f % 2, 'Y');
+});
 ITEMS.zapgun = item([], (body, fx, f) => {
   body.rect(1, 6, 8, 5, 'D').rect(2, 6, 6, 1, 'd').rect(3, 3, 4, 3, 'O').rect(9, 7, 4, 2, 'z').rect(9, 7, 4, 1, 'W').line(3, 11, 1, 15, 'N').line(7, 11, 8, 15, 'N');
   fx.line(12, 4, 14, 7, 'E').line(14, 7, 12, 9, 'E').line(12, 9, 15, 12, 'E');

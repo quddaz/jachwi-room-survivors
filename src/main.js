@@ -614,7 +614,10 @@ const CODEX_TABS = [
     <ul class="evolve-list">${Object.entries(MAPS).map(([, map]) => `
       <li><span class="map-swatch" style="--a: ${map.swatch[0]}; --b: ${map.swatch[1]}"></span><span><b>${escapeHtml(map.label)}</b><em>${escapeHtml(map.description)}</em></span></li>`).join('')}</ul>`],
   ['diy', '설치물', () => {
-    const row = (id, item) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.description)}. 동시에 ${item.count.join('/')}개, 피해 ${item.damage.join('/')}</em></span></li>`;
+    const row = (id, item) => {
+      const effect = item.haste ? `지원 반경 ${item.radius.join('/')}, 공격 속도 +${item.haste.map(value => Math.round(value * 100)).join('/')}%` : `피해 ${item.damage.join('/')}`;
+      return `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)}</b><em>${escapeHtml(item.description)}. 동시에 ${item.count.join('/')}개, ${escapeHtml(effect)}</em></span></li>`;
+    };
     return `<p class="ranking-note">집돌이 오리만 써요. 레벨업에서 무기 대신 설치물을 고르고, 설치물은 오리 주변에 저절로 깔려요. 설치물은 소환으로 쳐서 소환 능력치와 소환 패시브를 받아요. ${STRUCTURE_LIFE}초가 지나거나 오리가 멀리 떠나면 해체되고, 다시 깔려요.</p>
       <ul class="evolve-list">${Object.entries(STRUCTURES).map(([id, item]) => row(id, item)).join('')}</ul>
       <h3 class="recipe-heading">완성형 (Lv 5)</h3><ul class="evolve-list">${Object.entries(STRUCTURE_EVOLUTIONS).map(([id, item]) => `<li>${itemIcon(id)}<span><b>${escapeHtml(item.label)} ★</b><em>${escapeHtml(STRUCTURES[id].label)} Lv 5. ${escapeHtml(item.stats.join(', '))}</em></span></li>`).join('')}</ul>

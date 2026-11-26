@@ -1790,8 +1790,9 @@ function structureStat(game, id, key) {
     case 'cooldown': case 'tickSec': return base * (evolved?.cooldown ?? 1) * stats.cooldownScale / stats.summonHaste;
     case 'pierce': case 'chains': return base + (evolved?.[key] ?? 0);
     case 'radius': case 'taunt': return base * (evolved?.[key] ?? 1) * reach * stats.area;
-    case 'range': return base * reach * stats.summonRange;
+    case 'range': return base * (evolved?.range ?? 1) * reach * stats.summonRange;
     case 'jump': return base * (evolved?.jump ?? 1) * reach;
+    case 'push': case 'haste': return base * (evolved?.[key] ?? 1);
     default: return base;
   }
 }
@@ -1842,7 +1843,7 @@ function deployStructures(game, dt) {
     if (placed >= structureStat(game, id, 'count') || game.deployIn[id] > 0) continue;
     game.deployIn[id] = every;
     // 오리를 둘러싸듯 비어 있는 자리를 골라 깐다. 벽은 조금 더 멀리 세워 적을 오리에게서 떼어 놓는다.
-    const spread = { trap: 140, barricade: 260 }[id] ?? 116;
+    const spread = { trap: 140, barricade: 260, blower: 180, workbench: 80 }[id] ?? 116;
     const start = game.random() * Math.PI * 2;
     let spot = null;
     for (let n = 0; n < 12 && !spot; n += 1) {
@@ -1895,10 +1896,33 @@ function nailZap(game, shot, enemy) {
 
 function updateStructures(game, dt) {
   deployStructures(game, dt);
+  const benches = game.structures.filter(piece => piece.type === 'workbench');
+  const supportRadius = benches.length ? structureStat(game, 'workbench', 'radius') : 0;
+  const supportHaste = benches.length ? structureStat(game, 'workbench', 'haste') : 0;
+  const assembly = buildFusion(game, 'autoturret');
+  for (const bench of benches) {
+    if (!assembly) continue;
+    bench.assembleIn = (bench.assembleIn ?? assembly.everySec) - dt;
+    if (bench.assembleIn > 0) continue;
+    bench.assembleIn = assembly.everySec;
+    const spot = { x: clamp(bench.x + 40, 20, ARENA.width - 20), y: clamp(bench.y + 24, 20, ARENA.height - 20) };
+    if (!game.structures.some(piece => piece.assemblyOwner === bench.id)) {
+      placeStructure(game, 'nailgun', spot, assembly.life, { temp: true, assemblyOwner: bench.id, damageScale: assembly.damage, mini: true });
+    }
+    bench.shotAt = game.time;
+  }
   for (const piece of game.structures) {
     const id = piece.type;
     const evolved = structureEvolution(game, id);
-    piece.fireIn -= dt;
+    if (id === 'workbench') continue;
+    let support = 0;
+    for (const bench of benches) {
+      if (distance(piece, bench) > supportRadius) continue;
+      support = Math.max(support, supportHaste);
+      bench.shotAt = game.time;
+    }
+    piece.fireIn -= dt * (1 + support);
+    piece.sprayIn = Math.max(0, (piece.sprayIn ?? 0) - dt);
     if (id === 'trap' || id === 'barricade') {
       if (id === 'barricade') {
         const taunt = structureStat(game, id, 'taunt');
@@ -1931,9 +1955,42 @@ function updateStructures(game, dt) {
       const angle = Math.atan2(target.y - piece.y, target.x - piece.x);
       piece.facing = Math.cos(angle) < 0 ? -1 : 1;
       const speed = STRUCTURES.nailgun.speed;
-      game.shots.push({ x: piece.x, y: piece.y - 6, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: structureStat(game, id, 'damage'),
+      game.shots.push({ x: piece.x, y: piece.y - 6, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, damage: structureStat(game, id, 'damage') * (piece.damageScale ?? 1),
         pierce: structureStat(game, id, 'pierce'), life: range * 1.2 / speed, radius: evolved ? 8 : 6, scale: 1, hit: new Set(),
         kind: 'nail', mega: Boolean(evolved), zap: Boolean(buildFusion(game, 'zapgun')), weapon: 'nailgun', elements: null, sound: 'shoot' });
+    } else if (id === 'blower') {
+      const range = structureStat(game, id, 'range');
+      const target = nearestFrom(game, piece, range);
+      if (!target) continue;
+      const angle = Math.atan2(target.y - piece.y, target.x - piece.x);
+      const cone = evolved?.cone ?? STRUCTURES.blower.cone;
+      const spray = buildFusion(game, 'stickyspray');
+      piece.fireIn = cooldown;
+      piece.shotAt = game.time;
+      piece.facing = Math.cos(angle) < 0 ? -1 : 1;
+      for (const enemy of near(game, piece.x, piece.y, range + 40)) {
+        if (enemy.dead) continue;
+        const gap = distance(enemy, piece);
+        const toEnemy = Math.atan2(enemy.y - piece.y, enemy.x - piece.x);
+        const diff = Math.abs(Math.atan2(Math.sin(toEnemy - angle), Math.cos(toEnemy - angle)));
+        if (gap > range + enemy.radius || diff > cone + Math.asin(Math.min(1, enemy.radius / Math.max(gap, 1)))) continue;
+        damageWeaponHit(game, enemy, structureStat(game, id, 'damage'), false, piece);
+        if (enemy.dead) continue;
+        if (!enemy.boss) {
+          const push = structureStat(game, id, 'push');
+          enemy.kx += Math.cos(toEnemy) * push;
+          enemy.ky += Math.sin(toEnemy) * push;
+        }
+        if (spray) slowBy(game, enemy, enemy.boss ? 0.8 : spray.slow, spray.slowSec);
+      }
+      if (spray && piece.sprayIn <= 0) {
+        piece.sprayIn = spray.everySec;
+        const spot = { x: clamp(piece.x + Math.cos(angle) * spray.distance, 20, ARENA.width - 20), y: clamp(piece.y + Math.sin(angle) * spray.distance, 20, ARENA.height - 20) };
+        const puddle = game.structures.find(item => item.sprayOwner === piece.id);
+        if (puddle) Object.assign(puddle, spot, { life: spray.puddleSec, total: spray.puddleSec });
+        else placeStructure(game, 'trap', spot, spray.puddleSec, { temp: true, sprayOwner: piece.id });
+      }
+      addEffect(game, { type: 'gust', x: piece.x, y: piece.y, angle, range, cone, life: 0.35 });
     } else if (id === 'tesla') {
       const target = nearestFrom(game, piece, structureStat(game, id, 'range'));
       if (!target) continue;
