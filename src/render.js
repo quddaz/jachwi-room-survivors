@@ -296,19 +296,31 @@ const RELIC_COLORS = {
   alarm:'#b7d7ff', popcorn:'#ffe08a', clothespin:'#efc18b', match:'#ff9b3f',
 };
 
+const RELIC_AWAKEN = {
+  common: { color: '#d4dde7', radius: 27, rays: 0, motes: 5 },
+  rare: { color: '#72d8ff', radius: 34, rays: 6, motes: 8 },
+  epic: { color: '#d3a7ff', radius: 42, rays: 10, motes: 12 },
+  legendary: { color: '#ffcf56', radius: 55, rays: 16, motes: 18 },
+};
+
 function drawRelicEffect(ctx, effect, x, y) {
   const progress = effect.age / effect.life;
   const awaken = effect.type === 'relic-awaken';
   const idol = effect.id === 'idol';
-  const color = RELIC_COLORS[effect.id] ?? '#ffe08a';
-  const reach = (awaken ? 38 : 21) * (0.35 + Math.sqrt(progress) * 0.65);
+  const relic = RELICS[effect.id];
+  const rarity = awaken ? relic?.rarity : null;
+  const style = RELIC_AWAKEN[rarity];
+  const color = style?.color ?? RELIC_COLORS[effect.id] ?? '#ffe08a';
+  const reach = (awaken ? style?.radius ?? 38 : 21) * (0.35 + Math.sqrt(progress) * 0.65);
   ctx.save();
   ctx.globalAlpha = (1-progress) * (awaken ? 0.85 : 0.65);
   ring(ctx,x,y,reach,color,awaken ? 3 : 5,Math.floor(effect.age*24));
   if (awaken) {
     ring(ctx,x,y,reach*0.72,'#ffffff');
-    for (let ray=0;ray<12;ray++) {
-      const angle=ray*Math.PI/6+progress*0.5;
+    if (rarity === 'epic' || rarity === 'legendary') ring(ctx, x, y, reach * 1.2, color, 5);
+    const rays = style?.rays ?? 12;
+    for (let ray = 0; ray < rays; ray++) {
+      const angle = ray * Math.PI * 2 / rays + progress * 0.5;
       line(ctx,Math.round(x+Math.cos(angle)*reach*.8),Math.round(y+Math.sin(angle)*reach*.8),
         Math.round(x+Math.cos(angle)*reach*1.25),Math.round(y+Math.sin(angle)*reach*1.25),color);
     }
@@ -317,9 +329,10 @@ function drawRelicEffect(ctx, effect, x, y) {
   const ix = awaken ? x : x+17;
   const iy = y-(awaken ? 20 : 12)-progress*(awaken ? 20 : 9);
   ctx.globalAlpha = Math.min(1,(1-progress)*3);
-  ctx.drawImage(icon(effect.id,Math.floor(effect.age*8)%ITEM_FRAMES),Math.round(ix-size/2),Math.round(iy-size/2),size,size);
-  for (let mote=0;mote<(awaken?12:5);mote++) {
-    const angle=mote*Math.PI*2/(awaken?12:5)+effect.seed;
+  ctx.drawImage(icon(relic?.icon ?? effect.id,Math.floor(effect.age*8)%ITEM_FRAMES),Math.round(ix-size/2),Math.round(iy-size/2),size,size);
+  const motes = awaken ? style?.motes ?? 12 : 5;
+  for (let mote = 0; mote < motes; mote++) {
+    const angle = mote * Math.PI * 2 / motes + effect.seed;
     sparkle(ctx,Math.round(x+Math.cos(angle)*reach),Math.round(y+Math.sin(angle)*reach-progress*5),mote%3?'#ffffff':color,awaken&&mote%3===0);
   }
   ctx.restore();

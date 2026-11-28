@@ -313,6 +313,7 @@ function drawChoices() {
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
+    const rarity = ['relic', 'relic-swap'].includes(choice.kind) ? RELICS[choice.id]?.rarity : null;
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
     const tag = choice.kind === 'build-evolve' ? '<small class="choice-evolve">설치 완성형</small>'
       : choice.kind === 'build-fusion' ? '<small class="choice-fusion">설치 합체</small>'
@@ -325,11 +326,11 @@ function drawChoices() {
       : choice.kind === 'relic-necro' ? '<small class="choice-relic">괴담 보물</small>'
       : choice.kind === 'soul' ? `<small class="choice-undead">영혼 ${choice.price}</small>`
       : choice.kind === 'shop-leave' ? '' : choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
-      : choice.kind === 'relic' ? `<small class="choice-relic" data-rarity="${choice.rarity ?? RELICS[choice.id].rarity}">${RELIC_RARITIES[RELICS[choice.id].rarity].label}</small>` : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
+      : choice.kind === 'relic' ? `<small class="choice-relic" data-rarity="${rarity}">${RELIC_RARITIES[rarity].label}</small>` : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' || choice.kind === 'build-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'build-fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic-diy' ? ' is-evolve is-relic' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}">
+      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' || choice.kind === 'build-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'build-fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic-diy' ? ' is-evolve is-relic' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}"${rarity ? ` data-rarity="${rarity}"` : ''}>
         ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
@@ -560,6 +561,54 @@ const elementLines = id => weaponElementsOf(id).map(element => `${ELEMENT_EFFECT
 let weaponCategoryFilter = 'all';
 const categoryMatches = id => weaponCategoryFilter === 'all' || weaponCategoriesOf(id).includes(weaponCategoryFilter);
 const categoryFilters = () => `<div class="weapon-filters" aria-label="무기 계열">${Object.entries({all:'전체', ...WEAPON_CATEGORIES}).map(([id,label]) => `<button type="button" class="season-tab${id === weaponCategoryFilter ? ' is-active' : ''}" data-weapon-category="${id}" aria-pressed="${id === weaponCategoryFilter}">${label}</button>`).join('')}</div>`;
+const relicRarityOrder = Object.keys(RELIC_RARITIES).reverse();
+let relicRarityFilter = 'all';
+
+function relicCodexCard([id, relic]) {
+  return `<li class="relic-codex-card">
+    <div class="relic-codex-title">${itemIcon(id)}<h4>${escapeHtml(relic.label)}</h4></div>
+    <p>${escapeHtml(relic.description)}</p>
+    <ul class="relic-codex-stats">${relic.stats.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
+  </li>`;
+}
+
+function relicCodex() {
+  const groups = relicRarityOrder.map(rarity => {
+    const entries = Object.entries(RELICS).filter(([, relic]) => relic.rarity === rarity);
+    return { rarity, label: RELIC_RARITIES[rarity].label, entries };
+  });
+  const grid = entries => `<ul class="relic-codex-grid">${entries.map(relicCodexCard).join('')}</ul>`;
+  const filters = [{ rarity: 'all', label: '전체', entries: Object.entries(RELICS) }, ...groups];
+  return `<p class="ranking-note">시작 보물과 보스 상자에서 하나를 골라요. 전설은 현재 직업의 보물만 보스 상자에서 등장해요.</p>
+    <div class="relic-codex-filters" role="group" aria-label="보물 등급">
+      ${filters.map(({ rarity, label, entries }) => `<button type="button" class="season-tab${rarity === relicRarityFilter ? ' is-active' : ''}" data-relic-filter="${rarity}" aria-pressed="${rarity === relicRarityFilter}">${label} <span>${entries.length}</span></button>`).join('')}
+    </div>
+    ${groups.map(({ rarity, label, entries }) => `
+      <section class="relic-codex-group" data-rarity="${rarity}"${relicRarityFilter === 'all' || relicRarityFilter === rarity ? '' : ' hidden'}>
+        <h3>${label} 보물 <span>${entries.length}개</span></h3>
+        ${rarity === 'legendary'
+          ? Object.entries(CHARACTERS).map(([character, def]) => `<h4 class="relic-codex-class">${escapeHtml(def.label)}</h4>${grid(entries.filter(([, relic]) => relic.character === character))}`).join('')
+          : grid(entries)}
+      </section>`).join('')}
+    <details class="relic-codex-rules">
+      <summary>보물 슬롯과 피해 계산</summary>
+      <p>기본 ${MAX_RELICS}칸, 보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}칸이에요. 트레저헌터는 한 칸을 더 써요. 슬롯이 가득 차면 보물을 교체하거나 레벨업 두 번을 받을 수 있어요.</p>
+      <p>보물 피해는 공격력에 비례하고 레벨마다 4%씩 세져요. 무기 범위와 쿨타임, 보물 파트와 광택제 효과도 적용돼요.</p>
+    </details>`;
+}
+
+function filterRelicCodex(rarity) {
+  relicRarityFilter = rarity;
+  for (const button of document.querySelectorAll('[data-relic-filter]')) {
+    const selected = button.dataset.relicFilter === rarity;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  }
+  for (const group of document.querySelectorAll('.relic-codex-group')) {
+    group.hidden = rarity !== 'all' && rarity !== group.dataset.rarity;
+  }
+}
+
 const CODEX_TABS = [
   ['fusion', '합체', () => {
     const part = (id) => `<span class="recipe-part">${itemIcon(id)}<span>${escapeHtml(WEAPONS[id].label)}</span><small>${escapeHtml(EVOLUTIONS[id].label)}</small></span>`;
@@ -571,9 +620,7 @@ const CODEX_TABS = [
           <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
         </li>`).join('')}</ol>`;
   }],
-  ['relic', '보물', () => `<p class="ranking-note">시작 보물과 보스 상자에서 보물을 하나 골라요. 직업 전용 전설은 보스 상자에서만 등장해요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 보온병·농축 앰플은 관련 무기·합체나 성냥이 있어야 나와요. 루비 안경·운명의 실은 치명 20점, 오색 프리즘·전염 플라스크는 지속·속성 20점에서 열려요.</p>
-    <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
-      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)} <small>${RELIC_RARITIES[relic.rarity].label}${relic.character ? ' · ' + CHARACTERS[relic.character].label : ''}</small>${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.critOnly ? ' <small>치명 20점</small>' : relic.dot20Only ? ' <small>지속·속성 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
+  ['relic', '보물', relicCodex],
   ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. ${Object.values(WEAPONS).filter(weapon => weapon.summon).map(weapon => weapon.label).join('·')}은 소환 능력치를 받아요. 행운 동전·손종·나침반·보물 도장·모래시계는 보물 피해 증가도 적용돼요. 보물 20점 빌드도 시작 무기와 무기 강화·교체를 사용할 수 있어요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     ${categoryFilters()}<ul class="evolve-list">${Object.entries(WEAPONS).filter(([id]) => categoryMatches(id)).map(([id, weapon]) => {
       const lines = [
@@ -957,6 +1004,8 @@ app.addEventListener('click', (event) => {
   }
   const codex = event.target.closest('[data-codex]')?.dataset.codex;
   if (codex) openRecipes(codex);
+  const rarity = event.target.closest('[data-relic-filter]')?.dataset.relicFilter;
+  if (rarity === 'all' || Object.hasOwn(RELIC_RARITIES, rarity)) filterRelicCodex(rarity);
   const category = event.target.closest('[data-weapon-category]')?.dataset.weaponCategory;
   if (category && (category === 'all' || Object.hasOwn(WEAPON_CATEGORIES, category))) { weaponCategoryFilter = category; openRecipes(codexTab); }
   if (action === 'home') { setSetup(false); show('start'); }

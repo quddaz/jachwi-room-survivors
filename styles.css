@@ -736,3 +736,68 @@ body:has(.screen-ranking.is-active), body:has(.screen-recipes.is-active), body:h
 .choice-build { padding: 1px 7px; border-radius: 999px; background: #2b2620; color: #ffd866 !important; }
 .loadout .is-build { padding: 2px 4px; background: #2b2620; color: #ffd866; }
 .loadout .is-build .item { filter: drop-shadow(0 0 3px #ffb21f); }
+
+/* 보물 도감과 선택 카드가 같은 등급 색을 사용한다. */
+[data-rarity="common"] { --relic-tone: #b6c8d9; --relic-ink: #364958; --relic-paper: #edf3f7; }
+[data-rarity="rare"] { --relic-tone: #5dc8ff; --relic-ink: #174b7c; --relic-paper: #dbf3ff; }
+[data-rarity="epic"] { --relic-tone: #c598ff; --relic-ink: #562780; --relic-paper: #f0e0ff; }
+[data-rarity="legendary"] { --relic-tone: #ffca4a; --relic-ink: #733b10; --relic-paper: #fff0b2; }
+
+.choice[data-rarity] {
+  border-color: var(--relic-tone);
+  background: linear-gradient(135deg, #fff 3%, var(--relic-paper) 92%);
+  box-shadow: 0 2px 0 var(--relic-ink), var(--shadow-card);
+  animation: choice-in 0.25s ease-out backwards;
+}
+.choice[data-rarity] .choice-icon {
+  background: radial-gradient(circle, white, var(--relic-tone));
+}
+.choice[data-rarity].is-relic .choice-stats span {
+  background: var(--relic-ink);
+  color: white;
+}
+.choice[data-rarity="rare"] {
+  background: repeating-linear-gradient(135deg, transparent 0 12px, #5dc8ff22 12px 14px), linear-gradient(135deg, #fff, var(--relic-paper));
+}
+.choice[data-rarity="epic"] {
+  background: radial-gradient(ellipse at 12% 10%, #e4ccff 0%, transparent 62%), linear-gradient(145deg, #fff, var(--relic-paper));
+  box-shadow: 0 0 12px #b16cff88, var(--shadow-card);
+}
+.choice[data-rarity="legendary"] {
+  background: radial-gradient(ellipse at 14% 20%, #ffcf54 0%, transparent 65%), linear-gradient(135deg, #fffdfa, var(--relic-paper));
+  box-shadow: 0 0 18px #ffcf5488, var(--shadow-card);
+  overflow: hidden;
+  isolation: isolate;
+}
+.choice[data-rarity="legendary"]::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(112deg, transparent 38%, #fff9 50%, transparent 62%);
+  background-size: 250% 100%;
+  content: "";
+  pointer-events: none;
+  animation: relic-shimmer 1.2s ease-out both;
+}
+@keyframes relic-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+.choice[data-rarity]:focus-visible { outline: 3px solid #25113e; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .choice[data-rarity], .choice[data-rarity="legendary"]::before { animation: none; }
+}
+
+.relic-codex-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
+.relic-codex-filters .season-tab { min-height: 36px; }
+.relic-codex-filters .season-tab span { margin-left: 3px; font-variant-numeric: tabular-nums; }
+.relic-codex-group { margin-bottom: 20px; }
+.relic-codex-group h3 { margin: 0 0 9px; color: var(--relic-tone); font-size: 19px; }
+.relic-codex-group h3 span { margin-left: 6px; font-size: 12px; }
+.relic-codex-class { margin: 12px 0 6px; color: #fff1dc; font-size: 14px; }
+.relic-codex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.relic-codex-card { padding: 10px 12px; border: 1px solid #493752; border-left: 3px solid var(--relic-tone); border-radius: 10px; background: #21172e; }
+.relic-codex-title { display: flex; align-items: center; gap: 8px; color: #fff4e4; }
+.relic-codex-title .item { --size: 30px; flex-shrink: 0; }
+.relic-codex-title h4 { margin: 0; font-size: 14px; }
+.relic-codex-card p { margin: 4px 0 6px; color: #e1d3e8; font-size: 13px; }
+.relic-codex-stats { display: grid; gap: 3px; margin: 0; padding-left: 15px; color: var(--relic-tone); font-size: 12px; }
+.relic-codex-rules { padding: 10px 12px; border-radius: 10px; background: #21172e; color: #e1d3e8; font-size: 13px; }
+.relic-codex-rules summary { cursor: pointer; font-weight: 700; }
