@@ -21,7 +21,7 @@ it('보물 점수와 물티슈는 범위만 바꾸고 착탄 시간은 그대로
 });
 it('다연장 중첩의 마지막 로켓까지 빠른 낙하를 적용한다',()=>{
  const shots=volley({stacks:4});
- assert.equal(shots.length,20);near(shots.at(-1).life,(RELICS.firecracker.aimSec+(shots.length-1)*RELICS.firecracker.gapSec)/fall);
+ assert.equal(shots.length,24);near(shots.at(-1).life,(RELICS.firecracker.aimSec+(shots.length-1)*RELICS.firecracker.gapSec)/fall);
 });
 it('다음 주기 폭죽이 쌓여도 앞서 쏜 로켓은 사라지지 않고 모두 터진다',()=>{
  const g=createGame(()=>.99);applyBuild(g,{treasure:20});g.weapons={};g.relics={firecracker:true,mlrs:6};g.passives.idol=1;
