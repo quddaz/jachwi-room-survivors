@@ -1149,14 +1149,14 @@ const LEGENDARY_RELICS = {
     stats: ['지속 피해 +75%'], dotPower: 0.75 },
   spectrumCore: { character: 'alchemist', icon: 'prism', label: '오색 반응로', description: '독과 화상이 감염된 적 무리를 타고 번진다',
     stats: ['독·화상에 걸린 적을 처치하면 반경 190 내 최대 5명에게 전염', '남은 피해를 85% 위력으로 최대 4초간 전달하며 두 번까지 옮겨요'], radius: 190, targets: 5, power: 0.85, maxSec: 4, hops: 2 },
-  cryptBanner: { character: 'necromancer', icon: 'darkcrown', label: '지하 왕국의 군기', description: '해골 군단의 공격을 강화한다',
-    stats: ['해골 군단 피해 +65%'], armyPower: 0.65 },
+  cryptBanner: { character: 'necromancer', icon: 'darkcrown', label: '지하 왕국의 군기', description: '살아 있는 기본 해골이 많을수록 군단이 강해진다',
+    stats: ['기본 해골 병사와 궁수 피해 +40%', '살아 있는 병사와 궁수 1명당 피해 +4%p (최대 +120%p)', '의식으로 성장한 해골과 임시 좀비는 효과 대상과 인원에서 제외'], baseDamage: 0.4, damagePerUnit: 0.04, maxRosterDamage: 1.2 },
   soulLedger: { character: 'necromancer', icon: 'soulurn', label: '망자의 장부', description: '남겨둔 영혼으로 전사한 해골을 되살린다',
     stats: ['전사한 해골마다 한 번, 영혼을 5개 소모해 체력 50%로 부활', '거인은 영혼 20개를 소모해요'], cost: 5, giantCost: 20, reviveHp: 0.5 },
   fortressPlan: { character: 'diy', icon: 'blueprint', label: '불침 요새 설계도', description: '수명이 끝난 설치물을 폭탄으로 바꾼다',
     stats: ['설치물 수명이 끝나면 반경 175에 피해 260', '공격력·소환 피해·레벨에 비례하고 멀리 떠나 해체된 설치물은 제외돼요'], radius: 175, damage: 260 },
-  factoryJig: { character: 'diy', icon: 'toolbox', label: '자동 조립 지그', description: '설치물을 더 많이 깐다',
-    stats: ['각 설치물 동시 배치 수 +2'], summonCount: 2 },
+  factoryJig: { character: 'diy', icon: 'toolbox', label: '자동 조립 지그', description: '모든 설치물을 못총 포탑으로 개조한다',
+    stats: ['이미 깔린 설치물과 앞으로 깔 설치물을 모두 못총 포탑으로 전환', '배치 수와 수명은 원래 설치물을 따르고, 공격은 못총 포탑의 레벨·완성형을 따름', '보물을 교체하면 원래 설치물로 돌아감'] },
 };
 
 export const RELICS = Object.fromEntries([

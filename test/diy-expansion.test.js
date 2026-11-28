@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyBuild, applyCharacter, choose, createGame, rollChoices, update } from '../src/engine.js';
+import { applyBuild, applyCharacter, choose, createGame, rollChoices, structureCombatType, update } from '../src/engine.js';
 import { STRUCTURES, STRUCTURE_FUSIONS } from '../src/rules.js';
 
 const DT = 1 / 60;
@@ -27,6 +27,25 @@ function enemy(game, dx, dy = 0, extra = {}) {
   game.enemies.push(item);
   return item;
 }
+
+it('자동 조립 지그는 기존 설치물과 새 배치를 못총으로 바꾸고 제거하면 되돌린다', () => {
+  const game = quiet({ nailgun: 2, trap: 1, workbench: 1, mortar: 1 });
+  const trap = piece(game, 'trap');
+  const bench = piece(game, 'workbench', 40);
+  const before = game.structures.length;
+  game.relics.factoryJig = true;
+  game.deployIn.mortar = 0;
+  game.buildFusions.autoturret = true;
+  enemy(game, 130);
+  update(game, DT);
+  assert.equal(game.structures.length, before + 1);
+  assert.ok(game.structures.every(item => structureCombatType(game, item) === 'nailgun'));
+  assert.equal(game.shots.filter(shot => shot.kind === 'nail').length, 2);
+  assert.ok(trap.life < 24 && bench.life < 24);
+
+  delete game.relics.factoryJig;
+  assert.deepEqual(game.structures.map(item => structureCombatType(game, item)), ['trap', 'workbench', 'mortar']);
+});
 
 describe('집돌이 오리의 선풍기·작업대 조합', () => {
   it('새 설치물을 선택하고 강화한 뒤 각각 완성형과 합체를 고를 수 있다', () => {

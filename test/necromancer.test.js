@@ -63,6 +63,24 @@ describe('영혼', () => {
   });
 });
 
+it('군기는 살아 있는 기본 해골이 많을수록 병사와 궁수만 강화한다', () => {
+  function arrowDamage(type, banner, soldiers = 0) {
+    const game = quiet();
+    if (banner) game.relics.cryptBanner = true;
+    recruitSoldiers(game, soldiers);
+    game.army.push({ id: game.nextId++, type, x: game.player.x, y: game.player.y,
+      hp: ARMY[type].hp, maxHp: ARMY[type].hp, attackIn: 0, facing: 1, swingAt: -1, slot: 0 });
+    add(game, 160);
+    update(game, DT);
+    return game.shots.find(shot => shot.kind === 'arrow').damage;
+  }
+  const base = arrowDamage('archer', false);
+  assert.ok(Math.abs(arrowDamage('archer', true) / base - 1.44) < 1e-9);
+  assert.ok(Math.abs(arrowDamage('archer', true, 4) / base - 1.60) < 1e-9);
+  assert.ok(Math.abs(arrowDamage('archer', true, 35) / base - 2.60) < 1e-9);
+  assert.equal(arrowDamage('ranger1', true, 4), arrowDamage('ranger1', false, 4));
+});
+
 describe('영혼 창', () => {
   it('영혼이 모여도 저절로 열리지 않고 R로 연다', () => {
     const game = quiet();

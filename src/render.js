@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, outletFieldRadius, sawBlades, statsOf, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, outletFieldRadius, sawBlades, statsOf, structureCombatType, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -2432,23 +2432,24 @@ export function render(ctx, game, width, height, time) {
     }
   }
   // 집돌이 오리 설치물: 덫은 바닥에 먼저 깔고, 나머지는 아래쪽부터 그린다. 해체 직전에는 깜빡인다.
-  const pieces = [...(game.structures ?? [])].sort((a, b) => (a.type === 'trap' ? -1e6 : a.y) - (b.type === 'trap' ? -1e6 : b.y));
-  for (const piece of pieces) {
+  const pieces = (game.structures ?? []).map(piece => ({ piece, type: structureCombatType(game, piece) }))
+    .sort((a, b) => (a.type === 'trap' ? -1e6 : a.piece.y) - (b.type === 'trap' ? -1e6 : b.piece.y));
+  for (const { piece, type } of pieces) {
     const [x, y] = toBuffer(piece);
     if (!visible([x, y], 30)) continue;
     if (piece.life < 3 && Math.floor(time * 10) % 2) continue;
     const active = game.time - piece.shotAt < 0.12;
-    const frame = piece.type === 'blower' ? Math.floor(time * 10) % 2 : active ? 1 : 0;
-    const image = sprite(`build_${piece.mini ? 'minigun' : piece.type}_${frame}`, { flip: piece.facing < 0 });
+    const frame = type === 'blower' ? Math.floor(time * 10) % 2 : active ? 1 : 0;
+    const image = sprite(`build_${piece.mini ? 'minigun' : type}_${frame}`, { flip: piece.facing < 0 });
     const foot = Math.round(image.height / 2);
-    if (piece.type === 'trap') {
+    if (type === 'trap') {
       if (game.buildEvolved?.trap || piece.temp) glow(ctx, x, y, image.width * 0.5, [255, 178, 31], 0.25);
       drawCentered(ctx, image, x, y);
       continue;
     }
     disc(ctx, x, y + foot - 2, Math.round(image.width * 0.35), 'rgba(40,28,20,0.28)');
-    if (game.buildEvolved?.[piece.type]) glow(ctx, x, y, image.width * 0.55, [255, 178, 31], 0.3);
-    if (piece.type === 'tesla' && active) glow(ctx, x, y - foot + 3, 8, [127, 233, 255], 0.6);
+    if (game.buildEvolved?.[type]) glow(ctx, x, y, image.width * 0.55, [255, 178, 31], 0.3);
+    if (type === 'tesla' && active) glow(ctx, x, y - foot + 3, 8, [127, 233, 255], 0.6);
     drawCentered(ctx, image, x, y);
     const left = piece.life / piece.total;
     const width = 10, top = Math.round(y + foot + 1);

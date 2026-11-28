@@ -336,7 +336,7 @@ export function statsOf(game) {
     summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
     summonRange: (1 + (perk(game, 'summon', 5)?.range ?? 0)) * (1 + (relic(game, 'baton')?.range ?? 0)),
     summonCount: passiveValue(game, 'summonwhistle', 'summonCount') + characterBonus(game, 'summonCount')
-      + legendaryValue(game, 'marshalFlag', 'summonCount') + legendaryValue(game, 'factoryJig', 'summonCount'),
+      + legendaryValue(game, 'marshalFlag', 'summonCount'),
   };
 }
 
@@ -887,7 +887,9 @@ function moveEnemies(game, dt) {
       continue;
     }
     // 거인 해골 근처의 적은 오리 대신 거인에게 달려든다.
-    const lure = enemy.tauntBy && game.time < (enemy.tauntUntil ?? 0) && (enemy.tauntBy.hp ?? 1) > 0 ? enemy.tauntBy : player;
+    const taunt = enemy.tauntBy;
+    const lure = taunt && game.time < (enemy.tauntUntil ?? 0) && (taunt.hp ?? 1) > 0
+      && (taunt.type !== 'barricade' || structureCombatType(game, taunt) === 'barricade') ? taunt : player;
     const dx = lure.x - enemy.x;
     const dy = lure.y - enemy.y;
     const gap = Math.hypot(dx, dy) || 1;
@@ -1631,9 +1633,11 @@ function contactUndead(game) {
     damageUndead(game, unit, strongest);
   }
 }
-function unitDamage(game, type) {
+const isBaseSkeleton = type => type === 'soldier' || type === 'archer';
+
+function unitDamage(game, type, bannerBonus) {
   const crown = bigUnit(type) ? relic(game, 'darkcrown')?.giantPower ?? 0 : 0;
-  return ARMY[type].damage * (1 + characterBonus(game, 'armyDamage')) * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game) * (1 + legendaryValue(game, 'cryptBanner', 'armyPower'));
+  return ARMY[type].damage * (1 + characterBonus(game, 'armyDamage')) * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game) * (isBaseSkeleton(type) ? 1 + bannerBonus : 1);
 }
 
 function spawnUnit(game, type, at, index = 0) {
@@ -1802,6 +1806,9 @@ function updateArmy(game, dt) {
   const reachScale = 1 + command(game, 'reach', 'range');
   const cooldownScale = stats.cooldownScale / (1 + command(game, 'drum', 'attackSpeed'));
   const field = armyField(game), recall = armyField(game, ARMY_RECALL);
+  const banner = legendaryRelic(game, 'cryptBanner');
+  const roster = banner ? game.army.filter(unit => unit.hp > 0 && isBaseSkeleton(unit.type)).length : 0;
+  const bannerBonus = banner ? banner.baseDamage + Math.min(banner.maxRosterDamage, roster * banner.damagePerUnit) : 0;
   game.army.forEach((unit, index) => {
     const spec = ARMY[unit.type];
     unit.attackIn -= dt;
@@ -1850,7 +1857,7 @@ function updateArmy(game, dt) {
           // 명궁: 굵은 영혼 화살 한 발이 화면 끝까지 날아가며 닿는 적을 모두 꿰뚫는다.
           const speed = spec.arrowSpeed;
           game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(aim) * speed, vy: Math.sin(aim) * speed,
-            damage: unitDamage(game, unit.type), pierce: spec.pierce, life: range * spec.soulArrow.reach / speed, radius: spec.soulArrow.width, scale: 1, hit: new Set(),
+            damage: unitDamage(game, unit.type, bannerBonus), pierce: spec.pierce, life: range * spec.soulArrow.reach / speed, radius: spec.soulArrow.width, scale: 1, hit: new Set(),
             kind: 'soularrow', blast: spec.soulArrow.blast * stats.area, weapon: 'archer', elements: null, sound: 'shoot' });
           addEffect(game, { type: 'burst', x: unit.x + Math.cos(aim) * 14, y: unit.y - 4 + Math.sin(aim) * 14, color: 'soul', count: 8, life: 0.3 });
           return;
@@ -1858,7 +1865,7 @@ function updateArmy(game, dt) {
         for (let n = 0; n < bolts; n += 1) {
           const angle = aim + (n - (bolts - 1) / 2) * 0.13;
           game.shots.push({ x: unit.x, y: unit.y - 4, vx: Math.cos(angle) * spec.arrowSpeed, vy: Math.sin(angle) * spec.arrowSpeed,
-            damage: unitDamage(game, unit.type), pierce: spec.pierce ?? 0, life: (range + 60) / spec.arrowSpeed, radius: 6 + size * 2, scale: 1, hit: new Set(),
+            damage: unitDamage(game, unit.type, bannerBonus), pierce: spec.pierce ?? 0, life: (range + 60) / spec.arrowSpeed, radius: 6 + size * 2, scale: 1, hit: new Set(),
             kind: 'arrow', size, weapon: 'archer', elements: null, sound: 'shoot', silent: n > 0 });
         }
       }
@@ -1885,7 +1892,7 @@ function updateArmy(game, dt) {
       unit.attackIn = spec.cooldown * cooldownScale;
       unit.swingAt = game.time;
       const aim = Math.atan2(target.y - unit.y, target.x - unit.x);
-      const damage = unitDamage(game, unit.type);
+      const damage = unitDamage(game, unit.type, bannerBonus);
       if (spec.slam) {
         // 골렘과 거인은 앞쪽 땅을 내려찍어 둥근 충격파를 일으킨다.
         const radius = reach * spec.slam;
@@ -1930,6 +1937,10 @@ function soulArrowBlast(game, shot, at) {
 // 집돌이 오리: 레벨업에서 무기 대신 설치물을 고르고, 설치물은 오리 발밑에 저절로 깔린다.
 const builder = game => Boolean(CHARACTERS[game.character]?.builder);
 export const isBuilder = builder;
+export function structureCombatType(game, piece) {
+  return legendaryRelic(game, 'factoryJig') ? 'nailgun' : piece.type;
+}
+
 const STRUCTURE_MAX = 5;
 const structureValue = (game, id, key) => {
   const value = STRUCTURES[id][key];
@@ -1959,7 +1970,8 @@ function structureStat(game, id, key) {
 function structureChoices(game) {
   return Object.keys(STRUCTURES).filter(id => (game.builds[id] ?? 0) < STRUCTURE_MAX)
     .map(id => ({ kind: 'structure', id, level: (game.builds[id] ?? 0) + 1, label: STRUCTURES[id].label, description: STRUCTURES[id].description,
-      details: [game.builds[id] ? `Lv ${game.builds[id]} → ${game.builds[id] + 1}` : '새 설치물', `동시에 ${STRUCTURES[id].count[Math.min(game.builds[id] ?? 0, 4)]}개`] }));
+      details: [game.builds[id] ? `Lv ${game.builds[id]} → ${game.builds[id] + 1}` : '새 설치물', `동시에 ${STRUCTURES[id].count[Math.min(game.builds[id] ?? 0, 4)]}개`,
+        ...(id !== 'nailgun' && legendaryRelic(game, 'factoryJig') ? ['자동 조립 지그: 못총 포탑으로 배치'] : [])] }));
 }
 // 완성형과 합체는 준비되면 레벨업 첫 칸부터 나온다.
 function structureUpgradeChoices(game) {
@@ -2060,7 +2072,7 @@ function nailZap(game, shot, enemy) {
 
 function updateStructures(game, dt) {
   deployStructures(game, dt);
-  const benches = game.structures.filter(piece => piece.type === 'workbench');
+  const benches = game.structures.filter(piece => structureCombatType(game, piece) === 'workbench');
   const supportRadius = benches.length ? structureStat(game, 'workbench', 'radius') : 0;
   const supportHaste = benches.length ? structureStat(game, 'workbench', 'haste') : 0;
   const assembly = buildFusion(game, 'autoturret');
@@ -2076,7 +2088,7 @@ function updateStructures(game, dt) {
     bench.shotAt = game.time;
   }
   for (const piece of game.structures) {
-    const id = piece.type;
+    const id = structureCombatType(game, piece);
     const evolved = structureEvolution(game, id);
     if (id === 'workbench') continue;
     let support = 0;
