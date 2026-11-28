@@ -1781,7 +1781,7 @@ describe('다연장 미사일', () => {
     assert.ok(offered.has('mlrs'));
   });
 
-  it('하나마다 폭죽 로켓 피해가 30씩 오른다', () => {
+  it('중첩마다 폭죽 로켓의 발당 피해가 오른다', () => {
     const game = treasureGame();
     game.relics = { firecracker: true };
     const base = fireOnce(game)[0].damage;
@@ -1791,7 +1791,7 @@ describe('다연장 미사일', () => {
     assert.ok(Math.abs(boosted / base - (RELICS.firecracker.damage + 2 * RELICS.mlrs.damage) / RELICS.firecracker.damage) < 1e-9);
   });
 
-  it('하나마다 폭죽 로켓이 4발 늘고 보물 칸을 하나씩 쓴다', () => {
+  it('중첩마다 폭죽 로켓 수가 늘고 보물 칸을 하나씩 쓴다', () => {
     const game = treasureGame();
     game.relics = { firecracker: true };
     const base = fireOnce(game).length;

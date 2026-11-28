@@ -1056,12 +1056,12 @@ const SHARED_RELICS = {
   waterbottle: { label: '대용량 물병', description: '든든하게 버틴다', stats: ['최대 체력 +50', '초당 회복 +1'], maxHp: 50, regen: 1 },
   scooter: { label: '킥보드', description: '훨씬 빨리 달린다', stats: ['이동 속도 +25%'], speed: 0.25 },
   firecracker: { label: '폭죽', description: '적을 조준한 로켓 여덟 발이 날아가 차례로 폭발한다',
-    stats: ['12초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 125(레벨·보물 피해 비례)'],
+    stats: ['9초마다 조준 로켓 8발, 빠르게 순차 착탄(낙하 속도 +30%)', '발당 범위 135 · 피해 125(레벨·보물 피해 비례)'],
     everySec: 9, radius: 135, damage: 125, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
-    description: `폭죽 로켓이 늘고 세지며 ${NUCLEAR_STRIKE.stacks}개를 모으면 별도의 핵미사일 지원이 열린다`, stats: ['폭죽 로켓 +4발, 로켓 피해 +70(중복 가능, 하나마다 보물 칸 1개)', `${NUCLEAR_STRIKE.stacks}중첩부터 기존 미사일과 별도로 ${NUCLEAR_STRIKE.everySec}초마다 핵미사일 1발`, '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
-    rockets: 4, damage: 70 },
+    description: `폭죽 로켓이 늘고 세지며 ${NUCLEAR_STRIKE.stacks}개를 모으면 별도의 핵미사일 지원이 열린다`, stats: ['폭죽 로켓 +3발, 로켓 피해 +25(중복 가능, 하나마다 보물 칸 1개)', `${NUCLEAR_STRIKE.stacks}중첩부터 기존 미사일과 별도로 ${NUCLEAR_STRIKE.everySec}초마다 핵미사일 1발`, '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
+    rockets: 3, damage: 25 },
   // 보물 20점 전용이고 멀티탭이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   splitplug: { label: '3구 분배기', treasureOnly: true, requiresRelic: 'outlet',
     description: '멀티탭의 일반 연쇄 번개가 세 줄로 갈라져 나간다',
