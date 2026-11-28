@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, outletFieldRadius, sawBlades, statsOf, structureCombatType, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
+import { activeWeapon, coilOrbs, dotRangeScale, laserDrones, outletFieldRadius, sawBlades, statsOf, structureCombatType, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -1921,7 +1921,7 @@ export function render(ctx, game, width, height, time) {
   }
   if (activeWeapon(game, 'dehumidifier')) {
     // 완성형이면 범위가 넓어진 만큼 원도 크게 그린다.
-    const radius = (WEAPONS.dehumidifier.radius[game.weapons.dehumidifier - 1] * statsOf(game).area
+    const radius = (WEAPONS.dehumidifier.radius[game.weapons.dehumidifier - 1] * statsOf(game).area * dotRangeScale(game)
       * (game.evolved.dehumidifier ? EVOLUTIONS.dehumidifier.radius : 1)) / WORLD_PER_PIXEL;
     const [x, y] = toBuffer(player);
     disc(ctx, x, y, radius, 'rgba(143, 177, 233, 0.12)');

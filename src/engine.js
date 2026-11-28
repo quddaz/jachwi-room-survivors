@@ -142,6 +142,10 @@ function elementalPowerOf(game) {
     + (relic(game, 'prism')?.elementalPower ?? 0);
 }
 
+export function dotRangeScale(game) {
+  return 1 + legendaryValue(game, 'lingeringField', 'rangeBonus');
+}
+
 function dotPowerOf(game) {
   return 1 + buildValue(game, 'dotPower') + (perk(game, 'dot', 5)?.dotPower ?? 0)
     + characterBonus(game, 'dotPower') + passiveValue(game, 'catalyst', 'dotPower')
@@ -1353,8 +1357,7 @@ function triggerOverload(game, source, amount) {
   }
 }
 
-function applyElements(game, enemy, amount, fromDot = false) {
-  const elements = game.hitElement;
+function applyElements(game, enemy, amount, fromDot = false, elements = game.hitElement) {
   // 개별 무기의 피해량만 검증할 때는 속성 효과를 끌 수 있다.
   if (!elements || game.elementsOff || enemy.dead || (amount <= 0 && !fromDot)) return;
   for (const element of elements) {
@@ -1403,35 +1406,28 @@ function applyElements(game, enemy, amount, fromDot = false) {
   }
 }
 
-function alchemistStrikeBonus(game, enemy) {
+function alchemistStrikeReaction(game, enemy) {
   const elements = game.hitElement;
-  if (game.elementsOff || !elements?.length || game.character !== 'alchemist') return 0;
+  if (game.elementsOff || !elements?.length) return null;
   const core = legendaryRelic(game, 'spectrumCore');
-  let bonus = 0;
-  if (core) {
-    const wet = (enemy.wetUntil ?? 0) > game.time;
-    const cold = (enemy.elementColdUntil ?? 0) > game.time;
-    const burning = (enemy.burnUntil ?? 0) > game.time;
-    const poisoned = (enemy.poisonUntil ?? 0) > game.time;
-    if ((wet && elements.includes('ice')) || (cold && elements.includes('water'))
-        || (poisoned && elements.includes('fire')) || (burning && elements.includes('poison'))
-        || ((wet || burning || poisoned) && elements.includes('lightning'))) {
-      bonus += core.reactionDamage;
-      relicCue(game, 'spectrumCore', enemy);
-    }
-  }
-  const battery = legendaryRelic(game, 'elementBattery');
-  if (!battery || game.time < (enemy.elementBatteryReadyAt ?? 0)) return bonus;
-  if (game.time >= (enemy.elementChargeUntil ?? 0)) {
-    enemy.elementChargeUntil = game.time + battery.windowSec;
-    enemy.elementCharge = new Set();
-  }
-  for (const element of elements) enemy.elementCharge.add(element);
-  if (enemy.elementCharge.size < battery.elements) return bonus;
-  enemy.elementChargeUntil = game.time;
-  enemy.elementBatteryReadyAt = game.time + battery.cooldown;
-  relicCue(game, 'elementBattery', enemy);
-  return bonus + battery.damage;
+  if (!core) return null;
+  const wet = (enemy.wetUntil ?? 0) > game.time;
+  const cold = (enemy.elementColdUntil ?? 0) > game.time;
+  const burning = (enemy.burnUntil ?? 0) > game.time;
+  const poisoned = (enemy.poisonUntil ?? 0) > game.time;
+  // 한 타격에서 조합 효과는 한 번만 적용한다. 번개는 걸려 있는 상태 중 하나를 갱신한다.
+  let partner;
+  if (elements.includes('lightning')) partner = wet ? 'water' : burning ? 'fire' : poisoned ? 'poison' : null;
+  if (!partner && wet && elements.includes('ice')) partner = 'water';
+  if (!partner && cold && elements.includes('water')) partner = 'ice';
+  if (!partner && !wet && poisoned && elements.includes('fire')) partner = 'poison';
+  if (!partner && burning && elements.includes('poison')) partner = 'fire';
+  if (!partner) return null;
+  relicCue(game, 'spectrumCore', enemy);
+  return {
+    damage: core.reactionDamage,
+    elements: elements.includes(partner) ? elements : [partner, ...elements],
+  };
 }
 
 export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true, canCrit = true } = {}) {
@@ -1454,7 +1450,8 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   const crit = tiers > 0;
   // 기본 피해는 한 번만 두고 단계마다 치명 보너스만 더한다. 300% 치피: 3배·5배·7배.
   if (crit) amount *= 1 + (critDamageOf(game) - 1) * tiers;
-  const strikeBonus = hitEffects && amount > 0 ? amount * alchemistStrikeBonus(game, enemy) : 0;
+  const reaction = hitEffects && amount > 0 ? alchemistStrikeReaction(game, enemy) : null;
+  const strikeBonus = amount * (reaction?.damage ?? 0);
   const bossScale = enemy.boss ? 1 + (relic(game, 'lamp')?.bossDamage ?? 0) : 1;
   const statusHit = (amount + flatBonus) * bossScale;
   amount = statusHit + strikeBonus * bossScale;
@@ -1476,7 +1473,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps, 'match') * (game.passives.idol ? 2 : 1));
     enemy.burnFromElement = false;
   }
-  if (hitEffects) applyElements(game, enemy, statusHit);
+  if (hitEffects) applyElements(game, enemy, statusHit, false, reaction?.elements ?? game.hitElement);
   enemy.hitFlash = 0.1;
   if (showHit && amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
@@ -1516,18 +1513,35 @@ function spreadAilments(game, source) {
   const hops = Number(source.dotContagion ?? 0);
   if (!flask || hops >= (core?.hops ?? 1)) return;
   const active = ['burn', 'poison'].filter(type => source[`${type}Until`] > game.time && source[`${type}Dps`] > 0);
-  if (!active.length) return;
+  const controlStates = core ? ['wetUntil', 'elementColdUntil'].filter(key => source[key] > game.time) : [];
+  if (!active.length && !controlStates.length) return;
   const radius = flask.radius * statsOf(game).area;
   let count = 0;
   for (const enemy of near(game, source.x, source.y, radius)) {
     if (enemy === source || enemy.dead || distance(enemy, source) > radius + enemy.radius) continue;
     let infected = false;
+    for (const key of controlStates) {
+      const seconds = Math.min(flask.maxSec, source[key] - game.time);
+      if ((enemy[key] ?? 0) >= game.time + seconds) continue;
+      enemy[key] = game.time + seconds;
+      if (key === 'wetUntil') {
+        if ((enemy.burnUntil ?? 0) > game.time) enemy.burnUntil = game.time;
+        if (!enemy.boss) slowBy(game, enemy, ELEMENT_EFFECTS.water.slow, seconds);
+      }
+      infected = true;
+    }
     for (const type of active) {
+      if (type === 'burn' && (enemy.wetUntil ?? 0) > game.time) continue;
       const dps = source[`${type}Dps`] * flask.power;
       // 더 강한 기존 상태와 그 지속 시간은 덮어쓰지 않는다.
       if (enemy[`${type}Until`] > game.time && enemy[`${type}Dps`] >= dps) continue;
       enemy[`${type}Dps`] = dps;
       enemy[`${type}Until`] = game.time + Math.min(flask.maxSec, source[`${type}Until`] - game.time);
+      enemy[`${type}FromElement`] = source[`${type}FromElement`];
+      if (type === 'poison') {
+        enemy.poisonStacks = source.poisonStacks || 1;
+        enemy.poisonBase = dps / enemy.poisonStacks;
+      }
       infected = true;
     }
     if (infected) {
@@ -2726,11 +2740,13 @@ function updateMegaLaser(game, dt) {
   const mega = fusion(game, 'spinlaser');
   const { area, projectile } = statsOf(game);
   const makeCharge = () => {
-    const target = nearestEnemies(game, 1, mega.length)[0];
+    const rangeBonus = dotRangeScale(game);
+    const length = mega.length * rangeBonus;
+    const target = nearestEnemies(game, 1, length)[0];
     const angle = target ? Math.atan2(target.y - game.player.y, target.x - game.player.x)
       : game.player.heading ?? (game.player.facing > 0 ? 0 : Math.PI);
-    const beam = { x: game.player.x, y: game.player.y, angle, length: mega.length,
-      width: Math.min(mega.maxWidth, mega.width * area * projectile), phase: 'charge', remaining: mega.chargeSec };
+    const beam = { x: game.player.x, y: game.player.y, angle, length,
+      width: Math.min(mega.maxWidth, mega.width * area * projectile) * rangeBonus, phase: 'charge', remaining: mega.chargeSec };
     addEffect(game, { type: 'ring', x: beam.x, y: beam.y, radius: 32, color: 'spark', life: 0.35, sound: 'laserCharge' });
     return beam;
   };
@@ -3110,6 +3126,7 @@ function fireWeapons(game, dt) {
   fireTreasureWeapons(game, dt);
   const { player } = game;
   const { area, projectile } = statsOf(game);
+  const dotRange = dotRangeScale(game);
   // 독침 기관총으로 합체하면 살충제는 따로 뿌리지 않는다.
   useElements(game, weaponElementTag(game, 'spray'));
   if (activeWeapon(game, 'spray') && !game.fusions.poisongun && ready(game, 'spray', dt)) {
@@ -3171,16 +3188,16 @@ function fireWeapons(game, dt) {
     for (let index = 0; index < weaponValue(game, 'bleach', 'count'); index += 1) {
       const target = candidates.length > 0 ? candidates[Math.floor(game.random() * candidates.length)]
         : { x: player.x + (game.random() - 0.5) * 200, y: player.y + (game.random() - 0.5) * 200 };
-      addEffect(game, { weapon: 'bleach', type: 'ring', x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area,
+      addEffect(game, { weapon: 'bleach', type: 'ring', x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area * dotRange,
         color: 'teal', life: 0.3 });
-      game.puddles.push({ weapon: 'bleach', x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area,
+      game.puddles.push({ weapon: 'bleach', x: target.x, y: target.y, radius: weaponValue(game, 'bleach', 'radius') * area * dotRange,
         dps: weaponValue(game, 'bleach', 'dps'), life: evolution(game, 'bleach')?.lifeSec ?? WEAPONS.bleach.lifeSec,
         maxLife: WEAPONS.bleach.lifeSec, slow: evolution(game, 'bleach')?.slow });
     }
   }
   useElements(game, weaponElementTag(game, 'dehumidifier'));
   if (activeWeapon(game, 'dehumidifier')) {
-    const radius = weaponValue(game, 'dehumidifier', 'radius') * area;
+    const radius = weaponValue(game, 'dehumidifier', 'radius') * area * dotRange;
     const damage = weaponValue(game, 'dehumidifier', 'dps') * dt;
     for (const enemy of near(game, player.x, player.y, radius)) {
       if (distance(enemy, player) > radius + enemy.radius) continue;
@@ -3307,7 +3324,7 @@ function fireWeapons(game, dt) {
   }
   useElements(game, weaponElementTag(game, 'dryer'));
   if (activeWeapon(game, 'dryer')) {
-    const range = weaponValue(game, 'dryer', 'range') * area;
+    const range = weaponValue(game, 'dryer', 'range') * area * dotRange;
     // 물티슈가 바람이 퍼지는 폭도 넓힌다.
     const spread = Math.min(1.3, (evolution(game, 'dryer')?.wide ?? WEAPONS.dryer.spread) * area);
     const damage = weaponValue(game, 'dryer', 'dps') * dt;
@@ -3553,7 +3570,7 @@ function fireWeapons(game, dt) {
         robot.grenadeIn = Math.max(0, (robot.grenadeIn ?? squad.grenadeStartSec + index * 0.2) - dt);
         if (target && distance(target, robot) <= range + target.radius) {
           robot.angle = Math.atan2(target.y - robot.y, target.x - robot.x);
-          const acid = sanitizer ? { everySec: sanitizer.impactEverySec, radius: sanitizer.radius * area,
+          const acid = sanitizer ? { everySec: sanitizer.impactEverySec, radius: sanitizer.radius * area * dotRange,
             dps: weaponValue(game, 'bleach', 'dps') * sanitizer.dps * summonStats.summonPower, life: sanitizer.lifeSec, slow: sanitizer.slow } : null;
           if (robot.grenadeIn <= 0 && !game.shots.some(shot => shot.kind === 'grenade' && shot.owner === robot.id && shot.life > 0)) {
             robot.grenadeIn = squad.grenadeEverySec * summonStats.cooldownScale / summonStats.summonHaste;

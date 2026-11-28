@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyCharacter, createGame, damageEnemy, update } from '../src/engine.js';
-import { ELEMENT_EFFECTS, ELEMENT_REACTIONS } from '../src/rules.js';
+import { ELEMENT_EFFECTS, ELEMENT_REACTIONS, WEAPONS } from '../src/rules.js';
 
 function quiet(random = () => 0.99) {
   const game = createGame(random);
@@ -186,7 +186,7 @@ describe('속성 조합', () => {
 });
 
 describe('연금술사 전설', () => {
-  it('오색 반응로는 이미 중독된 적의 화염 직접 피해만 강화한다', () => {
+  it('오색 반응로는 중독된 적에게 화염 피해를 강화하고 중독도 다시 적용한다', () => {
     const game = quiet();
     applyCharacter(game, 'alchemist');
     game.relics.spectrumCore = true;
@@ -195,25 +195,36 @@ describe('연금술사 전설', () => {
     const poisoned = enemy.hp;
     hit(game, enemy, ['fire']);
     near(poisoned - enemy.hp, 150);
+    assert.equal(enemy.poisonStacks, 2);
     near(enemy.burnDps, 100 * ELEMENT_EFFECTS.fire.burn);
     const clean = target(game);
     hit(game, clean, ['fire']);
     near(clean.maxHp - clean.hp, 100);
   });
 
-  it('삼색 축전지는 같은 적에 서로 다른 직접 타격 속성 세 개를 요구한다', () => {
-    const game = quiet();
+  it('확산 증폭기는 기존 사거리 밖의 적까지 드라이기 지속 공격으로 맞힌다', () => {
+    for (const wide of [false, true]) {
+      const game = quiet();
+      applyCharacter(game, 'alchemist');
+      game.weapons = { dryer: 1 };
+      if (wide) game.relics.lingeringField = true;
+      const enemy = target(game, { x: game.player.x + WEAPONS.dryer.range[0] * 1.25, speed: 0 });
+      update(game, 1 / 60);
+      assert.equal(enemy.hp < enemy.maxHp, wide);
+      near(game.dryerRange, WEAPONS.dryer.range[0] * (wide ? 1.4 : 1));
+    }
+  });
+
+  it('오색 반응로가 젖음을 갱신해도 번개 전이는 한 번만 발동한다', () => {
+    const game = quiet(() => 0.4);
     applyCharacter(game, 'alchemist');
-    game.relics.elementBattery = true;
-    const enemy = target(game);
-    hit(game, enemy, ['fire']);
-    hit(game, enemy, ['fire']);
-    hit(game, enemy, ['poison']);
-    near(enemy.maxHp - enemy.hp, 300);
-    hit(game, enemy, ['ice']);
-    near(enemy.maxHp - enemy.hp, 520);
-    hit(game, enemy, ['fire', 'water', 'lightning']);
-    near(enemy.maxHp - enemy.hp, 620);
+    game.relics.spectrumCore = true;
+    const source = target(game);
+    const adjacent = target(game, { x: source.x + 40 });
+    source.wetUntil = game.time + 0.25;
+    hit(game, source, ['lightning']);
+    near(source.wetUntil, game.time + ELEMENT_EFFECTS.water.wetSec);
+    near(adjacent.maxHp - adjacent.hp, 100 * ELEMENT_EFFECTS.lightning.chain * 1.3);
   });
 
   it('역병 증류기가 화상과 중독을 퍼뜨리고 오색 반응로는 퍼뜨리지 않는다', () => {
@@ -228,6 +239,25 @@ describe('연금술사 전설', () => {
       assert.equal(neighbor.burnUntil > game.time, spreads);
       assert.equal(neighbor.poisonUntil > game.time, spreads);
     }
+  });
+
+  it('증류기는 젖음과 냉기 둔화를 옮기고 젖은 적에게 화상을 옮기지 않는다', () => {
+    const game = quiet();
+    applyCharacter(game, 'alchemist');
+    game.relics.plagueStill = true;
+    const source = target(game);
+    const neighbor = target(game, { x: source.x + 100 });
+    hit(game, source, ['water', 'ice', 'poison']);
+    hit(game, source, null, source.hp);
+    assert.ok(neighbor.wetUntil > game.time);
+    assert.ok(neighbor.elementColdUntil > game.time);
+    hit(game, neighbor, ['poison']);
+    assert.equal(neighbor.poisonStacks, 2);
+    near(neighbor.poisonDps, 100 * ELEMENT_EFFECTS.poison.poison * 2);
+    const burning = target(game, { x: neighbor.x + 50 });
+    hit(game, burning, ['fire']);
+    hit(game, burning, null, burning.hp);
+    assert.ok(!(neighbor.burnUntil > game.time));
   });
 });
 
