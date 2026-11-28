@@ -313,7 +313,7 @@ function drawChoices() {
   document.querySelector('.choices').innerHTML = game.choices.map((choice, index) => {
     const icon = itemIcon(choice.icon ?? (choice.kind === 'heal' ? 'heal' : choice.id));
     const type = ['weapon', 'evolve', 'fusion', 'weapon-swap'].includes(choice.kind) ? weaponBadge(choice.id) : '';
-    const rarity = ['relic', 'relic-swap'].includes(choice.kind) ? RELICS[choice.id]?.rarity : null;
+    const rarity = choice.rarity ?? (choice.kind === 'relic-swap' ? RELICS[choice.id]?.rarity : null);
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
     const tag = choice.kind === 'build-evolve' ? '<small class="choice-evolve">설치 완성형</small>'
       : choice.kind === 'build-fusion' ? '<small class="choice-fusion">설치 합체</small>'

@@ -91,11 +91,14 @@ describe('집돌이 오리', () => {
     assert.ok(game.buildFusions.zapgun);
   });
 
-  it('보물 상자에서는 공구 보물 둘과 일반 보물 하나가 나오고, 공구함은 설치물을 하나 더 깐다', () => {
+  it('공구 보물은 희귀 풀에서만 추첨되고, 공구함은 설치물을 하나 더 깐다', () => {
     const game = quiet({ nailgun: 1 });
+    assert.ok(rollRelics(game).every(offer => offer.kind === 'relic'));
+    game.random = () => 0.72;
     const offers = rollRelics(game);
-    assert.equal(offers.filter(offer => offer.kind === 'relic-diy').length, 2);
+    assert.ok(offers.some(offer => offer.kind === 'relic-diy' && offer.rarity === 'rare'));
     game.diyRelics = { toolbox: true };
+    assert.ok(rollRelics(game).every(offer => offer.id !== 'toolbox'));
     run(game, STRUCTURE_DEPLOY_SEC * 2 + 0.2);
     assert.equal(game.structures.length, STRUCTURES.nailgun.count[0] + DIY_RELICS.toolbox.extra);
   });

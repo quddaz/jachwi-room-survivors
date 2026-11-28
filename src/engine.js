@@ -1703,13 +1703,6 @@ function chooseUndead(game, choice) {
 function ritualReady(game, id) {
   return Object.entries(ritualCost(game, id)).every(([type, count]) => armyCount(game, type) >= count);
 }
-// 보물 상자: 강령술사는 강령 보물을 먼저 받는다.
-function necroTreasures(game) {
-  const relics = Object.keys(NECRO_RELICS).filter(id => !game.necroRelics[id]).map(id => ({
-    kind: 'relic-necro', id, icon: NECRO_RELICS[id].icon ?? id, level: 0, label: NECRO_RELICS[id].label, description: NECRO_RELICS[id].description, details: NECRO_RELICS[id].stats }));
-  return shuffle(relics, game.random).slice(0, 2);
-}
-
 function performRitual(game, id) {
   game.souls -= RITUALS[id].souls;
   const consumed = [];
@@ -1936,12 +1929,6 @@ function structureUpgradeChoices(game) {
     .map(id => ({ kind: 'build-evolve', id, level: STRUCTURE_MAX + 1, label: STRUCTURE_EVOLUTIONS[id].label, description: STRUCTURE_EVOLUTIONS[id].description, details: STRUCTURE_EVOLUTIONS[id].stats }));
   return [...fusions, ...evolutions];
 }
-// 보물 상자: 집돌이 오리는 공구 보물 둘과 일반 보물 하나 중에서 고른다.
-function diyTreasures(game) {
-  return shuffle(Object.keys(DIY_RELICS).filter(id => !game.diyRelics[id]), game.random).slice(0, 2)
-    .map(id => ({ kind: 'relic-diy', id, level: 0, label: DIY_RELICS[id].label, description: DIY_RELICS[id].description, details: DIY_RELICS[id].stats }));
-}
-
 function placeStructure(game, id, spot, life, extra = {}) {
   const piece = { id: game.nextId++, type: id, x: spot.x, y: spot.y, life, total: life, fireIn: 0.3, hp: 1, facing: 1, shotAt: -1, ...extra };
   game.structures.push(piece);
@@ -4069,7 +4056,17 @@ function rollWeightedRelics(game, count) {
   for (const [id, def] of Object.entries(RELICS)) {
     if ((!game.relics[id] || def.stackable) && buildUnlocked(game, def)
         && (def.rarity !== 'legendary' || game.time > 0)) {
-      pools[def.rarity].push(id);
+      pools[def.rarity].push({ kind: 'relic', id, def });
+    }
+  }
+
+  // 직업 전용 공구·괴담 보물도 같은 희귀 풀에서 추첨한다.
+  const specialty = builder(game)
+    ? { kind: 'relic-diy', definitions: DIY_RELICS, owned: game.diyRelics }
+    : necromancer(game) ? { kind: 'relic-necro', definitions: NECRO_RELICS, owned: game.necroRelics } : null;
+  if (specialty) {
+    for (const [id, def] of Object.entries(specialty.definitions)) {
+      if (!specialty.owned[id]) pools.rare.push({ kind: specialty.kind, id, def });
     }
   }
 
@@ -4081,17 +4078,16 @@ function rollWeightedRelics(game, count) {
     let roll = game.random() * total;
     const [rarity] = available.find(([, entry]) => (roll -= entry.weight) < 0) ?? available.at(-1);
     const pool = pools[rarity];
-    const [id] = pool.splice(Math.floor(game.random() * pool.length), 1);
-    const { label, description, stats, icon } = RELICS[id];
-    offers.push({ kind: 'relic', id, icon, level: 0, label, description, details: stats, rarity });
+    const [{ kind, id, def }] = pool.splice(Math.floor(game.random() * pool.length), 1);
+    const { label, description, stats, icon } = def;
+    offers.push({ kind, id, icon, level: 0, label, description, details: stats, rarity });
   }
   return offers;
 }
 
 export function rollRelics(game) {
-  const specialty = builder(game) ? diyTreasures(game) : necromancer(game) ? necroTreasures(game) : [];
   const count = 3 + (perk(game, 'treasure', 20)?.offers ?? 0);
-  const offers = [...specialty, ...rollWeightedRelics(game, count - specialty.length)];
+  const offers = rollWeightedRelics(game, count);
   if (offers.length === 0) return [];
   return relicsFull(game) && offers.some(offer => offer.kind === 'relic') ? [...offers, { ...KEEP_RELICS }] : offers;
 }

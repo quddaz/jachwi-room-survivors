@@ -202,12 +202,17 @@ describe('의식', () => {
     assert.deepEqual(game.army.map(unit => unit.type), ['giant3']);
   });
 
-  it('보물 상자에는 의식이 나오지 않고 강령 보물이 먼저 나온다', () => {
+  it('보물 상자에는 의식이 나오지 않고 괴담 보물은 희귀 풀에서만 추첨된다', () => {
     const game = quiet();
     recruitSoldiers(game, 16);
+    game.random = () => 0.1;
+    assert.ok(rollRelics(game).every(choice => choice.kind === 'relic'));
+    const rolls = [0.72, 0.999, 0.1, 0.1, 0.1, 0.1];
+    game.random = () => rolls.shift() ?? 0.1;
     const offers = rollRelics(game);
-    assert.ok(offers.every(choice => choice.kind !== 'ritual'));
     assert.equal(offers[0].kind, 'relic-necro');
+    assert.equal(offers[0].rarity, 'rare');
+    assert.ok(offers.slice(1).every(choice => choice.kind === 'relic'));
   });
 
   it('거인은 주변 적을 끌어당겨 내리친다', () => {
