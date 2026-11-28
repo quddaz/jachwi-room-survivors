@@ -401,7 +401,7 @@ export const ELEMENT_DOT_GAP = 0.25;
 const DOT_WEAPONS = new Set(['bleach', 'dehumidifier', 'dryer', 'poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser']);
 const WEAPON_ELEMENTS = {
   spray: ['poison'], bleach: ['poison'], dryer: ['fire'], dehumidifier: ['fire'], coil: ['fire'],
-  zapper: ['lightning'], detergent: ['water'], towel: ['water'], microwave: ['fire'], shower: ['water'],
+  fan: ['ice'], zapper: ['lightning'], detergent: ['water'], towel: ['water'], microwave: ['fire'], shower: ['water'],
   thunderdragons: ['lightning'], stormcrane: ['lightning'], stormcompass: ['lightning'], thunderball: ['lightning'],
   shockshower: ['water', 'lightning'], firelegion: ['fire'], firering: ['fire'], dryoven: ['fire'],
   poisongun: ['poison'], bleachbot: ['poison'], thorngarden: ['poison'],
@@ -599,7 +599,7 @@ export const WEAPONS = {
     dps: [30, 39, 49, 61, 76], range: [150, 165, 180, 200, 220], spread: 0.5, turn: 10,
   },
   fan: {
-    label: '선풍기', description: '강풍으로 앞의 적을 때리고 느리게 한다',
+    label: '선풍기', description: '찬바람으로 앞의 적을 때리고 냉기 둔화를 건다',
     // cone은 바라보는 쪽에서 양옆으로 바람이 닿는 각도(라디안)다.
     cooldown: [2.6, 2.4, 2.2, 2.0, 1.8], damage: [18, 25, 33, 42, 52], range: [220, 240, 260, 285, 310], slows: true, cone: 1.0,
   },

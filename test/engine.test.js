@@ -218,6 +218,8 @@ describe('추가 아이템', () => {
     update(game, 1 / 60);
     assert.equal(front.kx, 0);
     assert.ok(front.hitSlowUntil > game.time);
+    assert.ok(front.elementColdUntil > game.time);
+    assert.equal(behind.elementColdUntil, undefined);
     assert.equal(behind.hitSlowUntil, undefined);
     assert.equal(behind.hp, 1000);
   });
