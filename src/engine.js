@@ -1403,6 +1403,37 @@ function applyElements(game, enemy, amount, fromDot = false) {
   }
 }
 
+function alchemistStrikeBonus(game, enemy) {
+  const elements = game.hitElement;
+  if (game.elementsOff || !elements?.length || game.character !== 'alchemist') return 0;
+  const core = legendaryRelic(game, 'spectrumCore');
+  let bonus = 0;
+  if (core) {
+    const wet = (enemy.wetUntil ?? 0) > game.time;
+    const cold = (enemy.elementColdUntil ?? 0) > game.time;
+    const burning = (enemy.burnUntil ?? 0) > game.time;
+    const poisoned = (enemy.poisonUntil ?? 0) > game.time;
+    if ((wet && elements.includes('ice')) || (cold && elements.includes('water'))
+        || (poisoned && elements.includes('fire')) || (burning && elements.includes('poison'))
+        || ((wet || burning || poisoned) && elements.includes('lightning'))) {
+      bonus += core.reactionDamage;
+      relicCue(game, 'spectrumCore', enemy);
+    }
+  }
+  const battery = legendaryRelic(game, 'elementBattery');
+  if (!battery || game.time < (enemy.elementBatteryReadyAt ?? 0)) return bonus;
+  if (game.time >= (enemy.elementChargeUntil ?? 0)) {
+    enemy.elementChargeUntil = game.time + battery.windowSec;
+    enemy.elementCharge = new Set();
+  }
+  for (const element of elements) enemy.elementCharge.add(element);
+  if (enemy.elementCharge.size < battery.elements) return bonus;
+  enemy.elementChargeUntil = game.time;
+  enemy.elementBatteryReadyAt = game.time + battery.cooldown;
+  relicCue(game, 'elementBattery', enemy);
+  return bonus + battery.damage;
+}
+
 export function damageEnemy(game, enemy, amount, slows = false, from = game.player, flatBonus = 0, { showHit = true, hitEffects = true, canCrit = true } = {}) {
   if (enemy.dead) return;
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
@@ -1423,9 +1454,11 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   const crit = tiers > 0;
   // 기본 피해는 한 번만 두고 단계마다 치명 보너스만 더한다. 300% 치피: 3배·5배·7배.
   if (crit) amount *= 1 + (critDamageOf(game) - 1) * tiers;
-  amount += flatBonus;
+  const strikeBonus = hitEffects && amount > 0 ? amount * alchemistStrikeBonus(game, enemy) : 0;
+  const bossScale = enemy.boss ? 1 + (relic(game, 'lamp')?.bossDamage ?? 0) : 1;
+  const statusHit = (amount + flatBonus) * bossScale;
+  amount = statusHit + strikeBonus * bossScale;
   let freezeSec = hitEffects && crit && perk(game, 'crit', 20) ? BUILD.crit.perks[20].stun : 0;
-  if (enemy.boss) amount *= 1 + (relic(game, 'lamp')?.bossDamage ?? 0);
   enemy.hp -= amount;
   if (enemy.dummy) {
     game.practiceLog.push({ t: game.time, amount });
@@ -1443,7 +1476,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
     enemy.burnDps = Math.max(enemy.burnDps ?? 0, relicDamage(game, match.dps, 'match') * (game.passives.idol ? 2 : 1));
     enemy.burnFromElement = false;
   }
-  if (hitEffects) applyElements(game, enemy, amount);
+  if (hitEffects) applyElements(game, enemy, statusHit);
   enemy.hitFlash = 0.1;
   if (showHit && amount >= 6) {
     addEffect(game, { type: 'number', x: enemy.x + (game.random() - 0.5) * 14, y: enemy.y - enemy.radius, value: Math.round(amount),
@@ -1478,7 +1511,7 @@ function dropGem(game, x, y, value) {
 
 // 원본의 남은 시간만 복사하고 피해를 즉시 주지 않아 처치·폭발 재귀를 만들지 않는다.
 function spreadAilments(game, source) {
-  const core = legendaryRelic(game, 'spectrumCore');
+  const core = legendaryRelic(game, 'plagueStill');
   const flask = core ?? relic(game, 'contagion');
   const hops = Number(source.dotContagion ?? 0);
   if (!flask || hops >= (core?.hops ?? 1)) return;
@@ -1504,7 +1537,7 @@ function spreadAilments(game, source) {
     }
   }
   if (count) {
-    relicCue(game, core ? 'spectrumCore' : 'contagion', source);
+    relicCue(game, core ? 'plagueStill' : 'contagion', source);
     addEffect(game, { type: 'ring', x: source.x, y: source.y, radius, color: 'poison', life: 0.35 });
   }
 }
@@ -1988,24 +2021,35 @@ function placeStructure(game, id, spot, life, extra = {}) {
   return piece;
 }
 
+function fortressBlast(game, piece, radius, damage) {
+  let hit = false;
+  for (const enemy of near(game, piece.x, piece.y, radius)) {
+    if (enemy.dead || distance(enemy, piece) > radius + enemy.radius) continue;
+    damageEnemy(game, enemy, damage, false, piece, 0, { hitEffects: false, canCrit: false });
+    hit = true;
+  }
+  if (hit) addEffect(game, { type: 'ring', x: piece.x, y: piece.y, radius, color: 'gold', life: 0.35 });
+  return hit;
+}
+
 function deployStructures(game, dt) {
   const { player } = game;
   const field = armyField(game, 1.6);
   const plan = legendaryRelic(game, 'fortressPlan');
   for (const piece of game.structures) {
     piece.life -= dt;
-    if (plan && piece.life <= 0 && !piece.temp && inField(piece, player, field)) {
-      const radius = plan.radius * statsOf(game).area;
-      const damage = relicDamage(game, plan.damage, 'fortressPlan') * statsOf(game).summonPower * (1 + characterBonus(game, 'structureDamage'));
-      addEffect(game, { type: 'ring', x: piece.x, y: piece.y, radius, color: 'gold', life: 0.35 });
-      for (const enemy of near(game, piece.x, piece.y, radius)) {
-        if (!enemy.dead && distance(enemy, piece) <= radius + enemy.radius) {
-          damageEnemy(game, enemy, damage, false, piece, 0, { hitEffects: false, canCrit: false });
-        }
-      }
-    }
-    // 오리가 화면 밖으로 멀리 떠나면 두고 간 설치물은 해체된다.
-    if (!inField(piece, player, field)) piece.life = Math.min(piece.life, 0);
+    // 화면 밖으로 나간 설치물은 충격파 없이 해체한다.
+    if (!inField(piece, player, field)) { piece.life = Math.min(piece.life, 0); continue; }
+    if (!plan) { piece.fortressPulseAt = undefined; continue; }
+    if (piece.temp) continue;
+    const expired = piece.life <= 0;
+    piece.fortressPulseAt ??= game.time + plan.pulseEverySec;
+    if (!expired && game.time < piece.fortressPulseAt) continue;
+    const stats = statsOf(game);
+    const radius = plan.radius * stats.area;
+    const damage = relicDamage(game, expired ? plan.damage : plan.pulseDamage, 'fortressPlan')
+      * stats.summonPower * (1 + characterBonus(game, 'structureDamage'));
+    if (fortressBlast(game, piece, radius, damage)) piece.fortressPulseAt = game.time + plan.pulseEverySec;
   }
   for (const piece of game.structures.filter(item => item.life <= 0 && !item.temp)) {
     addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'bone', count: 6, life: 0.35 });

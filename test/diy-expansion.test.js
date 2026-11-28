@@ -47,6 +47,26 @@ it('자동 조립 지그는 기존 설치물과 새 배치를 못총으로 바�
   assert.deepEqual(game.structures.map(item => structureCombatType(game, item)), ['trap', 'workbench', 'mortar']);
 });
 
+it('불침 요새는 살아 있는 설치물에서 먼저 충격파를 내고 만료 폭발이 더 강하다', () => {
+  const game = quiet({ workbench: 1 });
+  game.relics.fortressPlan = true;
+  const bench = piece(game, 'workbench', 0, 0, { fortressPulseAt: 0 });
+  const nearby = enemy(game, 80);
+  const far = enemy(game, 400);
+  update(game, DT);
+  const pulse = nearby.maxHp - nearby.hp;
+  assert.ok(pulse > 0);
+  assert.equal(far.hp, far.maxHp);
+  const afterPulse = nearby.hp;
+  update(game, DT);
+  assert.equal(nearby.hp, afterPulse);
+
+  bench.life = 0;
+  update(game, DT);
+  assert.ok(afterPulse - nearby.hp > pulse);
+  assert.equal(game.structures.length, 0);
+});
+
 describe('집돌이 오리의 선풍기·작업대 조합', () => {
   it('새 설치물을 선택하고 강화한 뒤 각각 완성형과 합체를 고를 수 있다', () => {
     for (const [id, partner, fusion] of [['blower', 'trap', 'stickyspray'], ['workbench', 'nailgun', 'autoturret']]) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createGame, damageEnemy, update } from '../src/engine.js';
+import { applyCharacter, createGame, damageEnemy, update } from '../src/engine.js';
 import { ELEMENT_EFFECTS, ELEMENT_REACTIONS } from '../src/rules.js';
 
 function quiet(random = () => 0.99) {
@@ -182,6 +182,52 @@ describe('속성 조합', () => {
     hit(game, enemy, ['lightning']);
     const bonus = ELEMENT_REACTIONS.conductivity.damageBonus + ELEMENT_REACTIONS.ionize.damageBonus;
     near(adjacent.maxHp - adjacent.hp, 100 * ELEMENT_EFFECTS.lightning.chain * (1 + bonus));
+  });
+});
+
+describe('연금술사 전설', () => {
+  it('오색 반응로는 이미 중독된 적의 화염 직접 피해만 강화한다', () => {
+    const game = quiet();
+    applyCharacter(game, 'alchemist');
+    game.relics.spectrumCore = true;
+    const enemy = target(game);
+    hit(game, enemy, ['poison']);
+    const poisoned = enemy.hp;
+    hit(game, enemy, ['fire']);
+    near(poisoned - enemy.hp, 150);
+    near(enemy.burnDps, 100 * ELEMENT_EFFECTS.fire.burn);
+    const clean = target(game);
+    hit(game, clean, ['fire']);
+    near(clean.maxHp - clean.hp, 100);
+  });
+
+  it('삼색 축전지는 같은 적에 서로 다른 직접 타격 속성 세 개를 요구한다', () => {
+    const game = quiet();
+    applyCharacter(game, 'alchemist');
+    game.relics.elementBattery = true;
+    const enemy = target(game);
+    hit(game, enemy, ['fire']);
+    hit(game, enemy, ['fire']);
+    hit(game, enemy, ['poison']);
+    near(enemy.maxHp - enemy.hp, 300);
+    hit(game, enemy, ['ice']);
+    near(enemy.maxHp - enemy.hp, 520);
+    hit(game, enemy, ['fire', 'water', 'lightning']);
+    near(enemy.maxHp - enemy.hp, 620);
+  });
+
+  it('역병 증류기가 화상과 중독을 퍼뜨리고 오색 반응로는 퍼뜨리지 않는다', () => {
+    for (const [id, spreads] of [['plagueStill', true], ['spectrumCore', false]]) {
+      const game = quiet();
+      applyCharacter(game, 'alchemist');
+      game.relics[id] = true;
+      const source = target(game);
+      const neighbor = target(game, { x: source.x + 100 });
+      hit(game, source, ['fire', 'poison']);
+      hit(game, source, null, source.hp);
+      assert.equal(neighbor.burnUntil > game.time, spreads);
+      assert.equal(neighbor.poisonUntil > game.time, spreads);
+    }
   });
 });
 
