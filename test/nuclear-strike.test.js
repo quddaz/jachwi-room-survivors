@@ -4,15 +4,15 @@ import { applyBuild, choose, createGame, reroll, startWithRelic, statsOf, update
 import { NUCLEAR_STRIKE, RELICS } from '../src/rules.js';
 const DT=1/60;
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-4,`${a} != ${b}`);
-function scene(stacks=5){const g=createGame(()=>.99);applyBuild(g,{treasure:20});g.weapons={};g.relics={firecracker:true,mlrs:stacks};g.fireIn=1e9;g.spawnCarry=-1e9;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;return g;}
+function scene(stacks=4){const g=createGame(()=>.99);applyBuild(g,{treasure:20});g.weapons={};g.relics={firecracker:true,mlrs:stacks};g.fireIn=1e9;g.spawnCarry=-1e9;g.nextBossAt=g.nextSwarmAt=g.nextXp=Infinity;return g;}
 function run(g,frames){for(let i=0;i<frames;i++)update(g,DT);}
 function target(g,dx){const e={id:g.nextId++,kind:'roach',x:g.player.x+dx,y:g.player.y,hp:1e9,maxHp:1e9,radius:10,speed:0,damage:0,xp:0,timer:0,kx:0,ky:0,boss:true};g.enemies.push(e);return e;}
 const nukes=g=>g.relicAttacks.filter(a=>a.type==='nuclear');
 describe('다연장 미사일 핵 지원',()=>{
- it('4개는 핵이 없고 5개부터 기존 28발 미사일에 핵 한 발을 추가한다',()=>{
-  for(const stacks of [4,5]){const g=scene(stacks);g.fireIn=0;g.nuclearIn=0;update(g,DT);
+ it('3개는 핵이 없고 4개부터 일반 미사일에 핵 한 발을 추가한다',()=>{
+  for(const stacks of [3,4]){const g=scene(stacks);g.fireIn=0;g.nuclearIn=0;update(g,DT);
    assert.equal(g.relicAttacks.filter(a=>a.type==='firework').length,RELICS.firecracker.rockets+stacks*RELICS.mlrs.rockets);
-   assert.equal(nukes(g).length,stacks===5?1:0);
+   assert.equal(nukes(g).length,stacks===4?1:0);
   }
  });
  it('첫 핵은 주기만큼 기다리고 공속·태엽·우상이 있어도 주기 두 번 동안 두 번만 발사한다',()=>{
@@ -34,10 +34,10 @@ describe('다연장 미사일 핵 지원',()=>{
   const g=scene();g.relics.bigpot=true;g.passives.wipes=5;g.nuclearIn=0;update(g,DT);
   assert.equal(nukes(g)[0].radius,NUCLEAR_STRIKE.maxRadius);
  });
- it('5개 미만으로 내려가면 예약이 취소되고 다시 모으면 20초부터 센다',()=>{
-  const g=scene(),e=target(g,100);g.nuclearIn=0;update(g,DT);g.relics.mlrs=4;update(g,DT);
+ it('4개 미만으로 내려가면 예약이 취소되고 다시 모으면 주기를 처음부터 센다',()=>{
+  const g=scene(),e=target(g,100);g.nuclearIn=0;update(g,DT);g.relics.mlrs=3;update(g,DT);
   assert.equal(nukes(g).length,0);assert.equal(g.nuclearIn,undefined);run(g,100);assert.equal(e.hp,1e9);
-  g.relics.mlrs=5;update(g,DT);near(g.nuclearIn,NUCLEAR_STRIKE.everySec-DT);assert.equal(nukes(g).length,0);
+  g.relics.mlrs=4;update(g,DT);near(g.nuclearIn,NUCLEAR_STRIKE.everySec-DT);assert.equal(nukes(g).length,0);
  });
  it('기존 미사일이 공격 개수 제한에 도달해도 이미 예고한 핵은 취소되지 않는다',()=>{
   const g=scene();g.nuclearIn=0;update(g,DT);const nuclear=nukes(g)[0];

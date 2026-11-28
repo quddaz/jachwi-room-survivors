@@ -1004,15 +1004,15 @@ export const MAX_RELICS = 3;
 // 보물이 직접 주는 피해는 레벨마다 이만큼 세진다(공격력과 보물 피해도 곱한다). 후반에도 쓸모 있게.
 export const RELIC_LEVEL_SCALE = 0.04;
 
-// 다연장 미사일 5중첩의 독립 지원 공격. 공속·태엽·우상 추가 발동과 별도로 20초에 한 번이다.
-// 돼지코 어댑터 5개: 멀티탭이 터질 때마다 전기 구체를 날린다. 구체는 날아가며 주변을 계속 감전시키고 끝에서 크게 터진다.
+// 돼지코 어댑터 4중첩의 전기 구체와 자기장.
 export const BALL_LIGHTNING = {
-  stacks: 5, speed: 240, lifeSec: 2.4, zapRadius: 170, zapDamage: 70, tickSec: 0.3, burstRadius: 320, burstDamage: 400,
+  stacks: 4, speed: 240, lifeSec: 2.4, zapRadius: 170, zapDamage: 70, tickSec: 0.3, burstRadius: 320, burstDamage: 400,
   field: { radius: 150, damage: 55, everySec: 1, moveSpeed: 0.25 },
 };
 
+// 다연장 미사일 4중첩의 독립 지원 공격. 공속·태엽·우상의 추가 발동은 주기에 영향을 주지 않는다.
 export const NUCLEAR_STRIKE = {
-  stacks: 5, everySec: 12, warningSec: 1.3, radius: 640, maxRadius: 900,
+  stacks: 4, everySec: 12, warningSec: 1.3, radius: 640, maxRadius: 900,
   damage: 900, falloutRadius: 0.58, falloutSec: 3, falloutDps: 90, tickSec: 0.25,
 };
 
@@ -1060,7 +1060,7 @@ const SHARED_RELICS = {
     everySec: 9, radius: 135, damage: 125, rockets: 8, range: 520, aimSec: 0.5, gapSec: 0.16, fallSpeed: 0.3 },
   // 보물 20점 전용이고 폭죽이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   mlrs: { label: '다연장 미사일', treasureOnly: true, stackable: true, requiresRelic: 'firecracker',
-    description: '폭죽 로켓이 늘고 세지며 5개를 모으면 별도의 핵미사일 지원이 열린다', stats: ['폭죽 로켓 +4발, 로켓 피해 +70(중복 가능, 하나마다 보물 칸 1개)', '5중첩부터 기존 미사일과 별도로 20초마다 핵미사일 1발', '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
+    description: `폭죽 로켓이 늘고 세지며 ${NUCLEAR_STRIKE.stacks}개를 모으면 별도의 핵미사일 지원이 열린다`, stats: ['폭죽 로켓 +4발, 로켓 피해 +70(중복 가능, 하나마다 보물 칸 1개)', `${NUCLEAR_STRIKE.stacks}중첩부터 기존 미사일과 별도로 ${NUCLEAR_STRIKE.everySec}초마다 핵미사일 1발`, '핵: 1.3초 예고 · 피해 900 · 반경 640(최대 900)', '충돌 지점 안쪽에 3초간 초당 피해 90, 핵 주기는 공속·우상 추가 발동 적용 제외', '보물 20점·폭죽 보유 시 등장'],
     rockets: 4, damage: 70 },
   // 보물 20점 전용이고 멀티탭이 있어야 나온다. 여러 개 가질 수 있고, 하나마다 보물 칸을 하나 쓴다.
   splitplug: { label: '3구 분배기', treasureOnly: true, requiresRelic: 'outlet',
@@ -1068,7 +1068,7 @@ const SHARED_RELICS = {
     stats: ['멀티탭 일반 연쇄 번개 +2줄(총 3줄)', '각 줄의 연쇄 대상 수는 기존 효과 그대로 적용', '한 줄 안에서는 같은 적을 다시 맞히지 않으며 서로 다른 줄은 같은 적을 맞힐 수 있음', '보물 20점·멀티탭 보유 시 등장, 중복 획득 불가', '전기 구체 개수에는 영향 없음'], extraChains: 2 },
   adapter: { label: '돼지코 어댑터', treasureOnly: true, stackable: true, requiresRelic: 'outlet',
     description: '멀티탭 전기가 훨씬 많은 적에게 이어진다',
-    stats: ['멀티탭 연쇄 대상 +10명(여러 개 가지면 겹쳐 쌓임)', '5개 모으면 전기 구체와 오리 주변 자기장 활성화',
+    stats: ['멀티탭 연쇄 대상 +10명(여러 개 가지면 겹쳐 쌓임)', `${BALL_LIGHTNING.stacks}개 모으면 전기 구체와 오리 주변 자기장 활성화`,
       '자기장: 반경 150에 매초 전기 피해 55 · 이동 속도 +25%',
       '보물 20점·멀티탭 보유 시 등장, 하나마다 보물 칸 1개'], strikes: 10 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },

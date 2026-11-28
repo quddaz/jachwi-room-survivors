@@ -35,14 +35,14 @@ it('멀티탭을 교체하면 분배기와 어댑터도 함께 제거된다',()=
  assert.equal(g.relics.outlet,undefined);assert.equal(g.relics.splitplug,undefined);assert.equal(g.relics.adapter,undefined);assert.equal(g.relics.energy,true);
 });
 
-it('어댑터 5개일 때만 오리 주변에 자기장이 생기고 이동 속도가 증가한다', () => {
- const game = setup(false, 4, 1), enemy = game.enemies[0];
+it('어댑터 4개부터 오리 주변에 자기장이 생기고 이동 속도가 증가한다', () => {
+ const game = setup(false, 3, 1), enemy = game.enemies[0];
  game.outletIn = Infinity;
  const before = statsOf(game).speed;
  update(game, 1 / 60);
  assert.equal(outletFieldRadius(game), 0);
  assert.equal(enemy.hp, enemy.maxHp);
- game.relics.adapter = 5;
+ game.relics.adapter = 4;
  assert.equal(statsOf(game).speed, before * 1.25);
  assert.ok(outletFieldRadius(game) > 0);
  update(game, 1 / 60);
@@ -50,7 +50,7 @@ it('어댑터 5개일 때만 오리 주변에 자기장이 생기고 이동 속�
  assert.ok(damaged < enemy.maxHp);
  update(game, 1 / 60);
  assert.equal(enemy.hp, damaged);
- game.relics.adapter = 4;
+ game.relics.adapter = 3;
  assert.equal(outletFieldRadius(game), 0);
  assert.equal(statsOf(game).speed, before);
 });

@@ -1840,17 +1840,17 @@ describe('돼지코 어댑터', () => {
     assert.equal(enemies.filter((enemy) => enemy.hp < 1e7).length, RELICS.outlet.strikes + 2 * RELICS.adapter.strikes);
   });
 
-  it('5개를 모으면 전기 구체를 날려 주변 적을 모두 감전시키고, 4개면 날리지 않는다', () => {
-    const four = outletGame(4);
-    spread(four, 3);
-    update(four, 1 / 60);
-    assert.ok(four.relicAttacks.every((attack) => attack.type !== 'orb'));
-    const five = outletGame(BALL_LIGHTNING.stacks);
-    const side = placeEnemy(five, 'trash', 0, 120, { hp: 1e7, speed: 0 });
-    spread(five, 1);
-    update(five, 1 / 60);
-    assert.ok(five.relicAttacks.some((attack) => attack.type === 'orb'));
-    for (let frame = 0; frame < 40; frame += 1) update(five, 1 / 60);
+  it('4개를 모으면 전기 구체를 날려 주변 적을 모두 감전시키고, 3개면 날리지 않는다', () => {
+    const below = outletGame(3);
+    spread(below, 3);
+    update(below, 1 / 60);
+    assert.ok(below.relicAttacks.every((attack) => attack.type !== 'orb'));
+    const unlocked = outletGame(BALL_LIGHTNING.stacks);
+    const side = placeEnemy(unlocked, 'trash', 0, 120, { hp: 1e7, speed: 0 });
+    spread(unlocked, 1);
+    update(unlocked, 1 / 60);
+    assert.ok(unlocked.relicAttacks.some((attack) => attack.type === 'orb'));
+    for (let frame = 0; frame < 40; frame += 1) update(unlocked, 1 / 60);
     assert.ok(side.hp < 1e7);
   });
 });
