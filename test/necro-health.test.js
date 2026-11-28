@@ -143,7 +143,7 @@ describe('괴담 소환수 체력과 의식 비용', () => {
 
   it('좀비도 체력 강화를 받고 체력이 다하면 수명 전에도 사라진다', () => {
     const game = quiet();
-    game.necroRelics.gravesoil = true; game.commands.vigor = 5;
+    game.relics.gravesoil = true; game.commands.vigor = 5;
     const ghoul = { id: game.nextId++, kind: 'roach', x: game.player.x + 100, y: game.player.y,
       radius: 10, life: 7, total: 7, attackIn: 1e9, facing: 1, damageScale: 1 };
     game.ghouls.push(ghoul);

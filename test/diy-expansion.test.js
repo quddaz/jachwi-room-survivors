@@ -126,7 +126,7 @@ describe('집돌이 오리의 선풍기·작업대 조합', () => {
     const base = quiet({ workbench: 1, nailgun: 1 });
     const gun = piece(base, 'nailgun', 0, 0, { fireIn: 10 });
     piece(base, 'workbench', 200);
-    base.diyRelics.extension = true;
+    base.relics.extension = true;
     update(base, DT);
     assert.ok(10 - gun.fireIn > DT);
   });

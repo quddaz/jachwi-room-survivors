@@ -16,10 +16,10 @@ export const CHARACTERS = {
     stats: ['지속 피해 +25%', '화염·냉기·번개·독·물 속성 피해 +20%', '레벨마다 모든 피해 +10%', '시작 무기: 드라이기'], dotPower: 0.25, elementalPower: 0.2, starter: 'dryer',
     levelGrowth: { might: 0.1 } },
   necromancer: { label: '괴담 오리', description: '원룸 괴담 속 해골 세입자들을 영혼으로 불러 모으고, 병사를 바쳐 건물주까지 키우는 오리',
-    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 관리인, 집주인, 건물주로 키운다', '레벨업에서 괴담과 지휘 능력을 고르고, 단단한 뼈로 소환수 체력을 강화한다'],
-    souls: true, undeadStarter: 'bone' },
+    stats: ['처치하면 영혼을 얻고(정예 5, 보스 30) R을 눌러 해골을 모집한다', '영혼 창에서 병사를 바쳐 해골 관리인, 집주인, 건물주로 키운다', '해골 군단 피해 +15%, 영혼 획득량 +25%'],
+    armyDamage: 0.15, soulGain: 0.25, souls: true, undeadStarter: 'bone' },
   diy: { label: '집돌이 오리', description: '공구로 포탑과 덫을 깔아 자취방을 요새로 만드는 오리',
-    stats: ['무기 대신 설치물을 고르고, 설치물은 소환으로 친다', '설치물은 오리 주변에 저절로 깔리고 24초 뒤 해체된다', '못총 포탑으로 시작한다'], builder: true, structureStarter: 'nailgun' },
+    stats: ['무기 대신 설치물을 고르고, 설치물은 소환으로 친다', '설치물은 오리 주변에 저절로 깔리고 24초 뒤 해체된다', '못총 포탑으로 시작한다', '설치물 피해 +15%'], structureDamage: 0.15, builder: true, structureStarter: 'nailgun' },
 };
 // 집돌이 오리의 설치물. 배열은 1~5레벨 값이다. count는 동시에 깔 수 있는 수다.
 export const STRUCTURE_LIFE = 24;
@@ -68,7 +68,7 @@ export const STRUCTURE_FUSIONS = {
   autoturret: { label: '자동 조립 포탑', parts: ['workbench', 'nailgun'], description: '작업대가 수명이 짧은 소형 못총 포탑을 자동으로 조립한다',
     stats: ['작업대마다 8초마다 소형 포탑 조립', '수명 6초, 못총 기본 피해의 55%', '작업대마다 하나 유지, 설치 수에 들지 않음'], everySec: 8, life: 6, damage: 0.55 },
 };
-// 집돌이 오리만 보물 상자에서 받는 공구 보물. 보물 칸을 쓰지 않는다.
+// 집돌이 오리만 보물 상자에서 받는 공구 보물. 보물 한 칸을 쓴다.
 export const DIY_RELICS = {
   toolbox: { label: '공구함', description: '공구가 넉넉해 설치물을 더 깔 수 있다', stats: ['모든 설치물 동시에 +1개'], extra: 1 },
   ducttape: { label: '강력 테이프', description: '설치물이 쉽게 무너지지 않는다', stats: ['설치물 수명 +50%'], life: 0.5 },
@@ -138,7 +138,7 @@ export const RITUALS = {
   ranger3: { label: '명궁 의식', description: '쇠뇌병과 해골 궁수 8명을 합쳐 닿는 순간 크게 터지는 영혼 화살을 쏘는 해골 명궁으로 키운다', cost: { ranger2: 1, archer: 8 }, souls: 7200 },
   giant3: { label: '건물주 의식', description: '집주인과 해골 병사 10명을 합쳐 해골 건물주로 키운다. 대검을 한 바퀴 휘두른다', cost: { giant2: 1, soldier: 10 }, souls: 9000 },
 };
-// 강령술사만 보물 상자에서 받는 보물. 보물 칸을 쓰지 않는다.
+// 강령술사만 보물 상자에서 받는 보물. 보물 한 칸을 쓴다.
 export const NECRO_RELICS = {
   gravesoil: { icon: 'ghoul', label: '화분 흙', description: '처치한 적이 보라빛 좀비로 일어나 잠시 함께 싸운다',
     stats: ['처치한 적의 25%가 좀비로 일어난다', '좀비는 7초 동안 싸우고 최대 20마리'], chance: 0.25, max: 20, lifeSec: 7, hp: 45, damage: 15 },
@@ -1132,6 +1132,8 @@ export const RELICS = Object.fromEntries([
   ...Object.entries(SHARED_RELICS).map(([id, def]) => [
     id, { ...def, rarity: EPIC_RELICS.has(id) ? 'epic' : RARE_RELICS.has(id) ? 'rare' : 'common' },
   ]),
+  ...Object.entries(DIY_RELICS).map(([id, def]) => [id, { ...def, rarity: 'rare', character: 'diy' }]),
+  ...Object.entries(NECRO_RELICS).map(([id, def]) => [id, { ...def, rarity: 'rare', character: 'necromancer' }]),
   ...Object.entries(LEGENDARY_RELICS).map(([id, def]) => [id, { ...def, rarity: 'legendary' }]),
 ]);
 

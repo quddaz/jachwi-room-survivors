@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENDGAME_PRESSURE, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, RELIC_RARITIES, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -62,12 +62,10 @@ export function createGame(random = Math.random) {
     souls: 0,
     undead: {},
     commands: {},
-    necroRelics: {},
     undeadEvolved: {},
     builds: {},
     buildEvolved: {},
     buildFusions: {},
-    diyRelics: {},
     structures: [],
     shells: [],
     deployIn: {},
@@ -1477,7 +1475,6 @@ const undeadValue = (game, id, key) => {
   const value = UNDEAD[id][key];
   return Array.isArray(value) ? value[Math.min(game.undead[id] ?? 1, value.length) - 1] : value;
 };
-const necroRelic = (game, id) => (game.necroRelics?.[id] ? NECRO_RELICS[id] : null);
 const undeadEvolution = (game, id) => (game.undeadEvolved?.[id] ? UNDEAD_EVOLUTIONS[id] : null);
 export const soulGrowth = (game) => 1 + SOUL_GROWTH.scale * ((game.soulsTotal ?? 0) / SOUL_GROWTH.per) ** SOUL_GROWTH.power;
 const undeadDamage = (game, id) => undeadValue(game, id, 'damage') * (undeadEvolution(game, id)?.damage ?? 1) * mightOf(game) * soulGrowth(game);
@@ -1590,8 +1587,8 @@ function contactUndead(game) {
   }
 }
 function unitDamage(game, type) {
-  const crown = bigUnit(type) ? necroRelic(game, 'darkcrown')?.giantPower ?? 0 : 0;
-  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game) * (1 + legendaryValue(game, 'cryptBanner', 'armyPower'));
+  const crown = bigUnit(type) ? relic(game, 'darkcrown')?.giantPower ?? 0 : 0;
+  return ARMY[type].damage * (1 + characterBonus(game, 'armyDamage')) * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game) * (1 + legendaryValue(game, 'cryptBanner', 'armyPower'));
 }
 
 function spawnUnit(game, type, at, index = 0) {
@@ -1608,19 +1605,19 @@ function spawnUnit(game, type, at, index = 0) {
 function harvestSoul(game, enemy) {
   if (!necromancer(game)) return;
   const base = (enemy.boss ? SOULS.boss : enemy.elite ? SOULS.elite : SOULS.normal) + (perk(game, 'necro', 10)?.souls ?? 0);
-  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
+  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + characterBonus(game, 'soulGain') + (relic(game, 'soulurn')?.soulGain ?? 0) + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
   const gained = Math.floor(game.soulCarry);
   game.soulCarry -= gained;
   game.souls = (game.souls ?? 0) + gained;
   game.soulsTotal = (game.soulsTotal ?? 0) + gained;
   addEffect(game, { type: 'soul', x: enemy.x, y: enemy.y, life: 0.45, big: Boolean(enemy.boss || enemy.elite) });
   if (enemy.dummy) return;
-  const bomb = necroRelic(game, 'corpsebomb');
+  const bomb = relic(game, 'corpsebomb');
   if (bomb && game.random() < bomb.chance) {
     game.corpses.push({ x: enemy.x, y: enemy.y, delay: bomb.fuseSec, total: bomb.fuseSec,
       radius: bomb.radius * statsOf(game).area, damage: bomb.damage * mightOf(game) * soulGrowth(game) });
   }
-  const soil = necroRelic(game, 'gravesoil');
+  const soil = relic(game, 'gravesoil');
   if (soil && game.ghouls.length < soil.max && game.random() < soil.chance) {
     const big = Boolean(enemy.boss || enemy.elite);
     const life = soil.lifeSec * (big ? 2 : 1);
@@ -1632,7 +1629,7 @@ function harvestSoul(game, enemy) {
 }
 
 export function recruitPrice(game, id) {
-  const discount = levelOf(COMMANDS, game.commands, 'thrift', 'discount') + (necroRelic(game, 'bonepipe')?.discount ?? 0);
+  const discount = levelOf(COMMANDS, game.commands, 'thrift', 'discount') + (relic(game, 'bonepipe')?.discount ?? 0);
   return Math.max(1, Math.round(RECRUITS[id].price * (1 - Math.min(0.7, discount))));
 }
 
@@ -1895,16 +1892,15 @@ const structureValue = (game, id, key) => {
 };
 const structureEvolution = (game, id) => (game.buildEvolved?.[id] ? STRUCTURE_EVOLUTIONS[id] : null);
 const buildFusion = (game, id) => (game.buildFusions?.[id] ? STRUCTURE_FUSIONS[id] : null);
-const diyRelic = (game, id) => (game.diyRelics?.[id] ? DIY_RELICS[id] : null);
 // 설치물은 소환으로 친다. 소환 피해, 소환 공격 속도, 소환 사거리, 추가 소환수를 함께 받는다.
 function structureStat(game, id, key) {
   const base = structureValue(game, id, key);
   const evolved = structureEvolution(game, id);
   const stats = statsOf(game);
-  const reach = 1 + (diyRelic(game, 'extension')?.reach ?? 0);
+  const reach = 1 + (relic(game, 'extension')?.reach ?? 0);
   switch (key) {
-    case 'count': return base + (evolved?.count ?? 0) + (diyRelic(game, 'toolbox')?.extra ?? 0) + stats.summonCount;
-    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0)) * mightOf(game) * stats.summonPower;
+    case 'count': return base + (evolved?.count ?? 0) + (relic(game, 'toolbox')?.extra ?? 0) + stats.summonCount;
+    case 'damage': return base * (1 + characterBonus(game, 'structureDamage')) * (evolved?.damage ?? 1) * (1 + (relic(game, 'blueprint')?.damage ?? 0)) * mightOf(game) * stats.summonPower;
     case 'cooldown': case 'tickSec': return base * (evolved?.cooldown ?? 1) * stats.cooldownScale / stats.summonHaste;
     case 'pierce': case 'chains': return base + (evolved?.[key] ?? 0);
     case 'radius': case 'taunt': return base * (evolved?.[key] ?? 1) * reach * stats.area;
@@ -1943,7 +1939,7 @@ function deployStructures(game, dt) {
     piece.life -= dt;
     if (plan && piece.life <= 0 && !piece.temp && inField(piece, player, field)) {
       const radius = plan.radius * statsOf(game).area;
-      const damage = relicDamage(game, plan.damage, 'fortressPlan') * statsOf(game).summonPower;
+      const damage = relicDamage(game, plan.damage, 'fortressPlan') * statsOf(game).summonPower * (1 + characterBonus(game, 'structureDamage'));
       addEffect(game, { type: 'ring', x: piece.x, y: piece.y, radius, color: 'gold', life: 0.35 });
       for (const enemy of near(game, piece.x, piece.y, radius)) {
         if (!enemy.dead && distance(enemy, piece) <= radius + enemy.radius) {
@@ -1958,8 +1954,8 @@ function deployStructures(game, dt) {
     addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'bone', count: 6, life: 0.35 });
   }
   game.structures = game.structures.filter(item => item.life > 0);
-  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0));
-  const every = STRUCTURE_DEPLOY_SEC * (1 - (diyRelic(game, 'powerdrill')?.deploy ?? 0)) * statsOf(game).cooldownScale / statsOf(game).summonHaste;
+  const life = STRUCTURE_LIFE * (1 + (relic(game, 'ducttape')?.life ?? 0));
+  const every = STRUCTURE_DEPLOY_SEC * (1 - (relic(game, 'powerdrill')?.deploy ?? 0)) * statsOf(game).cooldownScale / statsOf(game).summonHaste;
   for (const id of Object.keys(game.builds)) {
     game.deployIn[id] = (game.deployIn[id] ?? 0) - dt;
     const placed = game.structures.filter(item => item.type === id && !item.temp).length;
@@ -2158,7 +2154,7 @@ function updateStructures(game, dt) {
 }
 
 function updateGhouls(game, dt) {
-  const soil = necroRelic(game, 'gravesoil');
+  const soil = relic(game, 'gravesoil');
   if (!soil) { game.ghouls = []; return; }
   const { player } = game;
   for (const ghoul of game.ghouls) {
@@ -4056,17 +4052,7 @@ function rollWeightedRelics(game, count) {
   for (const [id, def] of Object.entries(RELICS)) {
     if ((!game.relics[id] || def.stackable) && buildUnlocked(game, def)
         && (def.rarity !== 'legendary' || game.time > 0)) {
-      pools[def.rarity].push({ kind: 'relic', id, def });
-    }
-  }
-
-  // 직업 전용 공구·괴담 보물도 같은 희귀 풀에서 추첨한다.
-  const specialty = builder(game)
-    ? { kind: 'relic-diy', definitions: DIY_RELICS, owned: game.diyRelics }
-    : necromancer(game) ? { kind: 'relic-necro', definitions: NECRO_RELICS, owned: game.necroRelics } : null;
-  if (specialty) {
-    for (const [id, def] of Object.entries(specialty.definitions)) {
-      if (!specialty.owned[id]) pools.rare.push({ kind: specialty.kind, id, def });
+      pools[def.rarity].push(id);
     }
   }
 
@@ -4078,9 +4064,9 @@ function rollWeightedRelics(game, count) {
     let roll = game.random() * total;
     const [rarity] = available.find(([, entry]) => (roll -= entry.weight) < 0) ?? available.at(-1);
     const pool = pools[rarity];
-    const [{ kind, id, def }] = pool.splice(Math.floor(game.random() * pool.length), 1);
-    const { label, description, stats, icon } = def;
-    offers.push({ kind, id, icon, level: 0, label, description, details: stats, rarity });
+    const [id] = pool.splice(Math.floor(game.random() * pool.length), 1);
+    const { label, description, stats, icon } = RELICS[id];
+    offers.push({ kind: 'relic', id, icon, level: 0, label, description, details: stats, rarity });
   }
   return offers;
 }
@@ -4156,12 +4142,11 @@ export function choose(game, index) {
   if (!choice) return null;
   if (choice.kind === 'soul') { recruit(game, choice); return choice; }
   if (choice.kind === 'shop-leave') { closeShop(game); return choice; }
-  if (choice.kind === 'structure' || choice.kind === 'build-evolve' || choice.kind === 'build-fusion' || choice.kind === 'relic-diy') {
+  if (choice.kind === 'structure' || choice.kind === 'build-evolve' || choice.kind === 'build-fusion') {
     if (choice.kind === 'structure') game.builds[choice.id] = choice.level;
     if (choice.kind === 'build-evolve') game.buildEvolved[choice.id] = true;
     if (choice.kind === 'build-fusion') game.buildFusions[choice.id] = true;
-    if (choice.kind === 'relic-diy') game.diyRelics[choice.id] = true;
-    if (choice.kind !== 'structure') addEffect(game, { type: 'banner', text: `${choice.kind === 'relic-diy' ? '보물' : choice.kind === 'build-fusion' ? '합체' : '완성형'}: ${choice.label}`, life: 2.2 });
+    if (choice.kind !== 'structure') addEffect(game, { type: 'banner', text: `${choice.kind === 'build-fusion' ? '합체' : '완성형'}: ${choice.label}`, life: 2.2 });
     finishChoice(game);
     return choice;
   }
@@ -4173,12 +4158,6 @@ export function choose(game, index) {
   if (choice.kind === 'ritual') {
     performRitual(game, choice.id);
     closeShop(game);
-    return choice;
-  }
-  if (choice.kind === 'relic-necro') {
-    game.necroRelics[choice.id] = true;
-    addEffect(game, { type: 'banner', text: `보물: ${choice.label}`, life: 2.2 });
-    finishChoice(game);
     return choice;
   }
   if (choice.kind === 'passive' && PASSIVES[choice.id]?.hidden) return null;

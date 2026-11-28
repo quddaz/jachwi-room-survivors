@@ -269,12 +269,10 @@ function drawLoadout() {
   ];
   const owned = Object.keys(game.relics).map((id) => `<span class="is-relic">${itemIcon(id)}${relicCount(game, id) > 1 ? `×${relicCount(game, id)}` : ''}</span>`).join('');
   const fused = Object.keys(game.fusions).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`).join('');
-  // 강령술사: 괴담 보물, 강령술, 지휘 능력도 보라색으로 함께 보여 준다.
+  // 강령술사: 강령술, 지휘 능력도 보라색으로 보여 준다.
   const necro = [
-    ...Object.keys(game.necroRelics ?? {}).map((id) => `<span class="is-relic is-necro">${itemIcon(NECRO_RELICS[id].icon ?? id)}</span>`),
     ...Object.entries(game.undead ?? {}).map(([id, level]) => `<span class="is-necro${game.undeadEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.undeadEvolved?.[id] ? '★' : level}</span>`),
     ...Object.entries(game.commands ?? {}).map(([id, level]) => `<span class="is-necro">${itemIcon(COMMANDS[id].icon)}${level}</span>`),
-    ...Object.keys(game.diyRelics ?? {}).map((id) => `<span class="is-relic is-build">${itemIcon(id)}</span>`),
     ...Object.keys(game.buildFusions ?? {}).map((id) => `<span class="is-fusion">${itemIcon(id)}합체</span>`),
     ...Object.entries(game.builds ?? {}).map(([id, level]) => `<span class="is-build${game.buildEvolved?.[id] ? ' is-evolved' : ''}">${itemIcon(id)}${game.buildEvolved?.[id] ? '★' : level}</span>`),
   ].join('');
@@ -284,7 +282,7 @@ function drawLoadout() {
       : `<span>${itemIcon(id)}${level}</span>`)).join('');
 }
 
-const SOUL_KINDS = ['soul', 'ritual', 'shop-leave', 'relic-necro', 'undead', 'command', 'undead-evolve'];
+const SOUL_KINDS = ['soul', 'ritual', 'shop-leave', 'undead', 'command', 'undead-evolve'];
 
 function drawChoices() {
   if (game.choices === shownChoices) return;
@@ -317,20 +315,18 @@ function drawChoices() {
     const typeTag = type ? `<small class="choice-type">${type}</small>` : '';
     const tag = choice.kind === 'build-evolve' ? '<small class="choice-evolve">설치 완성형</small>'
       : choice.kind === 'build-fusion' ? '<small class="choice-fusion">설치 합체</small>'
-      : choice.kind === 'relic-diy' ? '<small class="choice-build">공구 보물</small>'
       : choice.kind === 'structure' ? `<small class="choice-build">${choice.level === 1 ? 'NEW 설치' : `설치 Lv ${choice.level}`}</small>`
       : choice.kind === 'undead-evolve' ? '<small class="choice-evolve">괴담 완성형</small>'
       : choice.kind === 'undead' ? `<small class="choice-undead">${choice.level === 1 ? 'NEW 괴담' : `Lv ${choice.level}`}</small>`
       : choice.kind === 'command' ? `<small class="choice-undead">지휘 Lv ${choice.level}</small>`
       : choice.kind === 'ritual' ? `<small class="choice-fusion">의식 영혼 ${choice.price}</small>`
-      : choice.kind === 'relic-necro' ? '<small class="choice-relic">괴담 보물</small>'
       : choice.kind === 'soul' ? `<small class="choice-undead">영혼 ${choice.price}</small>`
       : choice.kind === 'shop-leave' ? '' : choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
-      : choice.kind === 'relic' ? `<small class="choice-relic" data-rarity="${rarity}">${RELIC_RARITIES[rarity].label}</small>` : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
+      : choice.kind === 'relic' ? `<small class="choice-relic" data-rarity="${rarity}">${RELIC_RARITIES[rarity].label}${RELICS[choice.id].character && rarity !== 'legendary' ? ' 전용' : ''}</small>` : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
-      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' || choice.kind === 'build-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'build-fusion' ? ' is-evolve is-fusion' : ''}${choice.kind === 'relic-diy' ? ' is-evolve is-relic' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}"${rarity ? ` data-rarity="${rarity}"` : ''}>
+      <button class="choice${choice.kind === 'evolve' || choice.kind === 'undead-evolve' || choice.kind === 'build-evolve' ? ' is-evolve' : ''}${choice.kind === 'fusion' || choice.kind === 'build-fusion' ? ' is-evolve is-fusion' : ''}${SOUL_KINDS.includes(choice.kind) ? ' is-soul' : ''}${choice.kind === 'ritual' ? ' is-ritual' : ''}${choice.kind === 'relic' ? ' is-evolve is-relic' : ''}${choice.kind.endsWith('-swap') ? ' is-swap' : ''}" type="button" data-choice="${index}"${rarity ? ` data-rarity="${rarity}"` : ''}>
         ${index < 4 ? `<span class="choice-key" aria-hidden="true">${index + 1}</span>` : ''}
         <span class="choice-icon">${icon}</span>
         <span class="choice-name">${escapeHtml(choice.label)}${tag}${typeTag}</span>
@@ -485,7 +481,7 @@ function drawPicker() {
     fusion: () => Object.keys(FUSIONS).map((id) => ({ id, label: FUSIONS[id].label, icon: itemIcon(id),
       owned: Boolean(game.fusions[id]), level: FUSIONS[id].from.map((weapon) => WEAPONS[weapon].label).join(' + '), max: Boolean(game.fusions[id]) })),
     relic: () => [
-      ...Object.keys(RELICS).map((id) => ({ id, label: RELICS[id].label, icon: itemIcon(id),
+      ...Object.keys(RELICS).filter(id => !RELICS[id].character || RELICS[id].character === game.character).map((id) => ({ id, label: RELICS[id].label, icon: itemIcon(id),
         owned: Boolean(game.relics[id]), level: RELICS[id].stackable && game.relics[id] ? `x${relicCount(game, id)}` : RELICS[id].stackable ? '중첩' : '',
         max: Boolean(game.relics[id]) && !RELICS[id].stackable })),
       { id: 'idol', kind: 'idol', label: PASSIVES.idol.label, icon: itemIcon('idol'), owned: Boolean(game.passives.idol), level: '보물 20점', max: Boolean(game.passives.idol) },
@@ -568,7 +564,7 @@ function relicCodexCard([id, relic]) {
   return `<li class="relic-codex-card"><details>
     <summary class="relic-codex-title">
       ${itemIcon(id)}
-      <span class="relic-codex-copy"><strong>${escapeHtml(relic.label)}</strong><span>${escapeHtml(relic.description)}</span></span>
+      <span class="relic-codex-copy"><strong>${escapeHtml(relic.label)}</strong><span>${relic.character && relic.rarity !== 'legendary' ? escapeHtml(CHARACTERS[relic.character].label) + ' 전용 · ' : ''}${escapeHtml(relic.description)}</span></span>
     </summary>
     <ul class="relic-codex-stats">${relic.stats.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
   </details></li>`;
@@ -595,7 +591,7 @@ function relicCodex() {
       </section>`).join('')}
     <details class="relic-codex-rules">
       <summary>보물 슬롯과 피해 계산</summary>
-      <p>전설은 현재 직업의 보물만 보스 상자에서 등장해요.</p>
+      <p>전용 보물은 해당 직업만 얻을 수 있고 보물 한 칸을 사용해요. 전설은 보스 상자에서 등장해요.</p>
       <p>기본 ${MAX_RELICS}칸, 보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}칸이에요. 트레저헌터는 한 칸을 더 써요. 슬롯이 가득 차면 보물을 교체하거나 레벨업 두 번을 받을 수 있어요.</p>
       <p>보물 피해는 공격력에 비례하고 레벨마다 4%씩 세져요. 무기 범위와 쿨타임, 보물 파트와 광택제 효과도 적용돼요.</p>
     </details>`;

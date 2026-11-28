@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { applyCharacter, soulGrowth, armyCap, armyUsed, choose, createGame, declineChoice, openSoulShop, recruitPrice, reroll, rollChoices, rollRelics, update, wraithOrbiters } from '../src/engine.js';
-import { ARMY, ARMY_CAP, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, SOULS, UNDEAD, UNDEAD_EVOLUTIONS } from '../src/rules.js';
+import { ARMY, ARMY_CAP, CHARACTERS, COMMANDS, NECRO_RELICS, RECRUITS, RITUALS, SOULS, UNDEAD, UNDEAD_EVOLUTIONS } from '../src/rules.js';
 
 const DT = 1 / 60;
 
@@ -37,11 +37,11 @@ function recruitSoldiers(game, count) {
 const run = (game, seconds) => { for (let step = 0; step < Math.round(seconds * 60); step += 1) update(game, DT); };
 
 describe('영혼', () => {
-  it('적을 처치하면 일반 1, 정예 5, 보스 30개의 영혼을 얻는다', () => {
+  it('적을 처치하면 기본 영혼에 괴담 오리의 획득 보너스를 적용한다', () => {
     for (const [extra, souls] of [[{}, SOULS.normal], [{ elite: true }, SOULS.elite], [{ boss: true }, SOULS.boss]]) {
       const game = quiet();
       kill(game, add(game, 60, 0, extra));
-      assert.equal(game.souls, souls);
+      assert.equal(game.souls, Math.floor(souls * (1 + CHARACTERS.necromancer.soulGain)));
     }
   });
 
@@ -53,12 +53,13 @@ describe('영혼', () => {
     assert.equal(openSoulShop(game), false);
   });
 
-  it('영혼 항아리는 영혼을 50% 더 모으고 끝수는 다음 처치로 넘긴다', () => {
+  it('영혼 저금통은 직업 보너스에 50%p를 더하고 끝수는 다음 처치로 넘긴다', () => {
     const game = quiet();
-    game.necroRelics = { soulurn: true };
+    game.relics = { soulurn: true };
     kill(game, add(game, 60));
     kill(game, add(game, 60));
     assert.equal(game.souls, 3);
+    assert.equal(game.soulCarry, 0.5);
   });
 });
 
@@ -100,7 +101,7 @@ describe('영혼 창', () => {
   it('값싼 뼈와 뼈 피리는 모집 비용을 줄인다', () => {
     const game = quiet();
     game.commands = { thrift: 5 };
-    game.necroRelics = { bonepipe: true };
+    game.relics = { bonepipe: true };
     assert.equal(recruitPrice(game, 'soldier'), Math.round(RECRUITS.soldier.price * (1 - 0.7)));
   });
 
@@ -210,9 +211,10 @@ describe('의식', () => {
     const rolls = [0.72, 0.999, 0.1, 0.1, 0.1, 0.1];
     game.random = () => rolls.shift() ?? 0.1;
     const offers = rollRelics(game);
-    assert.equal(offers[0].kind, 'relic-necro');
+    assert.equal(offers[0].kind, 'relic');
+    assert.ok(Object.hasOwn(NECRO_RELICS, offers[0].id));
     assert.equal(offers[0].rarity, 'rare');
-    assert.ok(offers.slice(1).every(choice => choice.kind === 'relic'));
+    assert.ok(offers.slice(1).every(choice => !Object.hasOwn(NECRO_RELICS, choice.id)));
   });
 
   it('거인은 주변 적을 끌어당겨 내리친다', () => {
@@ -225,7 +227,7 @@ describe('의식', () => {
 
   it('강령 보물: 묘지 흙은 쓰러진 적을 구울로 세우고 시체 폭탄은 시체를 터뜨린다', () => {
     const game = quiet('necromancer', () => 0);
-    game.necroRelics = { gravesoil: true, corpsebomb: true };
+    game.relics = { gravesoil: true, corpsebomb: true };
     const neighbor = add(game, 230);
     kill(game, add(game, 200));
     assert.equal(game.ghouls.length, 1);

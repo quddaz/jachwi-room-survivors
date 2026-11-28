@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyBuild, applyCharacter, choose, createGame, rollChoices, rollRelics, update } from '../src/engine.js';
+import { applyBuild, applyCharacter, choose, createGame, maxRelicsOf, relicSlotsUsed, rollChoices, rollRelics, update } from '../src/engine.js';
 import { DIY_RELICS, STRUCTURES, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, STRUCTURE_LIFE } from '../src/rules.js';
 
 const DT = 1 / 60;
@@ -96,11 +96,36 @@ describe('집돌이 오리', () => {
     assert.ok(rollRelics(game).every(offer => offer.kind === 'relic'));
     game.random = () => 0.72;
     const offers = rollRelics(game);
-    assert.ok(offers.some(offer => offer.kind === 'relic-diy' && offer.rarity === 'rare'));
-    game.diyRelics = { toolbox: true };
+    assert.ok(offers.some(offer => Object.hasOwn(DIY_RELICS, offer.id) && offer.rarity === 'rare'));
+    game.relics = { toolbox: true };
     assert.ok(rollRelics(game).every(offer => offer.id !== 'toolbox'));
     run(game, STRUCTURE_DEPLOY_SEC * 2 + 0.2);
     assert.equal(game.structures.length, STRUCTURES.nailgun.count[0] + DIY_RELICS.toolbox.extra);
+  });
+
+  it('공구 보물을 받거나 내려놓을 때 일반 보물과 같은 슬롯을 교체한다', () => {
+    const game = quiet();
+    game.relics = Object.fromEntries(['blanket', 'magnet', 'piggy', 'stopwatch'].slice(0, maxRelicsOf(game)).map(id => [id, true]));
+    assert.equal(relicSlotsUsed(game), maxRelicsOf(game));
+    const rolls = [0.72, 0.999, 0.1, 0.1, 0.1, 0.1];
+    game.random = () => rolls.shift() ?? 0.1;
+    game.pendingRelics = 1;
+    game.choices = rollRelics(game);
+    const tool = game.choices.find(choice => Object.hasOwn(DIY_RELICS, choice.id));
+    assert.ok(tool);
+    choose(game, game.choices.indexOf(tool));
+    assert.ok(!game.relics[tool.id]);
+    choose(game, game.choices.findIndex(choice => choice.id === 'blanket'));
+    assert.ok(game.relics[tool.id]);
+    assert.equal(relicSlotsUsed(game), maxRelicsOf(game));
+
+    game.pendingRelics = 1;
+    game.choices = [{ kind: 'relic', id: 'blanket', label: '두꺼운 이불' }];
+    choose(game, 0);
+    choose(game, game.choices.findIndex(choice => choice.id === tool.id));
+    assert.ok(!game.relics[tool.id]);
+    assert.ok(game.relics.blanket);
+    assert.equal(relicSlotsUsed(game), maxRelicsOf(game));
   });
 
   it('설치물은 소환으로 쳐서 소환 피해와 추가 소환수를 받는다', () => {
