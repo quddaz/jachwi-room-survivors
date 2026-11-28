@@ -236,7 +236,7 @@ export const HIT_FREEZE = { recoverySec: 1.2 };
 // 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
 export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
 
-export const ENDGAME_PRESSURE = { from: 12 * 60, hpPerMinute: 0.22, damagePerMinute: 0.12, maxDamageBonus: 0.72 };
+export const ENDGAME_PRESSURE = { from: 15 * 60, hpPerMinute: 0.22, damagePerMinute: 0.12, maxDamageBonus: 0.72 };
 const endgameMinutes = time => Math.max(0, (time - ENDGAME_PRESSURE.from) / 60);
 
 export function hpSurgeAt(time) {
