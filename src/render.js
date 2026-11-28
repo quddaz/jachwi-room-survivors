@@ -213,6 +213,7 @@ const PARTICLES = {
   mouse: ['#8a8f98', '#c4c9d1', '#ffb3bf'], moth: ['#c9965c', '#8a4a1e', '#ffe08a'],
   spark: ['#7fe9ff', '#ffffff', '#fff6b0'], crit: ['#ff5a3c', '#ffcf3f', '#ffffff'], supercrit: ['#ff4fd8', '#ffffff', '#ffcf3f', '#b36bff'], popcorn: ['#fff4c2', '#ffffff', '#ffcf3f'], bubble: ['#ffffff', '#cfe8ff', '#e3c8ff'], ball: ['#ff9bb0', '#ffffff', '#f0608a'],
   bone: ['#efe6d2', '#b8ac94', '#ffffff'], soul: ['#b36bff', '#e3c8ff', '#7fe9ff'],
+  fire: ['#ff7438', '#ffcf68', '#fff0bb'],
   dust: ['#e9dcc6', '#cdb892', '#ffffff'], gold: ['#ffe08a', '#ffb21f', '#ffffff'], teal: ['#7ad3c8', '#ffffff', '#b9efe7'],
 };
 // 적이 쏘는 탄막은 종류와 상관없이 모두 빨간색이라 한눈에 피할 것이 보인다.

@@ -1322,6 +1322,27 @@ function elementalColdSlow(game, enemy) {
   return enemy.boss ? cold.bossSlow : cold.slow;
 }
 
+function triggerOverload(game, source, amount) {
+  if (game.time >= (source.burnUntil ?? 0) || game.time < (source.overloadReadyAt ?? 0)) return;
+  const rule = ELEMENT_REACTIONS.overload;
+  source.overloadReadyAt = game.time + rule.cooldown;
+  const targets = near(game, source.x, source.y, rule.radius)
+    .filter(enemy => enemy !== source && !enemy.dead && distance(enemy, source) <= rule.radius + enemy.radius)
+    .sort((a, b) => distance(a, source) - distance(b, source))
+    .slice(0, rule.targets);
+  addEffect(game, { type: 'ring', x: source.x, y: source.y, radius: rule.radius, color: 'fire', life: 0.3, sound: 'impact' });
+  addEffect(game, { type: 'burst', x: source.x, y: source.y, color: 'fire', count: 10, life: 0.36 });
+  const burnDps = amount * rule.burn;
+  for (const enemy of targets) {
+    damageEnemy(game, enemy, 0, false, source, amount * rule.damage, { hitEffects: false, canCrit: false });
+    if (enemy.dead || game.time < (enemy.wetUntil ?? 0)) continue;
+    if (game.time < (enemy.burnUntil ?? 0) && enemy.burnDps >= burnDps) continue;
+    enemy.burnDps = burnDps;
+    enemy.burnUntil = game.time + rule.burnSec;
+    enemy.burnFromElement = true;
+  }
+}
+
 function applyElements(game, enemy, amount, fromDot = false) {
   const elements = game.hitElement;
   // 개별 무기의 피해량만 검증할 때는 속성 효과를 끌 수 있다.
@@ -1354,6 +1375,7 @@ function applyElements(game, enemy, amount, fromDot = false) {
       if (game.time < (enemy.burnUntil ?? 0)) enemy.burnUntil = game.time;
       if (!enemy.boss) slowBy(game, enemy, rule.slow, rule.wetSec);
     } else if (element === 'lightning') {
+      triggerOverload(game, enemy, amount);
       const wet = game.time < (enemy.wetUntil ?? 0);
       const conductivity = ELEMENT_REACTIONS.conductivity;
       if (game.random() >= rule.chance + (wet ? conductivity.chanceBonus : 0)) continue;
@@ -1428,7 +1450,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   if (slows && !enemy.boss) {
     enemy.hitSlowUntil = Math.max(enemy.hitSlowUntil ?? 0, game.time + HIT_SLOW.durationSec);
   }
-  if (enemy.hp <= 0) {
+  if (enemy.hp <= 0 && !enemy.dead) {
     killEnemy(game, enemy);
     if (crit) critBlast(game, enemy, amount);
   }

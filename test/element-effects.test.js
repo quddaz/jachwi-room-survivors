@@ -130,6 +130,27 @@ describe('속성 조합', () => {
     near(wetHp - enemy.hp, enemy.poisonDps / 60);
   });
 
+  it('화상 중인 적을 번개로 맞히면 주변에 폭발 피해와 화상이 퍼진다', () => {
+    const game = quiet();
+    const source = target(game);
+    const dry = target(game, { x: source.x + 40 });
+    const wet = target(game, { x: source.x + 60, wetUntil: 3 });
+    const far = target(game, { x: source.x + 400 });
+    hit(game, source, ['lightning']);
+    assert.equal(dry.hp, dry.maxHp);
+    hit(game, source, ['fire']);
+    hit(game, source, ['lightning']);
+    const { damage, burn, burnSec } = ELEMENT_REACTIONS.overload;
+    near(dry.maxHp - dry.hp, 100 * damage);
+    near(dry.burnDps, 100 * burn);
+    near(dry.burnUntil, game.time + burnSec);
+    near(wet.maxHp - wet.hp, 100 * damage);
+    assert.equal(wet.burnUntil, undefined);
+    assert.equal(far.hp, far.maxHp);
+    hit(game, source, ['lightning']);
+    near(dry.maxHp - dry.hp, 100 * damage);
+  });
+
   it('젖으면 감전 확률이 높아지고 독과 젖음의 전이 피해 보너스를 합산한다', () => {
     const game = quiet(() => 0.4);
     const enemy = target(game);
