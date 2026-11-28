@@ -925,12 +925,12 @@ describe('시즌', () => {
       return { ok: true, json: async () => [] };
     };
     try {
-      assert.equal(SEASON, 4);
-      assert.deepEqual(SEASONS, [4, 3, 2, 1]);
+      assert.equal(SEASON, 5);
+      assert.deepEqual(SEASONS, [5, 4, 3, 2, 1]);
       await submitRecord({ crewName: '쿠다', survivedMs: 60_000, kills: 10, level: 3 });
-      assert.equal(calls[0].body.season, 4);
+      assert.equal(calls[0].body.season, 5);
       await fetchRanking();
-      assert.ok(calls[1].url.includes('room_survivors_season_best') && calls[1].url.includes('season=eq.4'));
+      assert.ok(calls[1].url.includes('room_survivors_season_best') && calls[1].url.includes('season=eq.5'));
       await fetchRanking(1);
       assert.ok(calls[2].url.includes('season=eq.1'));
     } finally {

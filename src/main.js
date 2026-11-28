@@ -565,11 +565,13 @@ const relicRarityOrder = Object.keys(RELIC_RARITIES).reverse();
 let relicRarityFilter = 'all';
 
 function relicCodexCard([id, relic]) {
-  return `<li class="relic-codex-card">
-    <div class="relic-codex-title">${itemIcon(id)}<h4>${escapeHtml(relic.label)}</h4></div>
-    <p>${escapeHtml(relic.description)}</p>
+  return `<li class="relic-codex-card"><details>
+    <summary class="relic-codex-title">
+      ${itemIcon(id)}
+      <span class="relic-codex-copy"><strong>${escapeHtml(relic.label)}</strong><span>${escapeHtml(relic.description)}</span></span>
+    </summary>
     <ul class="relic-codex-stats">${relic.stats.map(line => `<li>${escapeHtml(line)}</li>`).join('')}</ul>
-  </li>`;
+  </details></li>`;
 }
 
 function relicCodex() {
@@ -579,19 +581,21 @@ function relicCodex() {
   });
   const grid = entries => `<ul class="relic-codex-grid">${entries.map(relicCodexCard).join('')}</ul>`;
   const filters = [{ rarity: 'all', label: '전체', entries: Object.entries(RELICS) }, ...groups];
-  return `<p class="ranking-note">시작 보물과 보스 상자에서 하나를 골라요. 전설은 현재 직업의 보물만 보스 상자에서 등장해요.</p>
+  return `<label class="relic-codex-search">보물 검색<input type="search" data-relic-search placeholder="이름, 효과 또는 직업으로 검색" autocomplete="off"></label>
     <div class="relic-codex-filters" role="group" aria-label="보물 등급">
       ${filters.map(({ rarity, label, entries }) => `<button type="button" class="season-tab${rarity === relicRarityFilter ? ' is-active' : ''}" data-relic-filter="${rarity}" aria-pressed="${rarity === relicRarityFilter}">${label} <span>${entries.length}</span></button>`).join('')}
     </div>
+    <p class="relic-codex-count" data-relic-count aria-live="polite"></p>
     ${groups.map(({ rarity, label, entries }) => `
       <section class="relic-codex-group" data-rarity="${rarity}"${relicRarityFilter === 'all' || relicRarityFilter === rarity ? '' : ' hidden'}>
-        <h3>${label} 보물 <span>${entries.length}개</span></h3>
+        <h3>${label} 보물</h3>
         ${rarity === 'legendary'
-          ? Object.entries(CHARACTERS).map(([character, def]) => `<h4 class="relic-codex-class">${escapeHtml(def.label)}</h4>${grid(entries.filter(([, relic]) => relic.character === character))}`).join('')
+          ? Object.entries(CHARACTERS).map(([character, def]) => `<div class="relic-codex-role"><h4 class="relic-codex-class">${escapeHtml(def.label)}</h4>${grid(entries.filter(([, relic]) => relic.character === character))}</div>`).join('')
           : grid(entries)}
       </section>`).join('')}
     <details class="relic-codex-rules">
       <summary>보물 슬롯과 피해 계산</summary>
+      <p>전설은 현재 직업의 보물만 보스 상자에서 등장해요.</p>
       <p>기본 ${MAX_RELICS}칸, 보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}칸이에요. 트레저헌터는 한 칸을 더 써요. 슬롯이 가득 차면 보물을 교체하거나 레벨업 두 번을 받을 수 있어요.</p>
       <p>보물 피해는 공격력에 비례하고 레벨마다 4%씩 세져요. 무기 범위와 쿨타임, 보물 파트와 광택제 효과도 적용돼요.</p>
     </details>`;
@@ -604,9 +608,25 @@ function filterRelicCodex(rarity) {
     button.classList.toggle('is-active', selected);
     button.setAttribute('aria-pressed', String(selected));
   }
+  const query = document.querySelector('[data-relic-search]').value.trim().toLowerCase().split(/\s+/);
+  let total = 0;
   for (const group of document.querySelectorAll('.relic-codex-group')) {
-    group.hidden = rarity !== 'all' && rarity !== group.dataset.rarity;
+    const gradeMatches = rarity === 'all' || rarity === group.dataset.rarity;
+    let count = 0;
+    for (const card of group.querySelectorAll('.relic-codex-card')) {
+      const role = card.closest('.relic-codex-role')?.querySelector('h4').textContent ?? '';
+      const text = `${card.textContent} ${role}`.toLowerCase();
+      const visible = gradeMatches && query.every(term => text.includes(term));
+      card.hidden = !visible;
+      if (visible) count += 1;
+    }
+    for (const role of group.querySelectorAll('.relic-codex-role')) {
+      role.hidden = !role.querySelector('.relic-codex-card:not([hidden])');
+    }
+    group.hidden = count === 0;
+    total += count;
   }
+  document.querySelector('[data-relic-count]').textContent = total ? `보물 ${total}개` : '조건에 맞는 보물이 없어요.';
 }
 
 const CODEX_TABS = [
@@ -695,6 +715,7 @@ function openRecipes(tab = codexTab) {
   document.querySelector('.codex-tabs').innerHTML = CODEX_TABS.map(([id, label]) => `
     <button class="season-tab${id === tab ? ' is-active' : ''}" type="button" data-codex="${id}">${label}</button>`).join('');
   document.querySelector('.codex-body').innerHTML = CODEX_TABS.find(([id]) => id === tab)[2]();
+  if (tab === 'relic') filterRelicCodex(relicRarityFilter);
   document.querySelector('.screen-recipes').scrollTop = 0;
 }
 
@@ -956,6 +977,10 @@ document.querySelector('.start-form').addEventListener('submit', (event) => {
   remember(NAME_KEY, name);
   nameInput.blur();
   start();
+});
+
+app.addEventListener('input', (event) => {
+  if (event.target.matches('[data-relic-search]')) filterRelicCodex(relicRarityFilter);
 });
 
 app.addEventListener('click', (event) => {

@@ -1,5 +1,5 @@
 import {
-  ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, RELIC_RARITIES, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENDGAME_PRESSURE, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, RELIC_RARITIES, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
   weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
@@ -4269,6 +4269,9 @@ function updateHpSurge(game, previousTime) {
   if (!game.hpSurgeWarned && game.time >= HP_SURGE.from - HP_SURGE.warningSec && game.time < HP_SURGE.from) {
     game.hpSurgeWarned = true;
     addEffect(game, { type: 'banner', text: '경고! 8분부터 적 체력이 추가로 증가해요', life: HP_SURGE.warningSec, warning: true, sound: 'boss' });
+  }
+  if (previousTime < ENDGAME_PRESSURE.from && game.time >= ENDGAME_PRESSURE.from) {
+    addEffect(game, { type: 'banner', text: '후반 돌입! 적의 체력과 공격력이 더 빠르게 증가해요', life: 4, warning: true });
   }
   const ratio = hpSurgeAt(game.time) / hpSurgeAt(previousTime);
   if (ratio !== 1) {

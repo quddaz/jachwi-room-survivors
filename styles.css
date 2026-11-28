@@ -785,19 +785,29 @@ body:has(.screen-ranking.is-active), body:has(.screen-recipes.is-active), body:h
   .choice[data-rarity], .choice[data-rarity="legendary"]::before { animation: none; }
 }
 
-.relic-codex-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 18px; }
-.relic-codex-filters .season-tab { min-height: 36px; }
+.relic-codex-search { display: grid; gap: 6px; margin-top: 14px; color: #f4e9ff; font-size: 13px; font-weight: 700; }
+.relic-codex-search input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #705a88; border-radius: 10px; background: #21172e; color: #fff; font: inherit; font-weight: 400; }
+.relic-codex-search input::placeholder { color: #c7b9d9; }
+.relic-codex-search input:focus-visible, .relic-codex-title:focus-visible { outline: 2px solid #eed5ff; outline-offset: 2px; }
+.relic-codex-count { min-height: 1.4em; margin: 0 0 14px; color: #c7b9d9; font-size: 13px; }
+.relic-codex-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 10px; }
+.relic-codex-filters .season-tab { min-height: 40px; }
 .relic-codex-filters .season-tab span { margin-left: 3px; font-variant-numeric: tabular-nums; }
-.relic-codex-group { margin-bottom: 20px; }
-.relic-codex-group h3 { margin: 0 0 9px; color: var(--relic-tone); font-size: 19px; }
-.relic-codex-group h3 span { margin-left: 6px; font-size: 12px; }
-.relic-codex-class { margin: 12px 0 6px; color: #fff1dc; font-size: 14px; }
-.relic-codex-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.relic-codex-card { padding: 10px 12px; border: 1px solid #493752; border-left: 3px solid var(--relic-tone); border-radius: 10px; background: #21172e; }
-.relic-codex-title { display: flex; align-items: center; gap: 8px; color: #fff4e4; }
-.relic-codex-title .item { --size: 30px; flex-shrink: 0; }
-.relic-codex-title h4 { margin: 0; font-size: 14px; }
-.relic-codex-card p { margin: 4px 0 6px; color: #e1d3e8; font-size: 13px; }
-.relic-codex-stats { display: grid; gap: 3px; margin: 0; padding-left: 15px; color: var(--relic-tone); font-size: 12px; }
+.relic-codex-group { margin-bottom: 22px; }
+.relic-codex-group h3 { margin: 0 0 10px; padding-bottom: 7px; border-bottom: 1px solid #574165; color: var(--relic-tone); font-size: 19px; }
+.relic-codex-class { margin: 14px 0 7px; color: #fff1dc; font-size: 14px; }
+.relic-codex-grid { display: grid; align-items: start; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+.relic-codex-card { min-width: 0; border: 1px solid #59466a; border-left: 3px solid var(--relic-tone); border-radius: 9px; background: #21172e; }
+.relic-codex-title { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 9px; min-height: 63px; padding: 9px 11px; border-radius: 7px; color: #fff4e4; cursor: pointer; list-style: none; }
+.relic-codex-title::-webkit-details-marker { display: none; }
+.relic-codex-title::after { width: 7px; height: 7px; margin: 0 3px 4px; border-right: 2px solid var(--relic-tone); border-bottom: 2px solid var(--relic-tone); content: ""; transform: rotate(45deg); }
+.relic-codex-card details[open] .relic-codex-title::after { margin-top: 6px; transform: rotate(225deg); }
+.relic-codex-title .item { --size: 30px; }
+.relic-codex-copy { display: grid; gap: 3px; min-width: 0; }
+.relic-codex-copy strong { font-size: 15px; line-height: 1.25; }
+.relic-codex-copy span { color: #dccfe6; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.relic-codex-stats { display: grid; gap: 5px; margin: 0 11px 11px; padding: 9px 0 0 17px; border-top: 1px solid #59466a; color: #f2e9f8; font-size: 13px; line-height: 1.5; }
+.relic-codex-stats li::marker { color: var(--relic-tone); }
 .relic-codex-rules { padding: 10px 12px; border-radius: 10px; background: #21172e; color: #e1d3e8; font-size: 13px; }
 .relic-codex-rules summary { cursor: pointer; font-weight: 700; }
+@media (max-width: 560px) { .relic-codex-grid { grid-template-columns: minmax(0, 1fr); } }

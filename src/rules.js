@@ -236,9 +236,13 @@ export const HIT_FREEZE = { recoverySec: 1.2 };
 // 8분에 체력을 두 배로 올린 뒤 기존 난이도에 분당 15%를 추가로 곱한다.
 export const HP_SURGE = { from: 8 * 60, warningSec: 5, multiplier: 2, growthPerMinute: 0.15 };
 
+export const ENDGAME_PRESSURE = { from: 12 * 60, hpPerMinute: 0.22, damagePerMinute: 0.12, maxDamageBonus: 0.72 };
+const endgameMinutes = time => Math.max(0, (time - ENDGAME_PRESSURE.from) / 60);
+
 export function hpSurgeAt(time) {
   if (time < HP_SURGE.from) return 1;
-  return HP_SURGE.multiplier * (1 + HP_SURGE.growthPerMinute) ** ((time - HP_SURGE.from) / 60);
+  return HP_SURGE.multiplier * (1 + HP_SURGE.growthPerMinute) ** ((time - HP_SURGE.from) / 60)
+    * (1 + ENDGAME_PRESSURE.hpPerMinute) ** endgameMinutes(time);
 }
 
 // 시간이 갈수록 끝없이 세진다. 정해진 끝은 없지만, 14분부터는 벽처럼 세져서 20분 안팎이 한계다.
@@ -250,7 +254,8 @@ export function difficultyAt(time) {
   const wall = Math.max(0, minutes - 14);
   return {
     hp: (1 + minutes * 0.45 + minutes * minutes * 0.09 + late * 1.2 + late * late * 0.45 + late * late * late * 0.05 + wall * wall * wall * 1.5) * hpSurgeAt(time),
-    damage: 1.3 + minutes * 0.3 + minutes * minutes * 0.025 + late * 0.5 + wall * 1.5,
+    damage: (1.3 + minutes * 0.3 + minutes * minutes * 0.025 + late * 0.5 + wall * 1.5)
+      * (1 + Math.min(ENDGAME_PRESSURE.maxDamageBonus, endgameMinutes(time) * ENDGAME_PRESSURE.damagePerMinute)),
     speed: 1 + Math.min(0.45, minutes * 0.04) + Math.min(0.25, late * 0.03) + wall * 0.04,
     spawnPerSec: Math.min(46 + wall * 6, 1.4 + minutes * 1.8 + minutes * minutes * 0.3 + late * 1.8),
     maxEnemies: Math.min(640, 110 + Math.floor(minutes * 65)),
