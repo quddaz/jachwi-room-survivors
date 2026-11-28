@@ -293,12 +293,20 @@ function weaponDamageScaleOf(game) {
   return 1 - passiveValue(game, 'lightgear', 'weaponPenalty');
 }
 
+function outletFieldActive(game) {
+  return Boolean(game.relics.outlet) && relicCount(game, 'adapter') >= BALL_LIGHTNING.stacks;
+}
+
+export function outletFieldRadius(game) {
+  return outletFieldActive(game) ? relicReach(game, BALL_LIGHTNING.field.radius) : 0;
+}
+
 export function statsOf(game) {
   const coffee = game.time < game.coffeeUntil;
   const guard = !game.player.moving ? relic(game, 'blanket')?.guard ?? 0 : 0;
   return {
     speed: PLAYER.speed * (1 + passiveValue(game, 'sneakers', 'speed') + (relic(game, 'energy')?.speed ?? 0)
-      + (relic(game, 'scooter')?.speed ?? 0)) * (coffee ? 1.25 : 1),
+      + (relic(game, 'scooter')?.speed ?? 0) + (outletFieldActive(game) ? BALL_LIGHTNING.field.moveSpeed : 0)) * (coffee ? 1.25 : 1),
     armor: guard,
     pickupRadius: PLAYER.pickupRadius * (1 + passiveValue(game, 'vacuum', 'pickup') + (relic(game, 'magnet')?.pickup ?? 0)),
     maxHp: maxHpOf(game),
@@ -2875,7 +2883,7 @@ function updateSummons(game, dt) {
         if (distance(enemy, unit) <= seek && gap < best) { target = enemy; best = gap; }
       }
       if (melee) unit.targetId = target?.id;
-      const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit','toyknight'].indexOf(id) * 0.8;
+      const angle = game.time * 0.9 + index / count * Math.PI * 2 + ['sockpuppet','toydrone','windcar','plantspirit','toyknight','frostdrone'].indexOf(id) * 0.8;
       const orbit = weapon.summon === 'ranged' ? 76 : 56;
       const home = { x: player.x + Math.cos(angle) * orbit, y: player.y + Math.sin(angle) * orbit };
       if (weapon.summon === 'charge' && unit.charging) {
@@ -2975,7 +2983,7 @@ function updateSummons(game, dt) {
         for (let n = 0; n < shots; n++) {
           const angle = unit.angle + (n - (shots - 1) / 2) * 0.1;
           const seed = weapon.summon === 'artillery';
-          game.shots.push({ weapon: id, kind: seed ? 'seed' : 'summon', x: unit.x, y: unit.y,
+          game.shots.push({ weapon: id, kind: seed ? 'seed' : id === 'frostdrone' ? 'ice' : 'summon', x: unit.x, y: unit.y,
             vx: Math.cos(angle) * weapon.bulletSpeed, vy: Math.sin(angle) * weapon.bulletSpeed,
             damage, life: (range + 100) / weapon.bulletSpeed, radius: (seed ? 6 : 4) * stats.projectile,
             scale: stats.projectile, hit: new Set(), pierce: evolved?.pierce ?? weapon.pierce ?? 0, slows: true,
@@ -3067,6 +3075,22 @@ function fireWeapons(game, dt) {
       game.shots.push({ weapon: 'spray', x: player.x, y: player.y, vx: Math.cos(angle) * WEAPONS.spray.speed, vy: Math.sin(angle) * WEAPONS.spray.speed,
         damage: weaponValue(game, 'spray', 'damage'), pierce: 99, life: WEAPONS.spray.lifeSec, radius: 7 * projectile,
         scale: projectile, hit: new Set(), mega: true });
+    }
+  }
+  useElements(game, weaponElementTag(game, 'voltcompass'));
+  if (activeWeapon(game, 'voltcompass') && ready(game, 'voltcompass', dt)) {
+    const weapon = WEAPONS.voltcompass;
+    const evolved = evolution(game, 'voltcompass');
+    const target = nearestEnemies(game, 1, weaponValue(game, 'voltcompass', 'range') * area)[0];
+    if (target) {
+      const damage = weaponValue(game, 'voltcompass', 'damage');
+      const count = evolved?.count ?? weaponValue(game, 'voltcompass', 'count');
+      const jump = (evolved?.hop ?? weapon.hop) * area;
+      damageWeaponHit(game, target, damage, false, player);
+      const points = [{ x: player.x, y: player.y }, ...chainZap(game, target, damage, count - 1, jump, player, new Set([target.id]))];
+      addEffect(game, { weapon: 'voltcompass', type: 'bolt', points, life: 0.19, sound: 'zap' });
+    } else {
+      game.cooldowns.voltcompass = 0.2;
     }
   }
   useElements(game, weaponElementTag(game, 'broom'));
@@ -4602,7 +4626,25 @@ function updateSummonMist(game, dt) {
   game.hitElement = null;
 }
 
+function updateOutletField(game, dt) {
+  const radius = outletFieldRadius(game);
+  if (!radius) { game.outletFieldIn = 0; return; }
+  const field = BALL_LIGHTNING.field;
+  game.outletFieldIn = (game.outletFieldIn ?? 0) - dt;
+  if (game.outletFieldIn > 0) return;
+  game.outletFieldIn += field.everySec;
+  const { player } = game;
+  const damage = relicDamage(game, field.damage, 'outlet');
+  for (const enemy of near(game, player.x, player.y, radius)) {
+    if (distance(enemy, player) <= radius + enemy.radius) {
+      damageEnemy(game, enemy, 0, false, player, damage, { hitEffects: false, canCrit: false });
+    }
+  }
+  addEffect(game, { type: 'ring', x: player.x, y: player.y, radius, color: 'spark', life: 0.35 });
+}
+
 function updateDamageRelics(game, dt) {
+  updateOutletField(game, dt);
   updateSummonMist(game, dt);
   const { player } = game;
   const pas = relic(game, 'pas');

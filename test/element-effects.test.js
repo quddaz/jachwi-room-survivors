@@ -92,6 +92,26 @@ describe('속성 효과', () => {
   });
 });
 
+describe('신규 속성 무기', () => {
+  it('냉각 드론은 선풍기 사거리 밖의 적에게 냉기 탄환을 맞힌다', () => {
+    const game = quiet();
+    game.weapons = { frostdrone: 1 };
+    const enemy = target(game, { speed: 0 });
+    for (let frame = 0; frame < 60; frame += 1) update(game, 1 / 60);
+    assert.ok(enemy.hp < enemy.maxHp);
+    assert.ok(enemy.elementColdUntil > game.time);
+  });
+
+  it('전기 나침반은 가까운 두 적만 직접 연쇄한다', () => {
+    const game = quiet();
+    game.weapons = { voltcompass: 1 };
+    const enemies = [80, 140, 200].map(dx => target(game, { x: game.player.x + dx, speed: 0 }));
+    update(game, 1 / 60);
+    assert.ok(enemies[0].hp < enemies[0].maxHp && enemies[1].hp < enemies[1].maxHp);
+    assert.equal(enemies[2].hp, enemies[2].maxHp);
+  });
+});
+
 describe('속성 조합', () => {
   it('물과 냉기는 적중 순서와 관계없이 같은 서리 둔화를 적용한다', () => {
     for (const elements of [['water', 'ice'], ['ice', 'water']]) {

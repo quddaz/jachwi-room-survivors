@@ -360,7 +360,7 @@ export const WEAPON_TYPES = {
   dehumidifier: '지속', dryer: '지속', coil: '지속', bleach: '장판',
   broom: '범위', fan: '범위', towel: '범위', microwave: '범위', handbell: '범위', swatter: '강타',
   sawblade: '투사체', mopstorm: '범위',
-  zapper: '연쇄', compass: '연쇄', detergent: '설치', mousetrap: '설치', shower: '낙하', seal: '낙하',
+  zapper: '연쇄', voltcompass: '연쇄', compass: '연쇄', detergent: '설치', mousetrap: '설치', shower: '낙하', seal: '낙하',
 };
 
 export function weaponTypeOf(id) {
@@ -404,7 +404,7 @@ export const ELEMENT_DOT_GAP = 0.25;
 const DOT_WEAPONS = new Set(['bleach', 'dehumidifier', 'dryer', 'poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser']);
 const WEAPON_ELEMENTS = {
   spray: ['poison'], bleach: ['poison'], dryer: ['fire'], dehumidifier: ['fire'], coil: ['fire'],
-  fan: ['ice'], zapper: ['lightning'], detergent: ['water'], towel: ['water'], microwave: ['fire'], shower: ['water'],
+  fan: ['ice'], frostdrone: ['ice'], voltcompass: ['lightning'], zapper: ['lightning'], detergent: ['water'], towel: ['water'], microwave: ['fire'], shower: ['water'],
   thunderdragons: ['lightning'], stormcrane: ['lightning'], stormcompass: ['lightning'], thunderball: ['lightning'],
   shockshower: ['water', 'lightning'], firelegion: ['fire'], firering: ['fire'], dryoven: ['fire'],
   poisongun: ['poison'], bleachbot: ['poison'], thorngarden: ['poison'],
@@ -532,6 +532,11 @@ export const WEAPONS = {
     radius: [40, 46, 53, 61, 70],
     count: [3, 3, 4, 4, 5],
   },
+  voltcompass: {
+    label: '전기 나침반', description: '가까운 적을 번개로 찌르고 근처 적에게 짧게 연쇄한다',
+    damage: [22, 29, 38, 49, 62], cooldown: [1.85, 1.73, 1.61, 1.49, 1.37],
+    range: [270, 290, 310, 330, 350], count: [2, 2, 3, 3, 4], hop: 125,
+  },
   seal: {
     label: "보물 도장",
     pattern: "stamp",
@@ -655,6 +660,11 @@ export const WEAPONS = {
     label: '장난감 드론', summon: 'ranged', description: '호위 드론이 플레이어 곁을 돌며 적을 조준해 사격한다',
     damage: [10, 13, 17, 22, 28], count: [1, 1, 2, 2, 3], cooldown: [1.05, 0.96, 0.86, 0.76, 0.65],
     speed: [150, 165, 180, 195, 210], range: [330, 365, 405, 450, 490], bulletSpeed: 460,
+  },
+  frostdrone: {
+    label: '냉각 드론', summon: 'ranged', description: '오리 곁을 돌며 멀리 있는 적에게 냉기 탄환을 쏜다',
+    damage: [9, 12, 16, 20, 25], count: [1, 1, 1, 2, 2], cooldown: [1.25, 1.14, 1.02, 0.91, 0.8],
+    speed: [155, 170, 185, 200, 215], range: [380, 405, 430, 455, 480], bulletSpeed: 500,
   },
   windcar: {
     label: '태엽 자동차', summon: 'charge', description: '태엽 자동차가 적을 향해 돌진해 경로를 쓸고 돌아온다',
@@ -807,6 +817,7 @@ export const EVOLUTIONS = {
     radius: 1.5,
     count: 7,
   },
+  voltcompass: { label: '전류 추적기', icon: 'volttracker', description: '더 멀리서 전기 경로를 잡아 최대 다섯 적을 친다', damage: 1.6, range: 1.2, count: 5, hop: 165 },
   seal: {
     label: "왕실 도장",
     icon: "sealplus",
@@ -850,6 +861,7 @@ export const EVOLUTIONS = {
   shower: { label: '수압 샤워', description: '물줄기가 두 배로 쏟아진다', damage: 1.3, double: true },
   sockpuppet: { label: '양말 기사단', icon: 'sockknight', description: '투구를 쓴 인형 셋이 주먹으로 주변 적을 함께 때린다', damage: 1.7, count: 3, speed: 1.15, cleave: 64 },
   toydrone: { label: '쌍포 드론', icon: 'dronemk2', description: '드론 셋이 두 발씩 관통탄을 발사한다', damage: 1.6, count: 3, shots: 2, pierce: 2 },
+  frostdrone: { label: '극저온 드론', icon: 'cryodrone', description: '냉각 드론 셋이 관통하는 냉기 탄환을 발사한다', damage: 1.55, count: 3, pierce: 1 },
   windcar: { label: '태엽 전차', icon: 'windtank', description: '전차 셋이 돌진하고 끝에서 충격파를 터뜨린다', damage: 1.7, count: 3, size: 1.25, blast: 90 },
   toydragon: { label: '청룡', icon: 'azuredragon', description: '한 마리의 청룡으로 자라 몸통이 더 굵고 길어진다. 증원은 머리 수 대신 몸통 마디를 늘린다', damage: 1.6, count: 4, size: 1.2, speed: 2.0 },
   toyknight: { label: '검흔 수호자', icon: 'bladeguardian', description: '대검을 든 검사 셋이 더 넓게 베고 겹친 검흔을 남긴다', damage: 1.65, count: 3, range: 1.2, arc: 3.5, scarSec: 1 },
@@ -996,6 +1008,7 @@ export const RELIC_LEVEL_SCALE = 0.04;
 // 돼지코 어댑터 5개: 멀티탭이 터질 때마다 전기 구체를 날린다. 구체는 날아가며 주변을 계속 감전시키고 끝에서 크게 터진다.
 export const BALL_LIGHTNING = {
   stacks: 5, speed: 240, lifeSec: 2.4, zapRadius: 170, zapDamage: 70, tickSec: 0.3, burstRadius: 320, burstDamage: 400,
+  field: { radius: 150, damage: 55, everySec: 1, moveSpeed: 0.25 },
 };
 
 export const NUCLEAR_STRIKE = {
@@ -1055,7 +1068,8 @@ const SHARED_RELICS = {
     stats: ['멀티탭 일반 연쇄 번개 +2줄(총 3줄)', '각 줄의 연쇄 대상 수는 기존 효과 그대로 적용', '한 줄 안에서는 같은 적을 다시 맞히지 않으며 서로 다른 줄은 같은 적을 맞힐 수 있음', '보물 20점·멀티탭 보유 시 등장, 중복 획득 불가', '전기 구체 개수에는 영향 없음'], extraChains: 2 },
   adapter: { label: '돼지코 어댑터', treasureOnly: true, stackable: true, requiresRelic: 'outlet',
     description: '멀티탭 전기가 훨씬 많은 적에게 이어진다',
-    stats: ['멀티탭 연쇄 대상 +10명(여러 개 가지면 겹쳐 쌓임)', '5개 모으면 멀티탭이 전기 구체를 날려 주변 적을 모두 감전',
+    stats: ['멀티탭 연쇄 대상 +10명(여러 개 가지면 겹쳐 쌓임)', '5개 모으면 전기 구체와 오리 주변 자기장 활성화',
+      '자기장: 반경 150에 매초 전기 피해 55 · 이동 속도 +25%',
       '보물 20점·멀티탭 보유 시 등장, 하나마다 보물 칸 1개'], strikes: 10 },
   lamp: { label: '형광등', description: '보스를 환하게 비춘다', stats: ['보스에게 주는 피해 +40%'], bossDamage: 0.4 },
   // 치명타를 버리고 한 대 한 대를 무겁게, 더 자주 때린다. 치명타 확률은 고정 피해로 바뀐다.

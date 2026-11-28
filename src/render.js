@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, outletFieldRadius, sawBlades, statsOf, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -2544,7 +2544,7 @@ export function render(ctx, game, width, height, time) {
       ctx.save();ctx.translate(x, y);ctx.rotate(unit.angle);ctx.scale(size, size);ctx.drawImage(image, -8, -8);ctx.restore();
       continue;
     }
-    const drone = unit.weapon === 'toydrone';
+    const drone = unit.weapon === 'toydrone' || unit.weapon === 'frostdrone';
     const bob = drone ? Math.sin(time * 8 + unit.id) * 1.5 - 3 : Math.sin(time * 6 + unit.id) * 0.5;
     ring(ctx, x, y + 5, 6, 'rgba(95,134,207,0.5)', 3, 0);
     ctx.fillStyle = 'rgba(40,50,70,0.2)'; ctx.fillRect(x - 5, y + 5, 10, 2);
@@ -2656,6 +2656,17 @@ export function render(ctx, game, width, height, time) {
     disc(ctx, x - 1, y - 1, 1, look.core);
   }
   // 오리는 맨 위에. 무기와 적, 탄막이 아무리 많아도 가려지지 않는다.
+  const fieldRadius = outletFieldRadius(game) / WORLD_PER_PIXEL;
+  if (fieldRadius > 0) {
+    disc(ctx, duckX, duckY, fieldRadius, 'rgba(100,210,255,0.06)');
+    ring(ctx, duckX, duckY, fieldRadius, 'rgba(126,228,255,0.75)', 5, Math.floor(time * 12));
+    ring(ctx, duckX, duckY, fieldRadius * 0.91, 'rgba(174,243,255,0.4)', 8, Math.floor(-time * 8));
+    for (let n = 0; n < 6; n++) {
+      const angle = n * Math.PI / 3 + time * 0.8;
+      sparkle(ctx, Math.round(duckX + Math.cos(angle) * fieldRadius),
+        Math.round(duckY + Math.sin(angle) * fieldRadius), '#aef3ff', n % 2 === 0);
+    }
+  }
   drawIdolAura(ctx,game,duckX,duckY,time);
   drawDuck(ctx, game, duckX, duckY, time);
   // 경험치와 드롭 아이템은 투사체 위에 표시한다.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
-import { applyBuild, choose, createGame, rollRelics, update } from '../src/engine.js';
+import { applyBuild, choose, createGame, outletFieldRadius, rollRelics, statsOf, update } from '../src/engine.js';
 import { RELICS } from '../src/rules.js';
 import { ITEM_IDS } from '../src/sprites.js';
 function setup(split=true, adapters=0, count=12) {
@@ -33,4 +33,24 @@ it('보물 20점과 멀티탭이 있어야 등장하며 중복으로 나오지 �
 it('멀티탭을 교체하면 분배기와 어댑터도 함께 제거된다',()=>{
  const g=setup(true,5);g.swapIn='energy';g.choices=[{kind:'relic-swap',id:'outlet'}];choose(g,0);
  assert.equal(g.relics.outlet,undefined);assert.equal(g.relics.splitplug,undefined);assert.equal(g.relics.adapter,undefined);assert.equal(g.relics.energy,true);
+});
+
+it('어댑터 5개일 때만 오리 주변에 자기장이 생기고 이동 속도가 증가한다', () => {
+ const game = setup(false, 4, 1), enemy = game.enemies[0];
+ game.outletIn = Infinity;
+ const before = statsOf(game).speed;
+ update(game, 1 / 60);
+ assert.equal(outletFieldRadius(game), 0);
+ assert.equal(enemy.hp, enemy.maxHp);
+ game.relics.adapter = 5;
+ assert.equal(statsOf(game).speed, before * 1.25);
+ assert.ok(outletFieldRadius(game) > 0);
+ update(game, 1 / 60);
+ const damaged = enemy.hp;
+ assert.ok(damaged < enemy.maxHp);
+ update(game, 1 / 60);
+ assert.equal(enemy.hp, damaged);
+ game.relics.adapter = 4;
+ assert.equal(outletFieldRadius(game), 0);
+ assert.equal(statsOf(game).speed, before);
 });

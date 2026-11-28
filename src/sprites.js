@@ -3432,4 +3432,20 @@ for (const [id, shape, color, accent] of [
   });
 }
 
+for (const [id, twin] of [['frostdrone', false], ['cryodrone', true]]) {
+  ITEMS[id] = item([], (body, fx, frame) => {
+    toyDrone(body, fx, frame, twin);
+    body.rect(4, 5, 8, 3, 'i').rect(6, 6, 4, 2, 'W').set(9, 8, 'i');
+    twinkle(fx, 12, 3, frame, 'W');
+  });
+}
+for (const [id, evolved] of [['voltcompass', false], ['volttracker', true]]) {
+  ITEMS[id] = item([], (body, fx, frame) => {
+    body.ellipse(8, 8, 6, 6, evolved ? 'q' : 'B').ellipse(8, 8, 4, 4, 'D');
+    body.line(9, 3, 6, 9, 'Y').line(6, 9, 9, 8, 'W').line(9, 8, 7, 13, 'Y');
+    twinkle(fx, 12, 3, frame, 'i');
+    if (evolved) plusBadge(fx, frame);
+  });
+}
+
 export const ITEM_IDS = Object.keys(ITEMS);
