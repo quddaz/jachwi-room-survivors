@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, RELIC_RARITIES, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
+  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, RELIC_RARITIES, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS, ELEMENT_REACTIONS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -652,6 +652,12 @@ const CODEX_TABS = [
       return `<li>${itemIcon(id)}<span><b>${escapeHtml(weapon.label)} <small class="weapon-category">${weaponBadge(id)}</small></b><em>${escapeHtml(weapon.description)}</em>${lines.map((line) => `<i>${line}</i>`).join('')}
         <i class="is-evolve">★ ${escapeHtml(EVOLUTIONS[id].label)}: ${escapeHtml(EVOLUTIONS[id].description)}</i></span></li>`;
     }).join('')}</ul>`],
+  ['elements', '속성 조합', () => Object.entries({ synergy: '시너지', antagonism: '역시너지' }).map(([type, title]) => `
+    <h3 class="recipe-heading">${title}</h3>
+    <ul class="evolve-list">${Object.values(ELEMENT_REACTIONS).filter(reaction => reaction.type === type).map(reaction => `
+      <li><span><b>${reaction.pair} <small>${reaction.name}</small></b><em>${reaction.text}</em></span></li>
+    `).join('')}</ul>
+  `).join('')],
   ['passive', '패시브', () => `<p class="ranking-note">무기와 함께 레벨업 선택지에 나와요. 치명타 피해(핫소스)는 네잎클로버를 가진 뒤에만 나오고, 보물 패시브(광택제, 태엽 열쇠)는 보물 파트 20점, 고정 피해 패시브(정밀 스프링, 경량 기어, 균형추)는 공속 파트 20점이어야 나와요. 소환 휘장·증원 호루라기는 소환 파트 20점부터 나와요. 붉은 조준경·급소 잉크·파쇄 렌즈는 치명 20점, 반응 촉매·분광 시약·부식 용액은 지속·속성 20점부터 나와요. 보물 20점에는 진열 받침대·감정 수첩·수집 도감도 열려요.</p>
     <ul class="evolve-list">${Object.entries(PASSIVES).filter(([,passive])=>!passive.hidden).map(([id, passive]) => {
       const max = Object.values(passive).find(Array.isArray).length;

@@ -379,8 +379,22 @@ export const ELEMENT_EFFECTS = {
   fire: { label: '화상', text: '2초 동안 불타 맞은 피해의 25%를 초당 입는다', burnSec: 2, burn: 0.25 },
   poison: { label: '중독', text: '3초 동안 독이 쌓인다. 최대 5중첩, 중첩마다 맞은 피해의 6%를 초당 입는다', poisonSec: 3, poison: 0.06, maxStacks: 5 },
   ice: { label: '둔화', text: '1.5초 동안 이동 속도 40% 감소(보스 15%)', slowSec: 1.5, slow: 0.6, bossSlow: 0.85 },
-  lightning: { label: '감전', text: '30% 확률로 근처 적에게 피해 40% 전이. 젖은 적은 2명에게 전이하고 피해 +30%', chance: 0.3, chain: 0.4, range: 130, wetTargets: 2, wetBonus: 0.3 },
+  lightning: { label: '감전', text: '30% 확률로 근처 적 1명에게 타격 피해의 40%가 전이돼요', chance: 0.3, chain: 0.4, range: 130 },
   water: { label: '젖음', text: '3초 동안 이동 속도 20% 감소, 번개에 약해지고 화상이 꺼진다', wetSec: 3, slow: 0.8 },
+};
+export const ELEMENT_REACTIONS = {
+  conductivity: { pair: '물 + 번개', name: '전도', type: 'synergy',
+    text: '젖은 적에게 감전 확률 50%, 최대 2명에게 전이, 전이 피해 +30%', chanceBonus: 0.2, targets: 2, damageBonus: 0.3 },
+  frost: { pair: '물 + 냉기', name: '서리', type: 'synergy',
+    text: '젖음과 냉기 둔화가 겹치면 이동 속도 -65%, 보스는 -25%', slow: 0.35, bossSlow: 0.75 },
+  fumes: { pair: '화염 + 독', name: '독성 연기', type: 'synergy',
+    text: '화상과 중독이 동시에 붙은 적은 두 상태로 받는 피해가 각각 25% 증가해요', damageBonus: 0.25 },
+  ionize: { pair: '독 + 번개', name: '이온화', type: 'synergy',
+    text: '중독된 적에서 시작하는 감전의 전이 피해 +25%. 전도와 합산돼요', damageBonus: 0.25 },
+  extinguish: { pair: '물 + 화염', name: '소화', type: 'antagonism',
+    text: '물이 화상을 끄고, 젖은 동안 새 화상이 붙지 않아요' },
+  thaw: { pair: '화염 + 냉기', name: '해빙', type: 'antagonism',
+    text: '화염 타격은 냉기 둔화를 녹여요. 냉기 직접 타격은 남은 화상 시간을 절반으로 줄여요', burnTimeScale: 0.5 },
 };
 // 장판·불꽃처럼 매 순간 닿는 공격은 이 간격마다 한 번만 상태 이상을 건다.
 export const ELEMENT_DOT_GAP = 0.25;

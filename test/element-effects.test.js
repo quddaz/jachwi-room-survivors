@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createGame, damageEnemy, update } from '../src/engine.js';
-import { ELEMENT_EFFECTS } from '../src/rules.js';
+import { ELEMENT_EFFECTS, ELEMENT_REACTIONS } from '../src/rules.js';
 
 function quiet(random = () => 0.99) {
   const game = createGame(random);
@@ -49,8 +49,10 @@ describe('속성 효과', () => {
       const game = quiet();
       const enemy = target(game, extra);
       hit(game, enemy, ['ice']);
-      near(enemy.slowBy, factor);
-      assert.ok(enemy.slowUntil > game.time);
+      assert.ok(enemy.elementColdUntil > game.time);
+      const before = enemy.x;
+      update(game, 1 / 60);
+      near(before - enemy.x, enemy.speed * factor / 60);
     }
   });
 
@@ -75,7 +77,7 @@ describe('속성 효과', () => {
       hit(game, enemy, ['lightning']);
       const lost = others.map(other => other.maxHp - other.hp);
       const dealt = enemy.maxHp - enemy.hp;
-      const expected = dealt * ELEMENT_EFFECTS.lightning.chain * (wet ? 1 + ELEMENT_EFFECTS.lightning.wetBonus : 1);
+      const expected = dealt * ELEMENT_EFFECTS.lightning.chain * (wet ? 1 + ELEMENT_REACTIONS.conductivity.damageBonus : 1);
       near(lost[0], expected);
       near(lost[1], wet ? expected : 0);
     }
@@ -87,6 +89,58 @@ describe('속성 효과', () => {
     const enemy = target(game, { x: game.player.x + 20, speed: 0 });
     for (let frame = 0; frame < 30; frame += 1) update(game, 1 / 60);
     assert.ok(!(enemy.burnUntil > game.time));
+  });
+});
+
+describe('속성 조합', () => {
+  it('물과 냉기는 적중 순서와 관계없이 같은 서리 둔화를 적용한다', () => {
+    for (const elements of [['water', 'ice'], ['ice', 'water']]) {
+      const game = quiet();
+      const enemy = target(game);
+      for (const element of elements) hit(game, enemy, [element]);
+      const before = enemy.x;
+      update(game, 1 / 60);
+      near(before - enemy.x, enemy.speed * ELEMENT_REACTIONS.frost.slow / 60);
+    }
+  });
+
+  it('화염은 냉기만 녹이고, 반대로 냉기 타격은 화상 잔여 시간을 줄인다', () => {
+    const game = quiet();
+    const enemy = target(game, { slowBy: 0.7, slowUntil: 5 });
+    hit(game, enemy, ['ice']);
+    hit(game, enemy, ['fire']);
+    assert.equal(enemy.elementColdUntil, game.time);
+    assert.equal(enemy.slowUntil, 5);
+    const burn = enemy.burnUntil - game.time;
+    hit(game, enemy, ['ice']);
+    near(enemy.burnUntil - game.time, burn * ELEMENT_REACTIONS.thaw.burnTimeScale);
+  });
+
+  it('화상과 중독의 두 피해를 올리며 물로 화상을 끄면 독 보너스도 사라진다', () => {
+    const game = quiet();
+    const enemy = target(game);
+    hit(game, enemy, ['fire']);
+    hit(game, enemy, ['poison']);
+    const before = enemy.hp;
+    update(game, 1 / 60);
+    near(before - enemy.hp, (enemy.burnDps + enemy.poisonDps) * (1 + ELEMENT_REACTIONS.fumes.damageBonus) / 60);
+    hit(game, enemy, ['water']);
+    const wetHp = enemy.hp;
+    update(game, 1 / 60);
+    near(wetHp - enemy.hp, enemy.poisonDps / 60);
+  });
+
+  it('젖으면 감전 확률이 높아지고 독과 젖음의 전이 피해 보너스를 합산한다', () => {
+    const game = quiet(() => 0.4);
+    const enemy = target(game);
+    const adjacent = target(game, { x: enemy.x + 40 });
+    hit(game, enemy, ['poison']);
+    hit(game, enemy, ['lightning']);
+    assert.equal(adjacent.hp, adjacent.maxHp);
+    hit(game, enemy, ['water']);
+    hit(game, enemy, ['lightning']);
+    const bonus = ELEMENT_REACTIONS.conductivity.damageBonus + ELEMENT_REACTIONS.ionize.damageBonus;
+    near(adjacent.maxHp - adjacent.hp, 100 * ELEMENT_EFFECTS.lightning.chain * (1 + bonus));
   });
 });
 

@@ -1,6 +1,6 @@
 import {
   ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENDGAME_PRESSURE, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, RELIC_RARITIES, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
-  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
+  weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_REACTIONS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
 // 화면과 분리한 게임 상태. update(dt)만 부르면 한 프레임이 흐르고, 그리기는 상태를 읽기만 한다.
@@ -886,7 +886,8 @@ function moveEnemies(game, dt) {
     let direction = 1;
     const hitSlow = game.time < (enemy.hitSlowUntil ?? 0) ? (enemy.elite ? HIT_SLOW.eliteSpeed : HIT_SLOW.speed) : 1;
     const areaSlow = game.time < (enemy.slowUntil ?? 0) ? enemy.slowBy : 1;
-    let speed = enemy.speed * Math.min(hitSlow, areaSlow);
+    const coldSlow = elementalColdSlow(game, enemy);
+    let speed = enemy.speed * Math.min(hitSlow, areaSlow, coldSlow);
     let moveX = dx / gap;
     let moveY = dy / gap;
     enemy.timer += dt;
@@ -1315,6 +1316,12 @@ function slowBy(game, enemy, factor, seconds) {
   enemy.slowBy = active ? Math.min(enemy.slowBy ?? 1, factor) : factor;
   enemy.slowUntil = Math.max(active ? enemy.slowUntil : 0, game.time + seconds);
 }
+function elementalColdSlow(game, enemy) {
+  if (game.time >= (enemy.elementColdUntil ?? 0)) return 1;
+  const cold = game.time < (enemy.wetUntil ?? 0) ? ELEMENT_REACTIONS.frost : ELEMENT_EFFECTS.ice;
+  return enemy.boss ? cold.bossSlow : cold.slow;
+}
+
 function applyElements(game, enemy, amount, fromDot = false) {
   const elements = game.hitElement;
   // 개별 무기의 피해량만 검증할 때는 속성 효과를 끌 수 있다.
@@ -1325,6 +1332,7 @@ function applyElements(game, enemy, amount, fromDot = false) {
     if (fromDot && element !== 'ice' && element !== 'water') continue;
     if (element === 'fire') {
       if (game.time < (enemy.wetUntil ?? 0)) continue;
+      if (game.time < (enemy.elementColdUntil ?? 0)) enemy.elementColdUntil = game.time;
       const active = game.time < (enemy.burnUntil ?? 0);
       enemy.burnDps = Math.max(active ? enemy.burnDps ?? 0 : 0, amount * rule.burn);
       enemy.burnFromElement = true;
@@ -1337,17 +1345,24 @@ function applyElements(game, enemy, amount, fromDot = false) {
       enemy.poisonFromElement = true;
       enemy.poisonUntil = game.time + rule.poisonSec;
     } else if (element === 'ice') {
-      slowBy(game, enemy, enemy.boss ? rule.bossSlow : rule.slow, rule.slowSec);
+      enemy.elementColdUntil = game.time + rule.slowSec;
+      if (!fromDot && game.time < (enemy.burnUntil ?? 0)) {
+        enemy.burnUntil = game.time + (enemy.burnUntil - game.time) * ELEMENT_REACTIONS.thaw.burnTimeScale;
+      }
     } else if (element === 'water') {
       enemy.wetUntil = game.time + rule.wetSec;
       if (game.time < (enemy.burnUntil ?? 0)) enemy.burnUntil = game.time;
       if (!enemy.boss) slowBy(game, enemy, rule.slow, rule.wetSec);
-    } else if (element === 'lightning' && game.random() < rule.chance) {
+    } else if (element === 'lightning') {
       const wet = game.time < (enemy.wetUntil ?? 0);
+      const conductivity = ELEMENT_REACTIONS.conductivity;
+      if (game.random() >= rule.chance + (wet ? conductivity.chanceBonus : 0)) continue;
+      const poisoned = game.time < (enemy.poisonUntil ?? 0);
       const targets = near(game, enemy.x, enemy.y, rule.range)
         .filter(other => other !== enemy && !other.dead && distance(other, enemy) <= rule.range + other.radius)
-        .sort((a, b) => distance(a, enemy) - distance(b, enemy)).slice(0, wet ? rule.wetTargets : 1);
-      const damage = amount * rule.chain * (wet ? 1 + rule.wetBonus : 1);
+        .sort((a, b) => distance(a, enemy) - distance(b, enemy)).slice(0, wet ? conductivity.targets : 1);
+      const bonus = (wet ? conductivity.damageBonus : 0) + (poisoned ? ELEMENT_REACTIONS.ionize.damageBonus : 0);
+      const damage = amount * rule.chain * (1 + bonus);
       for (const other of targets) {
         damageEnemy(game, other, 0, false, enemy, damage, { hitEffects: false, canCrit: false });
         addEffect(game, { type: 'bolt', points: [{ x: enemy.x, y: enemy.y }, { x: other.x, y: other.y }], life: 0.15, sound: '' });
@@ -3289,20 +3304,21 @@ function fireWeapons(game, dt) {
     game.staplerAt = game.time;
   }
   useElements(game, null);
-  {
-    for (const enemy of game.enemies) {
-      enemy.wet = (enemy.wetUntil ?? 0) > game.time;
-      enemy.chilled = !enemy.wet && (enemy.slowUntil ?? 0) > game.time && (enemy.slowBy ?? 1) < 0.9;
-      enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
-      // 속성 효과로 붙은 화상·중독은 치명타와 치명 폭발을 일으키지 않는다.
-      if (enemy.burning) damageOverTime(game, enemy, enemy.burnDps * dt, game.player, dt, !enemy.burnFromElement);
-    }
+  for (const enemy of game.enemies) {
+    enemy.wet = (enemy.wetUntil ?? 0) > game.time;
+    enemy.chilled = elementalColdSlow(game, enemy) < 1
+      || (!enemy.wet && (enemy.slowUntil ?? 0) > game.time && (enemy.slowBy ?? 1) < 0.9);
+    enemy.burning = !enemy.dead && (enemy.burnUntil ?? 0) > game.time;
+    if (!enemy.burning) continue;
+    const fumes = (enemy.poisonUntil ?? 0) > game.time ? 1 + ELEMENT_REACTIONS.fumes.damageBonus : 1;
+    // 속성 효과로 붙은 화상·중독은 치명타와 치명 폭발을 일으키지 않는다.
+    damageOverTime(game, enemy, enemy.burnDps * dt * fumes, game.player, dt, !enemy.burnFromElement);
   }
-  {
-    for (const enemy of game.enemies) {
-      enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
-      if (enemy.poisoned) damageOverTime(game, enemy, enemy.poisonDps * dt, game.player, dt, !enemy.poisonFromElement);
-    }
+  for (const enemy of game.enemies) {
+    enemy.poisoned = !enemy.dead && (enemy.poisonUntil ?? 0) > game.time;
+    if (!enemy.poisoned) continue;
+    const fumes = (enemy.burnUntil ?? 0) > game.time ? 1 + ELEMENT_REACTIONS.fumes.damageBonus : 1;
+    damageOverTime(game, enemy, enemy.poisonDps * dt * fumes, game.player, dt, !enemy.poisonFromElement);
   }
   useElements(game, weaponElementTag(game, 'ball'));
   if (activeWeapon(game, 'ball')) {
