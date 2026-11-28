@@ -1,4 +1,4 @@
-import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
+import { activeWeapon, coilOrbs, laserDrones, sawBlades, statsOf, summonMistOf, summonMistSources, topSpinners, wraithOrbiters } from './engine.js';
 
 const maxHpOf = (game) => statsOf(game).maxHp;
 import { ARENA, ENEMIES, EVOLUTIONS, FUSIONS, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, WEAPONS } from './rules.js';
@@ -2414,8 +2414,9 @@ export function render(ctx, game, width, height, time) {
     }
   }
   // 안개는 바닥에만 옅게 그려 소환수와 적의 공격을 가리지 않는다.
-  if (game.relics.humidifier) {
-    const radius = RELICS.humidifier.radius * statsOf(game).area / WORLD_PER_PIXEL;
+  const mist = summonMistOf(game);
+  if (mist) {
+    const radius = mist.radius * statsOf(game).area / WORLD_PER_PIXEL;
     for (const source of summonMistSources(game)) {
       const [x, y] = toBuffer(source);
       if (!visible([x, y], radius + 8)) continue;

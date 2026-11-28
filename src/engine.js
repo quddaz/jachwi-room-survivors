@@ -96,9 +96,13 @@ function passiveValue(game, id, key) {
 
 const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
 
-function legendaryValue(game, id, key) {
+function legendaryRelic(game, id) {
   const def = relic(game, id);
-  return def && def.character === game.character ? def[key] ?? 0 : 0;
+  return def?.character === game.character ? def : null;
+}
+
+function legendaryValue(game, id, key) {
+  return legendaryRelic(game, id)?.[key] ?? 0;
 }
 // 겹쳐 쌓는 보물은 개수를 숫자로 들고, 나머지는 true다.
 export const relicCount = (game, id) => (game.relics[id] === true ? 1 : game.relics[id] || 0);
@@ -137,7 +141,7 @@ function relicPowerOf(game) {
 function elementalPowerOf(game) {
   return 1 + buildValue(game, 'elementalPower') + (perk(game, 'dot', 10)?.elementalPower ?? 0)
     + characterBonus(game, 'elementalPower') + passiveValue(game, 'spectrum', 'elementalPower')
-    + (relic(game, 'prism')?.elementalPower ?? 0) + legendaryValue(game, 'spectrumCore', 'elementalPower');
+    + (relic(game, 'prism')?.elementalPower ?? 0);
 }
 
 function dotPowerOf(game) {
@@ -155,7 +159,7 @@ function relicDamage(game, base, id) {
 // 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
 // 보물은 쿨타임이 핵심이라, 보물 파트(1점당·10점)와 태엽 열쇠의 주기 감소가 무기 쿨타임에 곱해진다. 최소 원래의 20%.
 function relicHasteOf(game) {
-  return 1 - (1 - buildValue(game, 'relicHaste')) * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste')) * (1 - legendaryValue(game, 'chronometer', 'relicHaste'));
+  return 1 - (1 - buildValue(game, 'relicHaste')) * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste'));
 }
 
 function relicEvery(game, sec) {
@@ -164,11 +168,11 @@ function relicEvery(game, sec) {
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  return radius * statsOf(game).area * (1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0) + legendaryValue(game, 'chronometer', 'relicRange'));
+  return radius * statsOf(game).area * (1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0));
 }
 
 function hasDotSource(game) {
-  return Boolean(relic(game, 'humidifier')) || ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
+  return Boolean(summonMistOf(game)) || ['bleach', 'dryer', 'dehumidifier'].some(id => activeWeapon(game, id))
     || ['poisongun', 'dryoven', 'sawblade', 'bleachbot', 'spinlaser'].some(id => game.fusions[id])
     || Boolean(game.relics.match || game.relics.heatpad || game.relics.freshener);
 }
@@ -205,6 +209,8 @@ function relicCastPowers(game,id,clock,dt,initial=RELICS[id].everySec) {
   if (game[clock] <= 0) {
     game[clock] = relicEvery(game,RELICS[id].everySec);powers.push(1);
     if (game.passives.idol) game.relicEchoes.push({id,at:game.time+PASSIVES.idol.echoDelay,power:PASSIVES.idol.echoDamage[0]});
+    const crown = legendaryRelic(game, 'chronometer');
+    if (crown) game.relicEchoes.push({ id, source: 'chronometer', at: game.time + crown.echoDelay, power: crown.echoPower });
   }
   if (powers.length) relicCue(game,id,game.player);
   return powers;
@@ -302,9 +308,9 @@ export function statsOf(game) {
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
       * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
       / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1)
-      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1) / (1 + characterBonus(game, 'attackSpeed') + legendaryValue(game, 'rapidCylinder', 'attackSpeed')),
+      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1) / (1 + characterBonus(game, 'attackSpeed')),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
-    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + legendaryValue(game, 'spectrumCore', 'area') + (perk(game, 'haste', 10)?.area ?? 0),
+    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
     weaponDamageScale: weaponDamageScaleOf(game),
     projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0)
@@ -318,10 +324,10 @@ export function statsOf(game) {
     dotPower: dotPowerOf(game),
     elementalPower: elementalPowerOf(game),
     dotElitePower: 1 + (perk(game, 'dot', 20)?.dotElitePower ?? 0) + passiveValue(game, 'corrosion', 'dotElitePower'),
-    relicRange: 1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0) + legendaryValue(game, 'chronometer', 'relicRange'),
+    relicRange: 1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0),
     summonPower: (1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower')) * (1 + (relic(game, 'baton')?.power ?? 0)),
-    summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0) + legendaryValue(game, 'clockworkBand', 'summonSpeed')),
-    summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0) + legendaryValue(game, 'clockworkBand', 'summonHaste')),
+    summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
+    summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
     summonRange: (1 + (perk(game, 'summon', 5)?.range ?? 0)) * (1 + (relic(game, 'baton')?.range ?? 0)),
     summonCount: passiveValue(game, 'summonwhistle', 'summonCount') + characterBonus(game, 'summonCount')
       + legendaryValue(game, 'marshalFlag', 'summonCount') + legendaryValue(game, 'factoryJig', 'summonCount'),
@@ -1200,16 +1206,18 @@ function separate(enemies) {
 // 치명 10점은 처치 시, 급소 마스터는 치명타 적중마다 폭발한다. 폭발에서 다시 폭발하지 않는다.
 function critBlast(game, source, amount, master = false) {
   const blast = perk(game, 'crit', master ? 20 : 10);
-  if (!blast || game.critBlasting) return;
-  const radius = blast.blastRadius * (1 + passiveValue(game, 'shatterlens', 'critBlastArea'));
+  const seal = master ? null : legendaryRelic(game, 'duelSeal');
+  if ((!blast && !seal) || game.critBlasting) return;
+  const share = (blast?.blastShare ?? 0) + (seal?.blastShare ?? 0);
+  const radius = Math.max(blast?.blastRadius ?? 0, seal?.blastRadius ?? 0) * (1 + passiveValue(game, 'shatterlens', 'critBlastArea'));
   // 폭발은 무기 타격이 아니므로 맞힌 무기의 속성 효과를 주변에 퍼뜨리지 않는다.
   const element = game.hitElement;
   game.critBlasting = true;
   game.hitElement = null;
   for (const enemy of near(game, source.x, source.y, radius)) {
     if (enemy !== source && !enemy.dead && distance(enemy, source) < radius + enemy.radius) {
-      damageEnemy(game, enemy, amount * blast.blastShare, false, source, 0,
-        master ? { canCrit: false, hitEffects: false, showHit: false } : undefined);
+      damageEnemy(game, enemy, amount * share, false, source, 0,
+        (master || seal) ? { canCrit: false, hitEffects: false, showHit: !master } : undefined);
     }
   }
   game.critBlasting = false;
@@ -1227,7 +1235,16 @@ function damageWeaponHit(game, enemy, amount, slows = false, from = game.player)
   const chance = passiveValue(game, 'precision', 'fixedEchoChance');
   const echoed = totalFixed > 0 && chance > 0 && game.random() < chance;
   // 한 번의 타격 안에 고정 피해만 더한다. 연타·광역·치명타를 다시 발동하지 않는다.
-  damageEnemy(game, enemy, amount, slows, from, fixed + (echoed ? totalFixed : 0));
+  const cylinder = legendaryRelic(game, 'rapidCylinder');
+  let burst = 0;
+  if (cylinder && totalFixed > 0) {
+    enemy.cylinderHits = ((enemy.cylinderHits ?? 0) + 1) % cylinder.hits;
+    if (enemy.cylinderHits === 0) {
+      burst = totalFixed * cylinder.fixedMultiplier;
+      relicCue(game, 'rapidCylinder', enemy);
+    }
+  }
+  damageEnemy(game, enemy, amount, slows, from, fixed + (echoed ? totalFixed : 0) + burst);
   if (echoed) addEffect(game, { type: 'ring', x: enemy.x, y: enemy.y, radius: 24, color: 'spark', life: .18 });
   const splash = passiveValue(game, 'counterweight', 'fixedSplash');
   if (!splash) enemy.fixedDischargeHits = 0;
@@ -1346,7 +1363,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
   const weakSpot = (enemy.boss || enemy.elite) && !relic(game, 'mallet') ? perk(game, 'crit', 5)?.eliteCrit ?? 0 : 0;
-  const chance = critChanceOf(game, weakSpot + (enemy.boss ? legendaryValue(game, 'duelSeal', 'bossCrit') : 0));
+  const chance = critChanceOf(game, weakSpot);
   const thread = relic(game, 'redthread');
   let guaranteed = false;
   if (thread && canCrit && hitEffects && amount > 0 && !game.critBlasting && !relic(game, 'mallet')) {
@@ -1416,8 +1433,10 @@ function dropGem(game, x, y, value) {
 
 // 원본의 남은 시간만 복사하고 피해를 즉시 주지 않아 처치·폭발 재귀를 만들지 않는다.
 function spreadAilments(game, source) {
-  const flask = relic(game, 'contagion');
-  if (!flask || source.dotContagion) return;
+  const core = legendaryRelic(game, 'spectrumCore');
+  const flask = core ?? relic(game, 'contagion');
+  const hops = Number(source.dotContagion ?? 0);
+  if (!flask || hops >= (core?.hops ?? 1)) return;
   const active = ['burn', 'poison'].filter(type => source[`${type}Until`] > game.time && source[`${type}Dps`] > 0);
   if (!active.length) return;
   const radius = flask.radius * statsOf(game).area;
@@ -1434,13 +1453,13 @@ function spreadAilments(game, source) {
       infected = true;
     }
     if (infected) {
-      enemy.dotContagion = true;
+      enemy.dotContagion = core ? hops + 1 : true;
       count += 1;
       if (count >= flask.targets) break;
     }
   }
   if (count) {
-    relicCue(game, 'contagion', source);
+    relicCue(game, core ? 'spectrumCore' : 'contagion', source);
     addEffect(game, { type: 'ring', x: source.x, y: source.y, radius, color: 'poison', life: 0.35 });
   }
 }
@@ -1501,6 +1520,19 @@ function damageUndead(game, unit, amount) {
   return true;
 }
 function removeDeadUndead(game) {
+  const ledger = legendaryRelic(game, 'soulLedger');
+  if (ledger) {
+    for (const unit of game.army) {
+      const cost = giantUnit(unit.type) ? ledger.giantCost : ledger.cost;
+      if (unit.hp > 0 || unit.ledgerRevived || game.souls < cost) continue;
+      game.souls -= cost;
+      unit.ledgerRevived = true;
+      unit.maxHp = armyMaxHp(game, unit.type);
+      unit.hp = unit.maxHp * ledger.reviveHp;
+      unit.invulnerableUntil = game.time + NECRO_HEALTH.invulnerabilitySec;
+      relicCue(game, 'soulLedger', unit);
+    }
+  }
   for (const unit of [...game.army, ...game.ghouls]) {
     if (unit.hp <= 0) addEffect(game, { type: 'burst', x: unit.x, y: unit.y, color: 'bone', count: 4, life: 0.3 });
   }
@@ -1576,7 +1608,7 @@ function spawnUnit(game, type, at, index = 0) {
 function harvestSoul(game, enemy) {
   if (!necromancer(game)) return;
   const base = (enemy.boss ? SOULS.boss : enemy.elite ? SOULS.elite : SOULS.normal) + (perk(game, 'necro', 10)?.souls ?? 0);
-  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + legendaryValue(game, 'soulLedger', 'soulGain') + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
+  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
   const gained = Math.floor(game.soulCarry);
   game.soulCarry -= gained;
   game.souls = (game.souls ?? 0) + gained;
@@ -1879,7 +1911,7 @@ function structureStat(game, id, key) {
   const reach = 1 + (diyRelic(game, 'extension')?.reach ?? 0);
   switch (key) {
     case 'count': return base + (evolved?.count ?? 0) + (diyRelic(game, 'toolbox')?.extra ?? 0) + stats.summonCount;
-    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0) + legendaryValue(game, 'fortressPlan', 'structureDamage')) * mightOf(game) * stats.summonPower;
+    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0)) * mightOf(game) * stats.summonPower;
     case 'cooldown': case 'tickSec': return base * (evolved?.cooldown ?? 1) * stats.cooldownScale / stats.summonHaste;
     case 'pierce': case 'chains': return base + (evolved?.[key] ?? 0);
     case 'radius': case 'taunt': return base * (evolved?.[key] ?? 1) * reach * stats.area;
@@ -1919,8 +1951,19 @@ function placeStructure(game, id, spot, life, extra = {}) {
 function deployStructures(game, dt) {
   const { player } = game;
   const field = armyField(game, 1.6);
+  const plan = legendaryRelic(game, 'fortressPlan');
   for (const piece of game.structures) {
     piece.life -= dt;
+    if (plan && piece.life <= 0 && !piece.temp && inField(piece, player, field)) {
+      const radius = plan.radius * statsOf(game).area;
+      const damage = relicDamage(game, plan.damage, 'fortressPlan') * statsOf(game).summonPower;
+      addEffect(game, { type: 'ring', x: piece.x, y: piece.y, radius, color: 'gold', life: 0.35 });
+      for (const enemy of near(game, piece.x, piece.y, radius)) {
+        if (!enemy.dead && distance(enemy, piece) <= radius + enemy.radius) {
+          damageEnemy(game, enemy, damage, false, piece, 0, { hitEffects: false, canCrit: false });
+        }
+      }
+    }
     // 오리가 화면 밖으로 멀리 떠나면 두고 간 설치물은 해체된다.
     if (!inField(piece, player, field)) piece.life = Math.min(piece.life, 0);
   }
@@ -1928,7 +1971,7 @@ function deployStructures(game, dt) {
     addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'bone', count: 6, life: 0.35 });
   }
   game.structures = game.structures.filter(item => item.life > 0);
-  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0) + legendaryValue(game, 'fortressPlan', 'structureLife'));
+  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0));
   const every = STRUCTURE_DEPLOY_SEC * (1 - (diyRelic(game, 'powerdrill')?.deploy ?? 0)) * statsOf(game).cooldownScale / statsOf(game).summonHaste;
   for (const id of Object.keys(game.builds)) {
     game.deployIn[id] = (game.deployIn[id] ?? 0) - dt;
@@ -4056,6 +4099,7 @@ export function rollRelics(game) {
 function gainRelic(game, id) {
   game.relics[id] = RELICS[id].stackable ? relicCount(game, id) + 1 : true;
   if (id === 'resonator') for (const enemy of game.enemies) enemy.resonatorHits = 0;
+  if (id === 'rapidCylinder') for (const enemy of game.enemies) enemy.cylinderHits = 0;
   if (id === 'concentrate') for (const enemy of game.enemies) { delete enemy.dotLastAt; delete enemy.dotStartedAt; }
   if (id === 'alarm') game.alarmIn = RELICS.alarm.everySec;
   if (id === 'firecracker') game.fireIn = RELICS.firecracker.everySec;
@@ -4243,7 +4287,8 @@ function updateHpSurge(game, previousTime) {
 
 export function update(game, dt, input = { x: 0, y: 0 }) {
   if (game.over || game.choices) return game;
-  game.relicEchoes = (game.relicEchoes ?? []).filter(echo=>game.relics[echo.id] && game.passives.idol);
+  game.relicEchoes = (game.relicEchoes ?? []).filter(echo => game.relics[echo.id]
+    && (echo.source === 'chronometer' ? legendaryRelic(game, 'chronometer') : game.passives.idol));
   const previousTime = game.time;
   game.stepDt = dt;
   game.time += dt;
@@ -4502,8 +4547,15 @@ function updateRelicAttacks(game, dt) {
 
 // 직접 피해를 주는 보물: 물파스, 전기장판, 방향제, 빨래집게, 멀티탭, 고무장갑, 팽이, 정수기
 // 논리 소환수 하나에 안개 하나. 용의 몸통 마디와 합체로 사라진 재료는 제외한다.
+export function summonMistOf(game) {
+  const band = legendaryRelic(game, 'clockworkBand');
+  const humidifier = relic(game, 'humidifier');
+  if (!band) return humidifier;
+  return { ...band, dps: band.dps + (humidifier?.dps ?? 0) };
+}
+
 export function summonMistSources(game) {
-  if (!relic(game, 'humidifier')) return [];
+  if (!summonMistOf(game)) return [];
   return [
     ...game.summons.filter(unit => activeWeapon(game, unit.weapon)),
     ...(activeWeapon(game, 'robot') ? game.robots : []),
@@ -4512,7 +4564,7 @@ export function summonMistSources(game) {
 }
 
 function updateSummonMist(game, dt) {
-  const mist = relic(game, 'humidifier');
+  const mist = summonMistOf(game);
   if (!mist) { game.summonMistElapsed = 0; return; }
   game.summonMistElapsed = (game.summonMistElapsed ?? 0) + dt;
   const ticks = Math.floor((game.summonMistElapsed + 1e-9) / mist.tickSec);
