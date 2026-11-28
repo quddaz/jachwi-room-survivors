@@ -983,7 +983,7 @@ export const NUCLEAR_STRIKE = {
 
 // 보물. 게임을 시작할 때 하나, 보스를 잡을 때마다 하나를 고른다. 레벨이 없고 한 번 얻으면 끝까지 간다.
 // stats는 카드에 적는 정확한 효과다.
-export const RELICS = {
+const SHARED_RELICS = {
   rubyglass: { label: '루비 안경', critOnly: true, category: 'crit', description: '급소를 더 쉽게, 더 깊게 찌른다',
     stats: ['치명 20점 전용', '치명타 확률 +15%p · 치명타 피해 +40%'], critChance: 0.15, critDamage: 0.4 },
   redthread: { label: '운명의 실', critOnly: true, category: 'crit', description: '네 번째 직접 공격의 치명 단계를 하나 더 올린다',
@@ -1081,6 +1081,54 @@ export const RELICS = {
   marchdrum: { label: '행군 북', summonOnly: true, category: 'summon', description: '소환수들이 박자에 맞춰 빠르게 움직이고 공격한다',
     stats: ['소환 20점 전용', '소환 공격 속도 +25%', '소환 이동 속도 +25%'], attackSpeed: 0.25, speed: 0.25 },
 };
+
+export const RELIC_RARITIES = {
+  common: { label: '일반', weight: 53 },
+  rare: { label: '희귀', weight: 30 },
+  epic: { label: '영웅', weight: 13 },
+  legendary: { label: '전설', weight: 4 },
+};
+
+const EPIC_RELICS = new Set('redthread contagion twin firstaid mlrs splitplug mallet resonator concentrate humidifier'.split(' '));
+const RARE_RELICS = new Set('rubyglass prism jewelcase expedition neko lastcup dice popcorn firecracker adapter pas outlet top precisionscale baton marchdrum'.split(' '));
+
+const LEGENDARY_RELICS = {
+  kingsLens: { character: 'normal', icon: 'rubyglass', label: '왕관 수정경', description: '치명타를 거듭 쌓는다',
+    stats: ['치명타 확률 +35%p', '치명타 피해 +60%p'], critChance: 0.35, critDamage: 0.6 },
+  duelSeal: { character: 'normal', icon: 'dice', label: '결투의 인장', description: '보스의 빈틈을 노린다',
+    stats: ['보스 대상 치명타 확률 +60%p'], bossCrit: 0.6 },
+  marshalFlag: { character: 'summoner', icon: 'baton', label: '원수의 깃발', description: '소환 군단을 증원한다',
+    stats: ['소환 수 +2'], summonCount: 2 },
+  clockworkBand: { character: 'summoner', icon: 'marchdrum', label: '태엽 악단', description: '소환수가 속도를 맞춘다',
+    stats: ['소환 공격 속도 +45%', '소환 이동 속도 +30%'], summonHaste: 0.45, summonSpeed: 0.3 },
+  gildedCabinet: { character: 'hunter', icon: 'jewelcase', label: '황금 진열장', description: '채운 보물 칸마다 공격 보물이 강해진다',
+    stats: ['채운 보물 슬롯마다 보물 피해 +15%'], relicSlotPower: 0.15 },
+  chronometer: { character: 'hunter', icon: 'stopwatch', label: '태엽 왕관', description: '공격 보물의 발동을 재촉한다',
+    stats: ['보물 발동 주기 -40%', '보물 범위 +25%'], relicHaste: 0.4, relicRange: 0.25 },
+  tungstenRound: { character: 'gunner', icon: 'precisionscale', label: '텅스텐 탄환', description: '직접 타격에 무거운 한 발을 얹는다',
+    stats: ['타격당 고정 피해 +35', '전체 고정 피해 +30%'], hitDamage: 35, fixedPower: 0.3 },
+  rapidCylinder: { character: 'gunner', icon: 'resonator', label: '팬텀 실린더', description: '연속 사격에 집중한다',
+    stats: ['공격 속도 +55%'], attackSpeed: 0.55 },
+  endlessFlask: { character: 'alchemist', icon: 'contagion', label: '영원한 플라스크', description: '지속 피해가 더 독해진다',
+    stats: ['지속 피해 +75%'], dotPower: 0.75 },
+  spectrumCore: { character: 'alchemist', icon: 'prism', label: '오색 반응로', description: '속성 반응의 위력을 끌어올린다',
+    stats: ['속성 피해 +65%', '무기 범위 +15%'], elementalPower: 0.65, area: 0.15 },
+  cryptBanner: { character: 'necromancer', icon: 'darkcrown', label: '지하 왕국의 군기', description: '해골 군단의 공격을 강화한다',
+    stats: ['해골 군단 피해 +65%'], armyPower: 0.65 },
+  soulLedger: { character: 'necromancer', icon: 'soulurn', label: '망자의 장부', description: '더 많은 영혼을 거둔다',
+    stats: ['영혼 획득량 +60%'], soulGain: 0.6 },
+  fortressPlan: { character: 'diy', icon: 'blueprint', label: '불침 요새 설계도', description: '설치물을 더 오래 운용한다',
+    stats: ['설치물 수명 +50%', '설치물 피해 +30%'], structureLife: 0.5, structureDamage: 0.3 },
+  factoryJig: { character: 'diy', icon: 'toolbox', label: '자동 조립 지그', description: '설치물을 더 많이 깐다',
+    stats: ['각 설치물 동시 배치 수 +2'], summonCount: 2 },
+};
+
+export const RELICS = Object.fromEntries([
+  ...Object.entries(SHARED_RELICS).map(([id, def]) => [
+    id, { ...def, rarity: EPIC_RELICS.has(id) ? 'epic' : RARE_RELICS.has(id) ? 'rare' : 'common' },
+  ]),
+  ...Object.entries(LEGENDARY_RELICS).map(([id, def]) => [id, { ...def, rarity: 'legendary' }]),
+]);
 
 // 맵에 같은 종류의 아이템은 이만큼까지만 떨어져 있을 수 있다(보물 상자는 빼고).
 export const DROP_LIMIT = 2;

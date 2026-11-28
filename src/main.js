@@ -3,7 +3,7 @@ import { practiceDps, practicePick, practiceRemove, startPractice, inFusion, app
 import { fetchRanking, isShared, SEASON, SEASONS, submitRecord } from './leaderboard.js';
 import { PIXEL, RENDER_SCALE, render } from './render.js';
 import {
-  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
+  ARMY, COMMANDS, NECRO_RELICS, UNDEAD_EVOLUTIONS, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, RECRUITS, RITUALS, UNDEAD, BOSS_EVERY_SEC, BOSSES, CHARACTERS, BUILD, BUILD_MAX, BUILD_POINTS, BUILD_STEPS, buildEfficiency, DROP_LIMIT, DROPS, normalizeBuild, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAPS, MAX_FUSIONS, MAX_RELICS, MAX_WEAPONS, PASSIVES, PLAYER, RELICS, RELIC_RARITIES, WEAPONS, weaponTypeOf, weaponCategoriesOf, weaponElementsOf, WEAPON_CATEGORIES, ELEMENTS, ELEMENT_EFFECTS,
 } from './rules.js';
 import { duckIconUrl, iconSheetUrl, iconUrl } from './sprites.js';
 
@@ -199,7 +199,7 @@ function readKeys() {
 
 // 반짝이는 아이템 아이콘. 프레임 묶음을 CSS가 차례로 넘긴다.
 function itemIcon(id, evolved = false) {
-  const iconId = evolved ? EVOLUTIONS[id]?.icon ?? id : id;
+  const iconId = evolved ? EVOLUTIONS[id]?.icon ?? id : RELICS[id]?.icon ?? id;
   return `<i class="item" style="--sheet: url(${iconSheetUrl(iconId)})"></i>`;
 }
 
@@ -325,7 +325,7 @@ function drawChoices() {
       : choice.kind === 'relic-necro' ? '<small class="choice-relic">괴담 보물</small>'
       : choice.kind === 'soul' ? `<small class="choice-undead">영혼 ${choice.price}</small>`
       : choice.kind === 'shop-leave' ? '' : choice.kind === 'heal' || choice.kind === 'relic-keep' || choice.kind === 'weapon-cancel' ? '' : choice.kind.endsWith('-swap') ? '<small class="choice-swap">내려놓기</small>'
-      : choice.kind === 'relic' ? '<small class="choice-relic">보물</small>' : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
+      : choice.kind === 'relic' ? `<small class="choice-relic" data-rarity="${choice.rarity ?? RELICS[choice.id].rarity}">${RELIC_RARITIES[RELICS[choice.id].rarity].label}</small>` : choice.kind === 'fusion' ? `<small class="choice-fusion">합체 ${Object.keys(game.fusions).length + 1}/${MAX_FUSIONS}</small>`
       : choice.kind === 'evolve' ? '<small class="choice-evolve">완성형</small>' : choice.level === 1
       ? `<small class="choice-new">NEW${choice.kind !== 'weapon' ? '' : Object.keys(game.weapons).length >= maxWeaponsOf(game) ? ' · 교체' : ` 무기 ${Object.keys(game.weapons).length + 1}/${maxWeaponsOf(game)}`}</small>` : `<small>Lv ${choice.level}</small>`;
     return `
@@ -449,7 +449,7 @@ function drawResultItems() {
       icon: game.evolved[id] ? EVOLUTIONS[id].icon : undefined, badge: game.evolved[id] ? '완성형' : `Lv ${level}`, kind: game.evolved[id] ? 'evolved' : 'weapon' }))],
     ['합체', Object.keys(game.fusions).map((id) => ({ id, name: FUSIONS[id].label, badge: '합체', kind: 'fusion' }))],
     ['패시브', Object.entries(game.passives).map(([id, level]) => ({ id, name: PASSIVES[id].label, badge: `Lv ${level}`, kind: 'passive' }))],
-    ['보물', Object.keys(game.relics).map((id) => ({ id, name: RELICS[id].label, badge: '보물', kind: 'relic' }))],
+    ['보물', Object.keys(game.relics).map((id) => ({ id, name: RELICS[id].label, badge: RELIC_RARITIES[RELICS[id].rarity].label, kind: 'relic' }))],
   ];
   const character = CHARACTERS[game.character] ?? CHARACTERS.normal;
   document.querySelector('.result-items').innerHTML = `<div class="result-character"><img src="${duckIconUrl(game.character)}" alt=""><span><b>${escapeHtml(character.label)}</b><small>${character.stats.map(escapeHtml).join(' · ')}</small></span></div>` + groups.filter(([, items]) => items.length).map(([title, items]) => `
@@ -571,9 +571,9 @@ const CODEX_TABS = [
           <p class="recipe-desc">${escapeHtml(fusion.description)}</p>
         </li>`).join('')}</ol>`;
   }],
-  ['relic', '보물', () => `<p class="ranking-note">시작할 때 하나, 보스를 잡고 보물 상자를 열 때마다 셋 가운데 하나를 골라요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 보온병·농축 앰플은 관련 무기·합체나 성냥이 있어야 나와요. 루비 안경·운명의 실은 치명 20점, 오색 프리즘·전염 플라스크는 지속·속성 20점에서 열려요.</p>
+  ['relic', '보물', () => `<p class="ranking-note">시작 보물과 보스 상자에서 보물을 하나 골라요. 직업 전용 전설은 보스 상자에서만 등장해요. 한 판에 <b>최대 ${MAX_RELICS}개</b>(보물 파트 20점이면 ${MAX_RELICS + BUILD.treasure.perks[20].maxRelics}개)까지 가지고, 가득 찬 뒤에는 가진 보물과 <b>바꾸거나</b> 그대로 두고 레벨업 두 번을 받아요. 보물이 직접 주는 피해는 공격력에 비례하고 <b>레벨마다 4%씩</b> 세지며, 범위와 쿨타임도 무기처럼 영향을 받아요. 보물 파트와 광택제로 더 올릴 수 있어요. 일부 <b>공격 보물</b>은 보물 파트 20점에서 열려요. 고정 피해 전용은 공속 20점, 소환 전용은 소환 20점, 보온병·농축 앰플은 관련 무기·합체나 성냥이 있어야 나와요. 루비 안경·운명의 실은 치명 20점, 오색 프리즘·전염 플라스크는 지속·속성 20점에서 열려요.</p>
     <ul class="evolve-list">${Object.entries(RELICS).map(([id, relic]) => `
-      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)}${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.critOnly ? ' <small>치명 20점</small>' : relic.dot20Only ? ' <small>지속·속성 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
+      <li>${itemIcon(id)}<span><b>${escapeHtml(relic.label)} <small>${RELIC_RARITIES[relic.rarity].label}${relic.character ? ' · ' + CHARACTERS[relic.character].label : ''}</small>${relic.treasureOnly ? ' <small>보물 20점</small>' : relic.hasteOnly ? ' <small>공속 20점</small>' : relic.summonOnly ? ' <small>소환 20점</small>' : relic.critOnly ? ' <small>치명 20점</small>' : relic.dot20Only ? ' <small>지속·속성 20점</small>' : relic.dotOnly ? ' <small>지속 피해</small>' : ''}</b><em>${escapeHtml(relic.description)}</em>${relic.stats.map((line) => `<i>${escapeHtml(line)}</i>`).join('')}</span></li>`).join('')}</ul>`],
   ['weapon', '무기', () => `<p class="ranking-note">무기는 한 판에 <b>최대 ${MAX_WEAPONS}개</b>(보물 파트 20점이면 ${BUILD.treasure.perks[20].maxWeapons}개)까지 가질 수 있어요. 다 채운 뒤 새 무기를 고르면 가진 무기 하나와 <b>바꿀 수 있어요</b>(합체에 쓰인 무기는 빼고). 탱탱볼·도탄 톱날·로봇·팽이의 이동 속도도 공격 속도에 비례해요. ${Object.values(WEAPONS).filter(weapon => weapon.summon).map(weapon => weapon.label).join('·')}은 소환 능력치를 받아요. 행운 동전·손종·나침반·보물 도장·모래시계는 보물 피해 증가도 적용돼요. 보물 20점 빌드도 시작 무기와 무기 강화·교체를 사용할 수 있어요. 무기는 5레벨까지 올리고, 5레벨이 되면 <b>완성형</b>이 선택지에 나와요. 수치는 1레벨 → 5레벨이에요.</p>
     ${categoryFilters()}<ul class="evolve-list">${Object.entries(WEAPONS).filter(([id]) => categoryMatches(id)).map(([id, weapon]) => {
       const lines = [

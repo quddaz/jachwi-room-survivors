@@ -380,6 +380,10 @@ img { display: block; max-width: 100%; }
 .loadout .is-fusion .item { filter: drop-shadow(0 0 3px #8f7bff); }
 /* 보물: 짙은 남색 바탕에 금빛 */
 .choice-relic { padding: 1px 7px; border-radius: 999px; background: #2f2a5a; color: #ffd866 !important; }
+.choice-relic[data-rarity="common"] { background: #434b58; color: #fff !important; }
+.choice-relic[data-rarity="rare"] { background: #164782; color: #e3f1ff !important; }
+.choice-relic[data-rarity="epic"] { background: #592b83; color: #f4e4ff !important; }
+.choice-relic[data-rarity="legendary"] { background: #803b13; color: #fff1ad !important; }
 .choice.is-relic { border-color: #ffd866; background: linear-gradient(160deg, #fffaf0, #fff0c4); box-shadow: 0 0 0 3px rgb(47 42 90 / 25%), 0 0 16px rgb(255 216 102 / 55%), var(--shadow-card); }
 .choice.is-relic .choice-icon { background: radial-gradient(circle, #fff8d6 0%, #ffd866 55%, #2f2a5a 140%); }
 .choice.is-relic .choice-stats span { background: #2f2a5a; color: #ffe8a0; }

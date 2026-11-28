@@ -1,5 +1,5 @@
 import {
-  ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
+  ARENA, BALL_LIGHTNING, CHARACTERS, BOSS_EVERY_SEC, bossStatsOf, BUILD, buildEfficiency, difficultyAt, HIT_FREEZE, HIT_SLOW, HP_SURGE, hpSurgeAt, normalizeBuild, DROP_LIMIT, DROPS, ELITE, eliteFrom, ENEMIES, EVOLUTIONS, FUSIONS, MAX_FUSIONS, MAX_LEVEL, MAX_WEAPONS, MAX_RELICS, RELIC_LEVEL_SCALE, NUCLEAR_STRIKE, RELICS, RELIC_RARITIES, SECRET_MAPS, SECRET_MAP_DROP_CHANCE, passiveMaxLevel, PASSIVES, PLAYER, WEAPONS, xpToNext,
   weaponElementsOf, RELIC_ELEMENTS, ELEMENT_EFFECTS, ELEMENT_DOT_GAP, SOULS, SOUL_GROWTH, STRUCTURES, STRUCTURE_LIFE, STRUCTURE_DEPLOY_SEC, STRUCTURE_EVOLUTIONS, STRUCTURE_FUSIONS, DIY_RELICS, UNDEAD, COMMANDS, ARMY, ARMY_CAP, NECRO_HEALTH, UNDEAD_EVOLUTIONS, RECRUITS, RITUALS, NECRO_RELICS,
 } from './rules.js';
 
@@ -95,6 +95,11 @@ function passiveValue(game, id, key) {
 }
 
 const relic = (game, id) => (game.relics[id] ? RELICS[id] : null);
+
+function legendaryValue(game, id, key) {
+  const def = relic(game, id);
+  return def && def.character === game.character ? def[key] ?? 0 : 0;
+}
 // 겹쳐 쌓는 보물은 개수를 숫자로 들고, 나머지는 true다.
 export const relicCount = (game, id) => (game.relics[id] === true ? 1 : game.relics[id] || 0);
 export const relicSlotsUsed = (game) => Object.keys(game.relics).reduce((sum, id) => sum + relicCount(game, id), 0);
@@ -126,19 +131,19 @@ function relicPowerOf(game) {
   return 1 + buildValue(game, 'relicPower') + passiveValue(game, 'polish', 'relicPower') + (perk(game, 'treasure', 10)?.relicPower ?? 0) + SECRET_MAPS.reduce((sum,id)=>sum+passiveValue(game,id,'relicPower'),0)
     + passiveValue(game,'idol','inheritedRelicPower') + passiveValue(game,'idol','relicPower')
     + Math.max(0, game.level - 1) * passiveValue(game, 'appraisal', 'relicLevelPower')
-    + relicSlotsUsed(game) * (passiveValue(game, 'collection', 'relicSlotPower') + (relic(game, 'jewelcase')?.relicSlotPower ?? 0));
+    + relicSlotsUsed(game) * (passiveValue(game, 'collection', 'relicSlotPower') + (relic(game, 'jewelcase')?.relicSlotPower ?? 0) + legendaryValue(game, 'gildedCabinet', 'relicSlotPower'));
 }
 
 function elementalPowerOf(game) {
   return 1 + buildValue(game, 'elementalPower') + (perk(game, 'dot', 10)?.elementalPower ?? 0)
     + characterBonus(game, 'elementalPower') + passiveValue(game, 'spectrum', 'elementalPower')
-    + (relic(game, 'prism')?.elementalPower ?? 0);
+    + (relic(game, 'prism')?.elementalPower ?? 0) + legendaryValue(game, 'spectrumCore', 'elementalPower');
 }
 
 function dotPowerOf(game) {
   return 1 + buildValue(game, 'dotPower') + (perk(game, 'dot', 5)?.dotPower ?? 0)
     + characterBonus(game, 'dotPower') + passiveValue(game, 'catalyst', 'dotPower')
-    + (relic(game, 'thermos')?.dotPower ?? 0);
+    + (relic(game, 'thermos')?.dotPower ?? 0) + legendaryValue(game, 'endlessFlask', 'dotPower');
 }
 
 // 보물이 직접 주는 피해. 공격력, 레벨, 보물 피해에 비례해서 후반에도 쓸모 있다.
@@ -150,7 +155,7 @@ function relicDamage(game, base, id) {
 // 때마다 발동하는 보물의 주기. 무기처럼 쿨타임(공격 속도) 영향을 받고, 보물 파트 10점이면 더 짧아진다.
 // 보물은 쿨타임이 핵심이라, 보물 파트(1점당·10점)와 태엽 열쇠의 주기 감소가 무기 쿨타임에 곱해진다. 최소 원래의 20%.
 function relicHasteOf(game) {
-  return 1 - (1 - buildValue(game, 'relicHaste')) * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste'));
+  return 1 - (1 - buildValue(game, 'relicHaste')) * (1 - (perk(game, 'treasure', 10)?.relicHaste ?? 0)) * (1 - passiveValue(game, 'windup', 'relicHaste')) * (1 - legendaryValue(game, 'chronometer', 'relicHaste'));
 }
 
 function relicEvery(game, sec) {
@@ -159,7 +164,7 @@ function relicEvery(game, sec) {
 
 // 보물이 닿는 범위. 무기처럼 범위(물티슈 등) 영향을 받는다.
 function relicReach(game, radius) {
-  return radius * statsOf(game).area * (1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0));
+  return radius * statsOf(game).area * (1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0) + legendaryValue(game, 'chronometer', 'relicRange'));
 }
 
 function hasDotSource(game) {
@@ -169,12 +174,13 @@ function hasDotSource(game) {
 }
 
 function fixedPowerOf(game) {
-  return (1 + (relic(game, 'precisionscale')?.fixedPower ?? 0)) * (1 + characterBonus(game,'fixedPower'));
+  return (1 + (relic(game, 'precisionscale')?.fixedPower ?? 0) + legendaryValue(game, 'tungstenRound', 'fixedPower')) * (1 + characterBonus(game,'fixedPower'));
 }
 
 // 전용 보물과 패시브는 해당 파트 20점이어야 나온다.
 function buildUnlocked(game, def) {
-  return (!def.treasureOnly || Boolean(perk(game, 'treasure', 20)))
+  return (!def.character || def.character === game.character)
+    && (!def.treasureOnly || Boolean(perk(game, 'treasure', 20)))
     && (!def.hasteOnly || Boolean(perk(game, 'haste', 20)))
     && (!def.summonOnly || Boolean(perk(game, 'summon', 20)))
     && (!def.critOnly || Boolean(perk(game, 'crit', 20)))
@@ -234,7 +240,7 @@ function maxHpOf(game) {
 function rawCritChance(game) {
   return passiveValue(game, 'clover', 'critChance') + (relic(game, 'neko')?.critChance ?? 0) + (relic(game, 'dice')?.critChance ?? 0)
     + buildValue(game, 'critChance') + characterBonus(game, 'critChance') + (perk(game, 'crit', 20)?.critChance ?? 0)
-    + passiveValue(game, 'sights', 'critChance') + (relic(game, 'rubyglass')?.critChance ?? 0);
+    + passiveValue(game, 'sights', 'critChance') + (relic(game, 'rubyglass')?.critChance ?? 0) + legendaryValue(game, 'kingsLens', 'critChance');
 }
 
 function critChanceOf(game, bonus = 0) {
@@ -254,7 +260,7 @@ function onHitDamageOf(game) {
     + passiveValue(game, 'counterweight', 'hitDamage');
   // 레벨 성장은 경량 기어·균형추의 고정 피해에만 적용한다. 고무망치와 보물·캐릭터 보너스는 별도다.
   const growth = 1 + Math.max(0, game.level - 1) * passiveValue(game, 'counterweight', 'fixedGrowth');
-  return (base * growth + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage')) * fixedPowerOf(game);
+  return (base * growth + (relic(game, 'precisionscale')?.hitDamage ?? 0) + characterBonus(game, 'hitDamage') + legendaryValue(game, 'tungstenRound', 'hitDamage')) * fixedPowerOf(game);
 }
 
 function flatDamageOf(game) {
@@ -264,7 +270,7 @@ function flatDamageOf(game) {
 function critDamageOf(game) {
   return PLAYER.critDamage + passiveValue(game, 'hotsauce', 'critDamage') + (relic(game, 'dice')?.critDamage ?? 0) + buildValue(game, 'critDamage')
     + (perk(game, 'crit', 20)?.critDamage ?? 0) + characterBonus(game, 'critDamage')
-    + passiveValue(game, 'redink', 'critDamage') + (relic(game, 'rubyglass')?.critDamage ?? 0);
+    + passiveValue(game, 'redink', 'critDamage') + (relic(game, 'rubyglass')?.critDamage ?? 0) + legendaryValue(game, 'kingsLens', 'critDamage');
 }
 
 function cornered(game) {
@@ -296,9 +302,9 @@ export function statsOf(game) {
     cooldownScale: (1 - passiveValue(game, 'battery', 'haste')) * (coffee ? 0.7 : 1) * (cornered(game) ? 1 - RELICS.lastcup.haste : 1)
       * (1 - (relic(game, 'stopwatch')?.haste ?? 0)) / (1 + (relic(game, 'mallet')?.attackSpeed ?? 0)) / (1 + buildValue(game, 'attackSpeed'))
       / (1 + (perk(game, 'haste', 20)?.attackSpeed ?? 0)) / (game.time < (game.rushUntil ?? -1) ? 1 + BUILD.haste.perks[5].rush : 1)
-      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1) / (1 + characterBonus(game, 'attackSpeed')),
+      / (overcharged(game) ? 1 + BUILD.haste.perks[20].burst : 1) / (1 + characterBonus(game, 'attackSpeed') + legendaryValue(game, 'rapidCylinder', 'attackSpeed')),
     xpGain: 1 + passiveValue(game, 'candle', 'xpGain') + (relic(game, 'piggy')?.xpGain ?? 0),
-    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + (perk(game, 'haste', 10)?.area ?? 0),
+    area: 1 + passiveValue(game, 'wipes', 'area') + (relic(game, 'bigpot')?.area ?? 0) + legendaryValue(game, 'spectrumCore', 'area') + (perk(game, 'haste', 10)?.area ?? 0),
     might: mightOf(game),
     weaponDamageScale: weaponDamageScaleOf(game),
     projectile: 1 + passiveValue(game, 'magnifier', 'size') + (relic(game, 'bigpot')?.projectile ?? 0)
@@ -312,12 +318,13 @@ export function statsOf(game) {
     dotPower: dotPowerOf(game),
     elementalPower: elementalPowerOf(game),
     dotElitePower: 1 + (perk(game, 'dot', 20)?.dotElitePower ?? 0) + passiveValue(game, 'corrosion', 'dotElitePower'),
-    relicRange: 1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0),
+    relicRange: 1 + passiveValue(game, 'displaystand', 'relicRange') + (relic(game, 'expedition')?.relicRange ?? 0) + legendaryValue(game, 'chronometer', 'relicRange'),
     summonPower: (1 + buildValue(game, 'summonPower') + passiveValue(game, 'summoncrest', 'summonPower')) * (1 + (relic(game, 'baton')?.power ?? 0)),
-    summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0)),
-    summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0)),
+    summonSpeed: (1 + buildValue(game, 'summonSpeed') + (perk(game, 'summon', 5)?.speed ?? 0)) * (1 + (relic(game, 'marchdrum')?.speed ?? 0) + legendaryValue(game, 'clockworkBand', 'summonSpeed')),
+    summonHaste: (1 + (perk(game, 'summon', 10)?.attackSpeed ?? 0)) * (1 + (relic(game, 'marchdrum')?.attackSpeed ?? 0) + legendaryValue(game, 'clockworkBand', 'summonHaste')),
     summonRange: (1 + (perk(game, 'summon', 5)?.range ?? 0)) * (1 + (relic(game, 'baton')?.range ?? 0)),
-    summonCount: passiveValue(game, 'summonwhistle', 'summonCount') + characterBonus(game, 'summonCount'),
+    summonCount: passiveValue(game, 'summonwhistle', 'summonCount') + characterBonus(game, 'summonCount')
+      + legendaryValue(game, 'marshalFlag', 'summonCount') + legendaryValue(game, 'factoryJig', 'summonCount'),
   };
 }
 
@@ -677,7 +684,7 @@ export function practicePick(game, kind, id) {
     for (const weapon of FUSIONS[id].from) { game.weapons[weapon] = MAX_LEVEL; game.evolved[weapon] = true; }
     choice = { kind: 'fusion', id, level: MAX_LEVEL + 2, ...FUSIONS[id] };
   }
-  if (kind === 'relic' && RELICS[id] && (!game.relics[id] || RELICS[id].stackable)) choice = { kind: 'relic', id, level: 1, ...RELICS[id] };
+  if (kind === 'relic' && RELICS[id] && (!RELICS[id].character || RELICS[id].character === game.character) && (!game.relics[id] || RELICS[id].stackable)) choice = { kind: 'relic', id, level: 1, ...RELICS[id] };
   if (kind === 'idol') return practiceIdol(game);
   if (!choice) return false;
   if (kind === 'relic') game.pendingRelics += 1;
@@ -1339,7 +1346,7 @@ export function damageEnemy(game, enemy, amount, slows = false, from = game.play
   // 치명타. 확률이 없으면 난수를 쓰지 않는다.
   // 치명 5점: 보스와 정예에게는 확률이 더 높다(고무망치가 있으면 치명타가 없으니 빼고).
   const weakSpot = (enemy.boss || enemy.elite) && !relic(game, 'mallet') ? perk(game, 'crit', 5)?.eliteCrit ?? 0 : 0;
-  const chance = critChanceOf(game, weakSpot);
+  const chance = critChanceOf(game, weakSpot + (enemy.boss ? legendaryValue(game, 'duelSeal', 'bossCrit') : 0));
   const thread = relic(game, 'redthread');
   let guaranteed = false;
   if (thread && canCrit && hitEffects && amount > 0 && !game.critBlasting && !relic(game, 'mallet')) {
@@ -1552,7 +1559,7 @@ function contactUndead(game) {
 }
 function unitDamage(game, type) {
   const crown = bigUnit(type) ? necroRelic(game, 'darkcrown')?.giantPower ?? 0 : 0;
-  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game);
+  return ARMY[type].damage * mightOf(game) * (1 + levelOf(COMMANDS, game.commands, 'drill', 'damage')) * (1 + crown) * necroPower(game, 'armyPower') * soulGrowth(game) * (1 + legendaryValue(game, 'cryptBanner', 'armyPower'));
 }
 
 function spawnUnit(game, type, at, index = 0) {
@@ -1569,7 +1576,7 @@ function spawnUnit(game, type, at, index = 0) {
 function harvestSoul(game, enemy) {
   if (!necromancer(game)) return;
   const base = (enemy.boss ? SOULS.boss : enemy.elite ? SOULS.elite : SOULS.normal) + (perk(game, 'necro', 10)?.souls ?? 0);
-  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
+  game.soulCarry = (game.soulCarry ?? 0) + base * (1 + (necroRelic(game, 'soulurn')?.soulGain ?? 0) + legendaryValue(game, 'soulLedger', 'soulGain') + levelOf(COMMANDS, game.commands, 'harvest', 'soulGain'));
   const gained = Math.floor(game.soulCarry);
   game.soulCarry -= gained;
   game.souls = (game.souls ?? 0) + gained;
@@ -1872,7 +1879,7 @@ function structureStat(game, id, key) {
   const reach = 1 + (diyRelic(game, 'extension')?.reach ?? 0);
   switch (key) {
     case 'count': return base + (evolved?.count ?? 0) + (diyRelic(game, 'toolbox')?.extra ?? 0) + stats.summonCount;
-    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0)) * mightOf(game) * stats.summonPower;
+    case 'damage': return base * (evolved?.damage ?? 1) * (1 + (diyRelic(game, 'blueprint')?.damage ?? 0) + legendaryValue(game, 'fortressPlan', 'structureDamage')) * mightOf(game) * stats.summonPower;
     case 'cooldown': case 'tickSec': return base * (evolved?.cooldown ?? 1) * stats.cooldownScale / stats.summonHaste;
     case 'pierce': case 'chains': return base + (evolved?.[key] ?? 0);
     case 'radius': case 'taunt': return base * (evolved?.[key] ?? 1) * reach * stats.area;
@@ -1921,7 +1928,7 @@ function deployStructures(game, dt) {
     addEffect(game, { type: 'burst', x: piece.x, y: piece.y, color: 'bone', count: 6, life: 0.35 });
   }
   game.structures = game.structures.filter(item => item.life > 0);
-  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0));
+  const life = STRUCTURE_LIFE * (1 + (diyRelic(game, 'ducttape')?.life ?? 0) + legendaryValue(game, 'fortressPlan', 'structureLife'));
   const every = STRUCTURE_DEPLOY_SEC * (1 - (diyRelic(game, 'powerdrill')?.deploy ?? 0)) * statsOf(game).cooldownScale / statsOf(game).summonHaste;
   for (const id of Object.keys(game.builds)) {
     game.deployIn[id] = (game.deployIn[id] ?? 0) - dt;
@@ -4014,27 +4021,36 @@ function clearMaterialAttacks(game, fusionId) {
   game.echoing = null;
 }
 
-// 아직 없는 보물 가운데 셋. 보물이 가득 찼으면 바꿀 수 있게 하고, 바꾸지 않는 카드를 하나 더 둔다.
+function rollWeightedRelics(game, count) {
+  const pools = Object.fromEntries(Object.keys(RELIC_RARITIES).map(rarity => [rarity, []]));
+  for (const [id, def] of Object.entries(RELICS)) {
+    if ((!game.relics[id] || def.stackable) && buildUnlocked(game, def)
+        && (def.rarity !== 'legendary' || game.time > 0)) {
+      pools[def.rarity].push(id);
+    }
+  }
+
+  const offers = [];
+  while (offers.length < count) {
+    const available = Object.entries(RELIC_RARITIES).filter(([rarity]) => pools[rarity].length);
+    if (!available.length) break;
+    const total = available.reduce((sum, [, entry]) => sum + entry.weight, 0);
+    let roll = game.random() * total;
+    const [rarity] = available.find(([, entry]) => (roll -= entry.weight) < 0) ?? available.at(-1);
+    const pool = pools[rarity];
+    const [id] = pool.splice(Math.floor(game.random() * pool.length), 1);
+    const { label, description, stats, icon } = RELICS[id];
+    offers.push({ kind: 'relic', id, icon, level: 0, label, description, details: stats, rarity });
+  }
+  return offers;
+}
+
 export function rollRelics(game) {
-  if (builder(game)) {
-    const normal = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random)
-      .slice(0, relicsFull(game) ? 0 : 1)
-      .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
-    const offers = [...diyTreasures(game), ...normal].slice(0, 3);
-    if (offers.length) return offers;
-  }
-  if (necromancer(game)) {
-    const necro = necroTreasures(game);
-    const normal = shuffle(Object.keys(RELICS).filter((id) => !game.relics[id] && buildUnlocked(game, RELICS[id])), game.random)
-      .slice(0, relicsFull(game) ? 0 : 1)
-      .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
-    const offers = [...necro, ...normal].slice(0, 3);
-    if (offers.length) return offers;
-  }
-  const offers = shuffle(Object.keys(RELICS).filter((id) => (!game.relics[id] || RELICS[id].stackable) && buildUnlocked(game, RELICS[id])), game.random).slice(0, 3 + (perk(game, 'treasure', 20)?.offers ?? 0))
-    .map((id) => ({ kind: 'relic', id, level: 0, label: RELICS[id].label, description: RELICS[id].description, details: RELICS[id].stats }));
+  const specialty = builder(game) ? diyTreasures(game) : necromancer(game) ? necroTreasures(game) : [];
+  const count = 3 + (perk(game, 'treasure', 20)?.offers ?? 0);
+  const offers = [...specialty, ...rollWeightedRelics(game, count - specialty.length)];
   if (offers.length === 0) return [];
-  return relicsFull(game) ? [...offers, { ...KEEP_RELICS }] : offers;
+  return relicsFull(game) && offers.some(offer => offer.kind === 'relic') ? [...offers, { ...KEEP_RELICS }] : offers;
 }
 
 function gainRelic(game, id) {
